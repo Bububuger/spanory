@@ -13,7 +13,7 @@
 - [x] T6 单元测试：adapter/otlp 覆盖分类、时序、字段序列化和 parity 核心键
 - [x] T7 BDD 集成测试：hook/replay/backfill 正常与异常流程
 - [x] T8 CI：GitHub Actions 覆盖 check/test/二进制 smoke
-- [ ] T9 终验与推送：全量验证、更新 todo 状态、提交并推送远端
+- [x] T9 终验与推送：全量验证、更新 todo 状态、提交并推送远端
 
 ## Verification Commands (Target)
 - `npm run check`
