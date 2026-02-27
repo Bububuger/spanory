@@ -11,6 +11,12 @@ Spanory is a cross-runtime observability toolkit for agent systems.
   - Realtime ingestion via Claude hook (`SessionEnd`)
   - Manual replay/backfill per session via CLI
 
+## Governance
+
+- Changelog: `/Users/javis/Documents/workspace/project/spanory/CHANGELOG.md`
+- Contributing guide: `/Users/javis/Documents/workspace/project/spanory/CONTRIBUTING.md`
+- Ownership: `/Users/javis/Documents/workspace/project/spanory/.github/CODEOWNERS`
+
 ## Goal
 
 - Unified runtime-neutral event model
@@ -80,13 +86,13 @@ tail -n 100 "$HOME/.claude/state/spanory-hook.log"
 Show help:
 
 ```bash
-node /Users/javis/Documents/workspace/project/spanory/packages/cli/src/index.js --help
+spanory --help
 ```
 
 Replay/backfill one session:
 
 ```bash
-node /Users/javis/Documents/workspace/project/spanory/packages/cli/src/index.js runtime claude-code export \
+spanory runtime claude-code export \
   --project-id -Users-javis-Documents-claude-workspace-test \
   --session-id <SESSION_ID> \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
@@ -96,7 +102,7 @@ node /Users/javis/Documents/workspace/project/spanory/packages/cli/src/index.js 
 Replay one session and export compiled JSON locally:
 
 ```bash
-node /Users/javis/Documents/workspace/project/spanory/packages/cli/src/index.js runtime claude-code export \
+spanory runtime claude-code export \
   --project-id -Users-javis-Documents-claude-workspace-test \
   --session-id <SESSION_ID> \
   --export-json /tmp/spanory-export.json
@@ -106,7 +112,7 @@ Hook mode manual simulation:
 
 ```bash
 echo '{"hook_event_name":"SessionEnd","session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
-node /Users/javis/Documents/workspace/project/spanory/packages/cli/src/index.js runtime claude-code hook \
+spanory runtime claude-code hook \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
@@ -118,6 +124,29 @@ Recognized event categories:
 - `shell_command` (Claude tool `Bash`)
 - `mcp`
 - `agent_task`
+
+## Install and Binary
+
+Use as command without `node` prefix:
+
+```bash
+npm install -g /Users/javis/Documents/workspace/project/spanory/packages/cli
+spanory --help
+```
+
+Build standalone executable:
+
+```bash
+cd /Users/javis/Documents/workspace/project/spanory
+npm run build:bin
+./dist/spanory-macos-arm64 --help
+```
+
+Build all platforms:
+
+```bash
+bash /Users/javis/Documents/workspace/project/spanory/scripts/release/build-binaries.sh all
+```
 
 ## Other OS Wrappers
 
@@ -134,6 +163,19 @@ These wrappers call the same CLI, so event semantics stay consistent across OSes
 npm install
 npm run check
 ```
+
+## Quality Gates
+
+Before merge, required verification commands are:
+
+```bash
+npm run check
+npm test
+npm run test:bdd
+npm run build:bin
+```
+
+CI executes the same gates in `.github/workflows/ci.yml`.
 
 ## Next
 

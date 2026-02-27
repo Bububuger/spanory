@@ -8,6 +8,68 @@ function parseTimestamp(entry) {
   return date;
 }
 
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function pickUsage(raw) {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const inputTokens = toNumber(raw.input_tokens ?? raw.prompt_tokens);
+  const outputTokens = toNumber(raw.output_tokens ?? raw.completion_tokens);
+  const totalTokens = toNumber(raw.total_tokens) ?? ((inputTokens ?? 0) + (outputTokens ?? 0) || undefined);
+  const cacheReadInputTokens = toNumber(raw.cache_read_input_tokens);
+  const cacheCreationInputTokens = toNumber(raw.cache_creation_input_tokens);
+
+  const usage = {};
+  if (inputTokens !== undefined) usage.input_tokens = inputTokens;
+  if (outputTokens !== undefined) usage.output_tokens = outputTokens;
+  if (totalTokens !== undefined) usage.total_tokens = totalTokens;
+  if (cacheReadInputTokens !== undefined) usage.cache_read_input_tokens = cacheReadInputTokens;
+  if (cacheCreationInputTokens !== undefined) usage.cache_creation_input_tokens = cacheCreationInputTokens;
+  return Object.keys(usage).length ? usage : undefined;
+}
+
+function addUsage(total, usage) {
+  if (!usage) return;
+  for (const [key, value] of Object.entries(usage)) {
+    total[key] = (total[key] ?? 0) + Number(value);
+  }
+}
+
+function usageAttributes(usage) {
+  if (!usage) return {};
+  const attrs = {};
+  if (usage.input_tokens !== undefined) {
+    attrs['gen_ai.usage.input_tokens'] = usage.input_tokens;
+    attrs['gen_ai.usage.prompt_tokens'] = usage.input_tokens;
+  }
+  if (usage.output_tokens !== undefined) {
+    attrs['gen_ai.usage.output_tokens'] = usage.output_tokens;
+    attrs['gen_ai.usage.completion_tokens'] = usage.output_tokens;
+  }
+  if (usage.total_tokens !== undefined) {
+    attrs['gen_ai.usage.total_tokens'] = usage.total_tokens;
+  }
+  if (usage.cache_read_input_tokens !== undefined) {
+    attrs['gen_ai.usage.details.cache_read_input_tokens'] = usage.cache_read_input_tokens;
+  }
+  if (usage.cache_creation_input_tokens !== undefined) {
+    attrs['gen_ai.usage.details.cache_creation_input_tokens'] = usage.cache_creation_input_tokens;
+  }
+
+  attrs['langfuse.observation.usage_details'] = JSON.stringify({
+    ...(usage.input_tokens !== undefined ? { input: usage.input_tokens } : {}),
+    ...(usage.output_tokens !== undefined ? { output: usage.output_tokens } : {}),
+    ...(usage.total_tokens !== undefined ? { total: usage.total_tokens } : {}),
+    ...(usage.cache_read_input_tokens !== undefined ? { input_cache_read: usage.cache_read_input_tokens } : {}),
+    ...(usage.cache_creation_input_tokens !== undefined
+      ? { input_cache_creation: usage.cache_creation_input_tokens }
+      : {}),
+  });
+  return attrs;
+}
+
 function extractText(content) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
@@ -61,6 +123,14 @@ function createTurn(messages, turnId, projectId, sessionId) {
 
   const output = assistants.map((m) => extractText(m.content)).filter(Boolean).join('\n');
 
+  const totalUsage = {};
+  let latestModel;
+  for (const msg of assistants) {
+    if (msg.model) latestModel = msg.model;
+    addUsage(totalUsage, msg.usage);
+  }
+  const usage = Object.keys(totalUsage).length ? totalUsage : undefined;
+
   const events = [
     {
       runtime: 'claude-code',
@@ -75,6 +145,10 @@ function createTurn(messages, turnId, projectId, sessionId) {
       output,
       attributes: {
         'agentic.event.category': 'turn',
+        'langfuse.observation.type': 'agent',
+        'gen_ai.operation.name': 'invoke_agent',
+        ...(latestModel ? { 'langfuse.observation.model.name': latestModel } : {}),
+        ...usageAttributes(usage),
       },
     },
   ];
@@ -107,8 +181,10 @@ function createTurn(messages, turnId, projectId, sessionId) {
         output: '',
         attributes: {
           'agentic.event.category': isMcp ? 'mcp' : 'agent_command',
+          'langfuse.observation.type': isMcp ? 'tool' : 'event',
           'agentic.command.name': slash.name,
           'agentic.command.args': slash.args,
+          'gen_ai.operation.name': isMcp ? 'execute_tool' : 'invoke_agent',
         },
       });
     }
@@ -125,6 +201,7 @@ function createTurn(messages, turnId, projectId, sessionId) {
 
       if (toolName === 'Bash') {
         const commandLine = String(toolInput.command ?? '');
+        const model = assistant.model;
         events.push({
           runtime: 'claude-code',
           projectId,
@@ -138,9 +215,13 @@ function createTurn(messages, turnId, projectId, sessionId) {
           output: toolOutput,
           attributes: {
             'agentic.event.category': 'shell_command',
+            'langfuse.observation.type': 'tool',
             'process.command_line': commandLine,
             'gen_ai.tool.name': 'Bash',
             'gen_ai.tool.call.id': toolId,
+            'gen_ai.operation.name': 'execute_tool',
+            ...(model ? { 'langfuse.observation.model.name': model } : {}),
+            ...usageAttributes(assistant.usage),
           },
         });
         continue;
@@ -161,9 +242,13 @@ function createTurn(messages, turnId, projectId, sessionId) {
           output: toolOutput,
           attributes: {
             'agentic.event.category': 'mcp',
+            'langfuse.observation.type': 'tool',
             'gen_ai.tool.name': toolName,
             'mcp.request.id': toolId,
+            'gen_ai.operation.name': 'execute_tool',
             ...(serverName ? { 'agentic.mcp.server.name': serverName } : {}),
+            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...usageAttributes(assistant.usage),
           },
         });
         continue;
@@ -183,8 +268,12 @@ function createTurn(messages, turnId, projectId, sessionId) {
           output: toolOutput,
           attributes: {
             'agentic.event.category': 'agent_task',
+            'langfuse.observation.type': 'agent',
             'gen_ai.tool.name': 'Task',
             'gen_ai.tool.call.id': toolId,
+            'gen_ai.operation.name': 'invoke_agent',
+            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...usageAttributes(assistant.usage),
           },
         });
       }
@@ -205,6 +294,8 @@ async function readClaudeTranscript(transcriptPath) {
         type: entry.type,
         isMeta: entry.isMeta ?? false,
         content: entry?.message?.content ?? entry.content ?? '',
+        model: entry?.message?.model ?? entry.model,
+        usage: pickUsage(entry?.message?.usage ?? entry?.usage ?? entry?.message_usage),
         timestamp: parseTimestamp(entry),
       });
     } catch {

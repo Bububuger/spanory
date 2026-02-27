@@ -20,6 +20,23 @@ function toAnyValue(value) {
   return { stringValue: JSON.stringify(value) };
 }
 
+function observationTypeForCategory(category) {
+  switch (category) {
+    case 'turn':
+      return 'agent';
+    case 'shell_command':
+      return 'tool';
+    case 'mcp':
+      return 'tool';
+    case 'agent_task':
+      return 'agent';
+    case 'agent_command':
+      return 'event';
+    default:
+      return 'span';
+  }
+}
+
 export function parseHeaders(input) {
   if (!input || !input.trim()) return undefined;
   const pairs = input
@@ -65,8 +82,26 @@ export function compileOtlp(events, resource) {
       'agentic.runtime.name': event.runtime,
       'agentic.session.id': event.sessionId,
       'agentic.project.id': event.projectId,
+      'langfuse.session.id': event.sessionId,
+      'session.id': event.sessionId,
+      'langfuse.trace.name': `Spanory ${event.runtime} ${event.turnId ?? event.sessionId}`,
+      'langfuse.trace.metadata': JSON.stringify({
+        runtime: event.runtime,
+        projectId: event.projectId,
+        sessionId: event.sessionId,
+        turnId: event.turnId ?? null,
+      }),
       ...(event.turnId ? { 'agentic.turn.id': event.turnId } : {}),
       ...(event.attributes ?? {}),
+      ...(event.category === 'turn'
+        ? {
+            'langfuse.trace.input': event.input ?? '',
+            'langfuse.trace.output': event.output ?? '',
+          }
+        : {}),
+      ...(!event.attributes?.['langfuse.observation.type']
+        ? { 'langfuse.observation.type': observationTypeForCategory(event.category) }
+        : {}),
       ...(event.input ? { 'langfuse.observation.input': event.input, 'input.value': event.input } : {}),
       ...(event.output ? { 'langfuse.observation.output': event.output, 'output.value': event.output } : {}),
     };

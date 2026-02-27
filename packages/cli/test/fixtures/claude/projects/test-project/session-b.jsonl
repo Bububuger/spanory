@@ -1,0 +1,2 @@
+{"type":"user","isMeta":false,"timestamp":"2026-02-26T09:00:00.000Z","message":{"content":"hello"}}
+{"type":"assistant","timestamp":"2026-02-26T09:00:01.000Z","message":{"model":"claude-sonnet-4-5","usage":{"input_tokens":4,"output_tokens":2},"content":[{"type":"text","text":"hi"}]}}

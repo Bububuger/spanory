@@ -10,6 +10,8 @@
   "scripts": {
     "check": "npm run --workspaces check",
     "build": "npm run --workspaces build",
-    "test": "npm run --workspaces test"
+    "test": "npm run --workspaces test",
+    "test:bdd": "npm run --workspace @spanory/cli test:bdd",
+    "build:bin": "bash scripts/release/build-binaries.sh"
   }
 }

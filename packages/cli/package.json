@@ -9,6 +9,19 @@
   "scripts": {
     "check": "node src/index.js --help >/dev/null",
     "build": "node -e \"console.log('cli:build:noop')\"",
-    "test": "node -e \"console.log('cli:test:noop')\""
+    "test": "vitest run test/unit",
+    "test:bdd": "vitest run test/bdd",
+    "build:bundle": "mkdir -p build && esbuild src/index.js --bundle --platform=node --format=cjs --target=node18 --outfile=build/spanory.cjs",
+    "build:bin:macos-arm64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-arm64 --output ../../dist/spanory-macos-arm64",
+    "build:bin:linux-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-linux-x64 --output ../../dist/spanory-linux-x64",
+    "build:bin:win-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-win-x64 --output ../../dist/spanory-win-x64.exe"
+  },
+  "dependencies": {
+    "commander": "^14.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10",
+    "pkg": "^5.8.1",
+    "vitest": "^3.2.4"
   }
 }
