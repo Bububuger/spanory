@@ -1,0 +1,14 @@
+{
+  "name": "@spanory/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "spanory": "src/index.js"
+  },
+  "scripts": {
+    "check": "node src/index.js --help >/dev/null",
+    "build": "node -e \"console.log('cli:build:noop')\"",
+    "test": "node -e \"console.log('cli:test:noop')\""
+  }
+}

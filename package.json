@@ -1,0 +1,15 @@
+{
+  "name": "spanory",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cross-runtime observability toolkit for agent systems",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "npm run --workspaces check",
+    "build": "npm run --workspaces build",
+    "test": "npm run --workspaces test"
+  }
+}
