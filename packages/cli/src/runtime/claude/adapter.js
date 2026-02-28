@@ -157,7 +157,16 @@ function parseProjectIdFromTranscript(transcriptPath) {
 
 function createTurn(messages, turnId, projectId, sessionId) {
   const user = messages.find(isPromptUserMessage) ?? messages.find((m) => m.type === 'user' && !m.isMeta) ?? messages[0];
-  const assistants = messages.filter((m) => m.type === 'assistant');
+  const assistantsRaw = messages.filter((m) => m.type === 'assistant');
+  const assistantOrder = [];
+  const assistantLatest = new Map();
+  for (let i = 0; i < assistantsRaw.length; i += 1) {
+    const msg = assistantsRaw[i];
+    const key = msg.messageId ? `id:${msg.messageId}` : `idx:${i}`;
+    if (!assistantLatest.has(key)) assistantOrder.push(key);
+    assistantLatest.set(key, msg);
+  }
+  const assistants = assistantOrder.map((key) => assistantLatest.get(key)).filter(Boolean);
   const start = user?.timestamp ?? messages[0]?.timestamp ?? new Date();
   const end = messages[messages.length - 1]?.timestamp ?? start;
 
@@ -325,6 +334,31 @@ function createTurn(messages, turnId, projectId, sessionId) {
             ...usageAttributes(assistant.usage),
           },
         });
+        continue;
+      }
+
+      if (toolName) {
+        events.push({
+          runtime: 'claude-code',
+          projectId,
+          sessionId,
+          turnId,
+          category: 'tool',
+          name: `Tool: ${toolName}`,
+          startedAt: t,
+          endedAt: t,
+          input: JSON.stringify(toolInput),
+          output: toolOutput,
+          attributes: {
+            'agentic.event.category': 'tool',
+            'langfuse.observation.type': 'tool',
+            'gen_ai.tool.name': toolName,
+            'gen_ai.tool.call.id': toolId,
+            'gen_ai.operation.name': 'execute_tool',
+            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...usageAttributes(assistant.usage),
+          },
+        });
       }
     }
   }
@@ -351,6 +385,7 @@ async function readClaudeTranscript(transcriptPath) {
         content: entry?.message?.content ?? entry.content ?? '',
         model: entry?.message?.model ?? entry.model,
         usage: pickUsage(entry?.message?.usage ?? entry?.usage ?? entry?.message_usage),
+        messageId: entry?.message?.id,
         toolUseResult: entry?.toolUseResult,
         sourceToolUseId: entry?.sourceToolUseID ?? entry?.sourceToolUseId,
         timestamp: parseTimestamp(entry),

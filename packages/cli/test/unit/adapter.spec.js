@@ -60,4 +60,38 @@ describe('claudeCodeAdapter', () => {
     expect(shells[0].output).toContain('M README.md');
     expect(shells[1].output).toContain('main');
   });
+
+  it('deduplicates assistant snapshots by message.id to avoid inflated tool counts', async () => {
+    const transcriptPath = path.resolve('test/fixtures/claude/projects/test-project/session-d.jsonl');
+    const events = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-d',
+      transcriptPath,
+    });
+
+    const turns = events.filter((e) => e.category === 'turn');
+    expect(turns).toHaveLength(1);
+    expect(turns[0].attributes['gen_ai.usage.input_tokens']).toBe(15);
+    expect(turns[0].attributes['gen_ai.usage.output_tokens']).toBe(5);
+
+    const shells = events.filter((e) => e.category === 'shell_command');
+    expect(shells).toHaveLength(1);
+    expect(shells[0].attributes['gen_ai.tool.call.id']).toBe('call-1');
+    expect(shells[0].output).toContain('M README.md');
+  });
+
+  it('captures non-bash tool_use as generic tool observation', async () => {
+    const transcriptPath = path.resolve('test/fixtures/claude/projects/test-project/session-e.jsonl');
+    const events = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-e',
+      transcriptPath,
+    });
+
+    const tools = events.filter((e) => e.category === 'tool');
+    expect(tools).toHaveLength(1);
+    expect(tools[0].name).toBe('Tool: WebSearch');
+    expect(tools[0].attributes['gen_ai.tool.call.id']).toBe('call-web-1');
+    expect(tools[0].output).toContain('Langfuse');
+  });
 });

@@ -1,0 +1,4 @@
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:10:00.000Z","message":{"content":"search web"}}
+{"type":"assistant","timestamp":"2026-03-01T00:10:01.000Z","message":{"id":"msg-e1","model":"claude-sonnet-4-6","usage":{"input_tokens":6,"output_tokens":1},"content":[{"type":"tool_use","id":"call-web-1","name":"WebSearch","input":{"query":"spanory langfuse"}}]}}
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:10:02.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"call-web-1","content":"[{\"title\":\"Langfuse\"}]"}]}}
+{"type":"assistant","timestamp":"2026-03-01T00:10:03.000Z","message":{"id":"msg-e2","model":"claude-sonnet-4-6","usage":{"input_tokens":4,"output_tokens":2},"content":[{"type":"text","text":"done"}]}}

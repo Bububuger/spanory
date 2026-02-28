@@ -30,6 +30,8 @@ function observationTypeForCategory(category) {
       return 'tool';
     case 'agent_task':
       return 'agent';
+    case 'tool':
+      return 'tool';
     case 'agent_command':
       return 'event';
     default:
@@ -108,8 +110,6 @@ export function compileOtlp(events, resource) {
 
     const attrs = {
       'agentic.runtime.name': event.runtime,
-      'agentic.session.id': event.sessionId,
-      'agentic.project.id': event.projectId,
       'langfuse.trace.id': traceId,
       'langfuse.session.id': event.sessionId,
       'session.id': event.sessionId,

@@ -1,0 +1,6 @@
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:00:00.000Z","message":{"content":"check status"}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:01.000Z","message":{"id":"msg-1","model":"claude-sonnet-4-6","usage":{"input_tokens":10,"output_tokens":2},"content":[{"type":"tool_use","id":"call-1","name":"Bash","input":{"command":"git status --short"}}]}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:01.200Z","message":{"id":"msg-1","model":"claude-sonnet-4-6","usage":{"input_tokens":10,"output_tokens":2},"content":[{"type":"tool_use","id":"call-1","name":"Bash","input":{"command":"git status --short"}}]}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:01.400Z","message":{"id":"msg-1","model":"claude-sonnet-4-6","usage":{"input_tokens":10,"output_tokens":2},"content":[{"type":"tool_use","id":"call-1","name":"Bash","input":{"command":"git status --short"}}]}}
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:00:02.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"call-1","content":"M README.md"}]}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:03.000Z","message":{"id":"msg-2","model":"claude-sonnet-4-6","usage":{"input_tokens":5,"output_tokens":3},"content":[{"type":"text","text":"done"}]}}
