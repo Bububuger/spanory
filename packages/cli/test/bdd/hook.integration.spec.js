@@ -6,6 +6,13 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const entry = path.resolve('src/index.js');
+const cleanEnv = {
+  ...process.env,
+  OTEL_EXPORTER_OTLP_ENDPOINT: '',
+  OTEL_EXPORTER_OTLP_HEADERS: '',
+  SPANORY_OTLP_ENDPOINT: '',
+  SPANORY_OTLP_HEADERS: '',
+};
 
 describe('BDD hook ingestion', () => {
   it('Given SessionEnd payload, When hook command runs, Then session json is exported', () => {
@@ -27,7 +34,7 @@ describe('BDD hook ingestion', () => {
     execFileSync(
       'node',
       [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
-      { input: payload, env: { ...process.env, HOME: fakeHome } },
+      { input: payload, env: { ...cleanEnv, HOME: fakeHome } },
     );
 
     const outFile = path.join(exportDir, 'session-a.json');
@@ -38,7 +45,7 @@ describe('BDD hook ingestion', () => {
 
   it('Given malformed payload, When hook command runs, Then process fails', () => {
     expect(() => {
-      execFileSync('node', [entry, 'runtime', 'claude-code', 'hook'], { input: '{not-json' });
+      execFileSync('node', [entry, 'runtime', 'claude-code', 'hook'], { input: '{not-json', env: cleanEnv });
     }).toThrowError();
   });
 });

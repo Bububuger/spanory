@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdir, stat, writeFile } from 'node:fs/promises';
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Command } from 'commander';
@@ -41,6 +41,37 @@ function parseHookPayload(raw) {
   }
 }
 
+function parseSimpleDotEnv(raw) {
+  const out = {};
+  for (const line of raw.split('\n')) {
+    const s = line.trim();
+    if (!s || s.startsWith('#')) continue;
+    const idx = s.indexOf('=');
+    if (idx <= 0) continue;
+    const key = s.slice(0, idx).trim();
+    let value = s.slice(idx + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!key) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+async function loadUserEnv() {
+  const envPath = path.join(process.env.HOME || '', '.env');
+  try {
+    const raw = await readFile(envPath, 'utf-8');
+    const parsed = parseSimpleDotEnv(raw);
+    for (const [k, v] of Object.entries(parsed)) {
+      if (process.env[k] === undefined) process.env[k] = v;
+    }
+  } catch {
+    // ignore missing ~/.env
+  }
+}
+
 async function readStdinText() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
@@ -71,6 +102,28 @@ function resolveEndpoint(optionValue) {
 
 function resolveHeaders(optionValue) {
   return parseHeaders(optionValue ?? process.env.OTEL_EXPORTER_OTLP_HEADERS);
+}
+
+async function runHookMode(options) {
+  const adapter = runtimeAdapters['claude-code'];
+  const raw = await readStdinText();
+  const hookPayload = parseHookPayload(raw);
+  const context = adapter.resolveContextFromHook(hookPayload);
+  if (!context) {
+    throw new Error('cannot resolve runtime context from hook payload; require session_id and transcript_path');
+  }
+
+  const events = await adapter.collectEvents(context);
+  const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${context.sessionId}.json`) : undefined;
+
+  await emitSession({
+    runtimeName: adapter.runtimeName,
+    context,
+    events,
+    endpoint: resolveEndpoint(options.endpoint),
+    headers: resolveHeaders(options.headers),
+    exportJsonPath,
+  });
 }
 
 function sessionIdFromFilename(filename) {
@@ -169,27 +222,7 @@ claudeCode
       + '  echo "{...}" | spanory runtime claude-code hook\n'
       + '  cat payload.json | spanory runtime claude-code hook --export-json-dir ~/.claude/state/spanory-json\n',
   )
-  .action(async (options) => {
-    const adapter = runtimeAdapters['claude-code'];
-    const raw = await readStdinText();
-    const hookPayload = parseHookPayload(raw);
-    const context = adapter.resolveContextFromHook(hookPayload);
-    if (!context) {
-      throw new Error('cannot resolve runtime context from hook payload; require session_id and transcript_path');
-    }
-
-    const events = await adapter.collectEvents(context);
-    const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${context.sessionId}.json`) : undefined;
-
-    await emitSession({
-      runtimeName: adapter.runtimeName,
-      context,
-      events,
-      endpoint: resolveEndpoint(options.endpoint),
-      headers: resolveHeaders(options.headers),
-      exportJsonPath,
-    });
-  });
+  .action(async (options) => runHookMode(options));
 
 claudeCode
   .command('backfill')
@@ -323,7 +356,28 @@ alert
     }
   });
 
-program.parseAsync(process.argv).catch((error) => {
+program
+  .command('hook')
+  .description('Minimal hook entrypoint (defaults to Claude payload + ~/.env + default export dir)')
+  .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+  .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+  .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+  .addHelpText(
+    'after',
+    '\nMinimal usage in Claude SessionEnd hook command:\n'
+      + '  spanory hook\n',
+  )
+  .action(async (options) => {
+    await runHookMode({
+      endpoint: options.endpoint,
+      headers: options.headers,
+      exportJsonDir: options.exportJsonDir ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR ?? path.join(process.env.HOME || '', '.claude', 'state', 'spanory-json'),
+    });
+  });
+
+loadUserEnv()
+  .then(() => program.parseAsync(process.argv))
+  .catch((error) => {
   console.error(`[spanory] ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
-});
+  });

@@ -6,6 +6,13 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const entry = path.resolve('src/index.js');
+const cleanEnv = {
+  ...process.env,
+  OTEL_EXPORTER_OTLP_ENDPOINT: '',
+  OTEL_EXPORTER_OTLP_HEADERS: '',
+  SPANORY_OTLP_ENDPOINT: '',
+  SPANORY_OTLP_HEADERS: '',
+};
 
 describe('BDD replay export', () => {
   it('Given a valid transcript, When export command runs, Then JSON payload is produced with spans', () => {
@@ -13,20 +20,24 @@ describe('BDD replay export', () => {
     const outFile = path.join(outDir, 'session-a.json');
     const transcript = path.resolve('test/fixtures/claude/projects/test-project/session-a.jsonl');
 
-    execFileSync('node', [
-      entry,
-      'runtime',
-      'claude-code',
-      'export',
-      '--project-id',
-      'test-project',
-      '--session-id',
-      'session-a',
-      '--transcript-path',
-      transcript,
-      '--export-json',
-      outFile,
-    ]);
+    execFileSync(
+      'node',
+      [
+        entry,
+        'runtime',
+        'claude-code',
+        'export',
+        '--project-id',
+        'test-project',
+        '--session-id',
+        'session-a',
+        '--transcript-path',
+        transcript,
+        '--export-json',
+        outFile,
+      ],
+      { env: cleanEnv },
+    );
 
     const data = JSON.parse(readFileSync(outFile, 'utf8'));
     expect(data.events.length).toBeGreaterThan(0);
@@ -35,18 +46,22 @@ describe('BDD replay export', () => {
 
   it('Given a missing session file, When export command runs, Then process fails', () => {
     expect(() => {
-      execFileSync('node', [
-        entry,
-        'runtime',
-        'claude-code',
-        'export',
-        '--project-id',
-        'test-project',
-        '--session-id',
-        'missing-session',
-        '--transcript-path',
-        '/tmp/no-such-transcript.jsonl',
-      ]);
+      execFileSync(
+        'node',
+        [
+          entry,
+          'runtime',
+          'claude-code',
+          'export',
+          '--project-id',
+          'test-project',
+          '--session-id',
+          'missing-session',
+          '--transcript-path',
+          '/tmp/no-such-transcript.jsonl',
+        ],
+        { env: cleanEnv },
+      );
     }).toThrowError();
   });
 });

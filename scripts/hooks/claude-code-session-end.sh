@@ -21,10 +21,13 @@ if [[ -z "$PAYLOAD" ]]; then
   exit 0
 fi
 
-printf '%s\n' "$PAYLOAD" | node "$REPO_ROOT/packages/cli/src/index.js" runtime claude-code hook \
-  --endpoint "${SPANORY_OTLP_ENDPOINT:-${OTEL_EXPORTER_OTLP_ENDPOINT:-}}" \
-  --headers "${SPANORY_OTLP_HEADERS:-${OTEL_EXPORTER_OTLP_HEADERS:-}}" \
-  --export-json-dir "${SPANORY_HOOK_EXPORT_JSON_DIR:-$HOME/.claude/state/spanory-json}" \
-  >> "$LOG_FILE" 2>&1 || true
+CMD_ARGS=(
+  runtime claude-code hook
+  --endpoint "${SPANORY_OTLP_ENDPOINT:-${OTEL_EXPORTER_OTLP_ENDPOINT:-}}"
+  --headers "${SPANORY_OTLP_HEADERS:-${OTEL_EXPORTER_OTLP_HEADERS:-}}"
+  --export-json-dir "${SPANORY_HOOK_EXPORT_JSON_DIR:-$HOME/.claude/state/spanory-json}"
+)
+
+printf '%s\n' "$PAYLOAD" | spanory "${CMD_ARGS[@]}" >> "$LOG_FILE" 2>&1 || true
 
 exit 0

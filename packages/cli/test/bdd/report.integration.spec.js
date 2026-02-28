@@ -4,16 +4,27 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const entry = path.resolve('src/index.js');
+const cleanEnv = {
+  ...process.env,
+  OTEL_EXPORTER_OTLP_ENDPOINT: '',
+  OTEL_EXPORTER_OTLP_HEADERS: '',
+  SPANORY_OTLP_ENDPOINT: '',
+  SPANORY_OTLP_HEADERS: '',
+};
 
 describe('BDD report command', () => {
   it('Given exported json, When report session runs, Then returns session-summary rows', () => {
-    const out = execFileSync('node', [
-      entry,
-      'report',
-      'session',
-      '--input-json',
-      'test/fixtures/exported/session-a.json',
-    ]).toString('utf8');
+    const out = execFileSync(
+      'node',
+      [
+        entry,
+        'report',
+        'session',
+        '--input-json',
+        'test/fixtures/exported/session-a.json',
+      ],
+      { env: cleanEnv },
+    ).toString('utf8');
 
     const data = JSON.parse(out);
     expect(data.view).toBe('session-summary');
@@ -21,13 +32,17 @@ describe('BDD report command', () => {
   });
 
   it('Given exported json, When report mcp runs, Then includes mcp summary rows', () => {
-    const out = execFileSync('node', [
-      entry,
-      'report',
-      'mcp',
-      '--input-json',
-      'test/fixtures/exported/session-a.json',
-    ]).toString('utf8');
+    const out = execFileSync(
+      'node',
+      [
+        entry,
+        'report',
+        'mcp',
+        '--input-json',
+        'test/fixtures/exported/session-a.json',
+      ],
+      { env: cleanEnv },
+    ).toString('utf8');
 
     const data = JSON.parse(out);
     expect(data.view).toBe('mcp-summary');

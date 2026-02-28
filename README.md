@@ -78,18 +78,18 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<L
 export SPANORY_HOOK_EXPORT_JSON_DIR="$HOME/.claude/state/spanory-json"
 ```
 
-### 3) 在 Claude Code 中绑定 `SessionEnd` Hook
+### 3) 在 Claude Code 中绑定 `SessionEnd` Hook（极简）
 
-在 Claude Code 的 Hook 配置中，将 `SessionEnd` command 设置为：
+在 Claude Code 的 Hook 配置中，将 `SessionEnd` command 直接设置为：
 
 ```bash
-scripts/hooks/claude-code-session-end.sh
+spanory hook
 ```
 
 说明：
-- 该脚本会从 `stdin` 读取 Claude 的 hook payload。
-- 自动加载 `~/.env`。
-- 内部调用 `spanory runtime claude-code hook` 完成上报。
+- `spanory hook` 会从 `stdin` 读取 Claude hook payload。
+- CLI 会自动读取 `~/.env`（若变量未在当前进程定义）。
+- 默认导出目录：`~/.claude/state/spanory-json`（可用 `SPANORY_HOOK_EXPORT_JSON_DIR` 覆盖）。
 
 ### 4) 验证 Hook 是否生效
 
