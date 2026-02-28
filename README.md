@@ -13,9 +13,9 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 
 ## Governance
 
-- Changelog: `/Users/javis/Documents/workspace/project/spanory/CHANGELOG.md`
-- Contributing guide: `/Users/javis/Documents/workspace/project/spanory/CONTRIBUTING.md`
-- Ownership: `/Users/javis/Documents/workspace/project/spanory/.github/CODEOWNERS`
+- Changelog: `CHANGELOG.md`
+- Contributing guide: `CONTRIBUTING.md`
+- Ownership: `CODEOWNERS`
 
 ## Goal
 
@@ -52,14 +52,14 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 
 Claude Code implementation:
 
-- `/Users/javis/Documents/workspace/project/spanory/packages/cli/src/runtime/claude/adapter.js`
+- `packages/cli/src/runtime/claude/adapter.js`
 
 ## Claude Code 接入（Hook 实时上报）
 
 ### 1) 安装 `spanory` 命令
 
 ```bash
-npm install -g /Users/javis/Documents/workspace/project/spanory/packages/cli
+npm install -g packages/cli
 spanory --help
 ```
 
@@ -81,7 +81,7 @@ export SPANORY_HOOK_EXPORT_JSON_DIR="$HOME/.claude/state/spanory-json"
 在 Claude Code 的 Hook 配置中，将 `SessionEnd` command 设置为：
 
 ```bash
-/Users/javis/Documents/workspace/project/spanory/scripts/hooks/claude-code-session-end.sh
+scripts/hooks/claude-code-session-end.sh
 ```
 
 说明：
@@ -112,7 +112,7 @@ spanory runtime claude-code hook \
 
 ```bash
 spanory runtime claude-code export \
-  --project-id -Users-javis-Documents-claude-workspace-test \
+  --project-id claude-workspace-test \
   --session-id <SESSION_ID> \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
@@ -122,7 +122,7 @@ spanory runtime claude-code export \
 
 ```bash
 spanory runtime claude-code export \
-  --project-id -Users-javis-Documents-claude-workspace-test \
+  --project-id claude-workspace-test \
   --session-id <SESSION_ID> \
   --export-json /tmp/spanory-export.json
 ```
@@ -133,7 +133,7 @@ spanory runtime claude-code export \
 
 ```bash
 spanory runtime claude-code backfill \
-  --project-id -Users-javis-Documents-claude-workspace-test \
+  --project-id claude-workspace-test \
   --since 2026-02-27T00:00:00Z \
   --limit 50 \
   --dry-run
@@ -143,7 +143,7 @@ spanory runtime claude-code backfill \
 
 ```bash
 spanory runtime claude-code backfill \
-  --project-id -Users-javis-Documents-claude-workspace-test \
+  --project-id claude-workspace-test \
   --since 2026-02-27T00:00:00Z \
   --limit 50 \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
@@ -154,7 +154,7 @@ spanory runtime claude-code backfill \
 
 ```bash
 spanory runtime claude-code backfill \
-  --project-id -Users-javis-Documents-claude-workspace-test \
+  --project-id claude-workspace-test \
   --session-ids "session-a,session-b,session-c" \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
@@ -179,14 +179,12 @@ Recognized event categories:
 Use as command without `node` prefix:
 
 ```bash
-npm install -g /Users/javis/Documents/workspace/project/spanory/packages/cli
+npm install -g packages/cli
 spanory --help
 ```
 
 Build standalone executable:
 
-```bash
-cd /Users/javis/Documents/workspace/project/spanory
 npm run build:bin
 ./dist/spanory-macos-arm64 --help
 ```
@@ -194,15 +192,15 @@ npm run build:bin
 Build all platforms:
 
 ```bash
-bash /Users/javis/Documents/workspace/project/spanory/scripts/release/build-binaries.sh all
+bash scripts/release/build-binaries.sh all
 ```
 
 ## Other OS Wrappers
 
 - Linux wrapper skeleton:
-  - `/Users/javis/Documents/workspace/project/spanory/scripts/hooks/claude-code-session-end-linux.sh`
+  - `scripts/hooks/claude-code-session-end-linux.sh`
 - Windows PowerShell wrapper skeleton:
-  - `/Users/javis/Documents/workspace/project/spanory/scripts/hooks/claude-code-session-end.ps1`
+  - `scripts/hooks/claude-code-session-end.ps1`
 
 These wrappers call the same CLI, so event semantics stay consistent across OSes.
 
