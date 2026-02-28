@@ -54,42 +54,61 @@ Claude Code implementation:
 
 - `/Users/javis/Documents/workspace/project/spanory/packages/cli/src/runtime/claude/adapter.js`
 
-## Claude Code Hook (macOS)
+## Claude Code 接入（Hook 实时上报）
 
-1. Ensure env is available (recommended in `~/.env`):
+### 1) 安装 `spanory` 命令
+
+```bash
+npm install -g /Users/javis/Documents/workspace/project/spanory/packages/cli
+spanory --help
+```
+
+### 2) 配置 OTLP 环境变量（建议放到 `~/.env`）
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
 export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
 ```
 
-2. Configure Claude Code `SessionEnd` hook command:
-
-```bash
-/Users/javis/Documents/workspace/project/spanory/scripts/hooks/claude-code-session-end.sh
-```
-
-3. Optional local JSON export:
+可选（保留本地 JSON 结果）：
 
 ```bash
 export SPANORY_HOOK_EXPORT_JSON_DIR="$HOME/.claude/state/spanory-json"
 ```
 
-4. Inspect hook log:
+### 3) 在 Claude Code 中绑定 `SessionEnd` Hook
+
+在 Claude Code 的 Hook 配置中，将 `SessionEnd` command 设置为：
+
+```bash
+/Users/javis/Documents/workspace/project/spanory/scripts/hooks/claude-code-session-end.sh
+```
+
+说明：
+- 该脚本会从 `stdin` 读取 Claude 的 hook payload。
+- 自动加载 `~/.env`。
+- 内部调用 `spanory runtime claude-code hook` 完成上报。
+
+### 4) 验证 Hook 是否生效
+
+查看 hook 日志：
 
 ```bash
 tail -n 100 "$HOME/.claude/state/spanory-hook.log"
 ```
 
-## CLI Usage
-
-Show help:
+手动模拟一次 hook payload（排障用）：
 
 ```bash
-spanory --help
+echo '{"hook_event_name":"SessionEnd","session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
+spanory runtime claude-code hook \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-Replay/backfill one session:
+## CLI 离线回跑（历史补数）
+
+### 1) 回跑单个 session
 
 ```bash
 spanory runtime claude-code export \
@@ -99,7 +118,7 @@ spanory runtime claude-code export \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-Replay one session and export compiled JSON locally:
+仅导出本地 JSON（不上报）：
 
 ```bash
 spanory runtime claude-code export \
@@ -108,14 +127,44 @@ spanory runtime claude-code export \
   --export-json /tmp/spanory-export.json
 ```
 
-Hook mode manual simulation:
+### 2) 批量回跑（backfill）
+
+先预览将处理哪些 session（不发送）：
 
 ```bash
-echo '{"hook_event_name":"SessionEnd","session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
-spanory runtime claude-code hook \
+spanory runtime claude-code backfill \
+  --project-id -Users-javis-Documents-claude-workspace-test \
+  --since 2026-02-27T00:00:00Z \
+  --limit 50 \
+  --dry-run
+```
+
+正式回跑并上报：
+
+```bash
+spanory runtime claude-code backfill \
+  --project-id -Users-javis-Documents-claude-workspace-test \
+  --since 2026-02-27T00:00:00Z \
+  --limit 50 \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
+
+按指定 session 列表回跑：
+
+```bash
+spanory runtime claude-code backfill \
+  --project-id -Users-javis-Documents-claude-workspace-test \
+  --session-ids "session-a,session-b,session-c" \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+## 推荐使用方式
+
+- 日常使用：依赖 Hook 自动实时上报。
+- 缺失补数：使用 `export` 或 `backfill` 离线回跑。
+- 先 `--dry-run`，确认范围后再正式发送。
 
 Recognized event categories:
 
@@ -179,6 +228,5 @@ CI executes the same gates in `.github/workflows/ci.yml`.
 
 ## Next
 
-- Add multi-session range backfill command (`runtime claude-code backfill`)
 - Add Codex/OpenCode adapters with the same runtime abstraction
 - Stabilize Langfuse-friendly naming/timeline conventions
