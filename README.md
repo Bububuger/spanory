@@ -16,6 +16,8 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 - Changelog: `CHANGELOG.md`
 - Contributing guide: `CONTRIBUTING.md`
 - Ownership: `CODEOWNERS`
+- Plan history: `docs/plans/history/`
+- TODO history: `docs/todos/history/`
 
 ## Goal
 
@@ -165,6 +167,59 @@ spanory runtime claude-code backfill \
 - 日常使用：依赖 Hook 自动实时上报。
 - 缺失补数：使用 `export` 或 `backfill` 离线回跑。
 - 先 `--dry-run`，确认范围后再正式发送。
+
+## Report 视图（CLI）
+
+基于 `export` 产出的 JSON（单文件或目录）做聚合视图：
+
+```bash
+spanory report session --input-json /path/to/exported.json
+spanory report mcp --input-json /path/to/exported-or-dir
+spanory report command --input-json /path/to/exported-or-dir
+spanory report agent --input-json /path/to/exported-or-dir
+```
+
+输出为 JSON，便于后续接入你自己的可视化或任务系统。
+
+## Alert 规则评估（CLI）
+
+规则文件格式（JSON）：
+
+```json
+{
+  "rules": [
+    {"id":"session-token-high","scope":"session","metric":"usage.total","op":"gt","threshold":10000},
+    {"id":"mcp-spike","scope":"mcp","metric":"calls","op":"gte","threshold":50}
+  ]
+}
+```
+
+执行规则评估：
+
+```bash
+spanory alert eval \
+  --input-json /path/to/exported-or-dir \
+  --rules /path/to/rules.json
+```
+
+有告警时返回非零退出码（用于 CI/自动化）：
+
+```bash
+spanory alert eval \
+  --input-json /path/to/exported-or-dir \
+  --rules /path/to/rules.json \
+  --fail-on-alert
+```
+
+可选 webhook 通知：
+
+```bash
+spanory alert eval \
+  --input-json /path/to/exported-or-dir \
+  --rules /path/to/rules.json \
+  --webhook-url https://example.com/hook \
+  --webhook-headers "Authorization=Bearer x-token"
+```
 
 Recognized event categories:
 

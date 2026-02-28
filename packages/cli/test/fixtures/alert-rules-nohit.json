@@ -1,0 +1,5 @@
+{
+  "rules": [
+    {"id":"session-token-high","scope":"session","metric":"usage.total","op":"gt","threshold":2000,"severity":"warning"}
+  ]
+}

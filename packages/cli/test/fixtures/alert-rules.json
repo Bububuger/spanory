@@ -1,0 +1,7 @@
+{
+  "rules": [
+    {"id":"session-token-high","scope":"session","metric":"usage.total","op":"gt","threshold":20,"severity":"warning"},
+    {"id":"mcp-traffic","scope":"mcp","metric":"calls","op":"gte","threshold":2,"severity":"info"},
+    {"id":"agent-shell-spike","scope":"agent","metric":"shellCommands","op":"gte","threshold":1,"severity":"warning"}
+  ]
+}

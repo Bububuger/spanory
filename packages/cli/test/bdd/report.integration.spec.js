@@ -1,0 +1,36 @@
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+const entry = path.resolve('src/index.js');
+
+describe('BDD report command', () => {
+  it('Given exported json, When report session runs, Then returns session-summary rows', () => {
+    const out = execFileSync('node', [
+      entry,
+      'report',
+      'session',
+      '--input-json',
+      'test/fixtures/exported/session-a.json',
+    ]).toString('utf8');
+
+    const data = JSON.parse(out);
+    expect(data.view).toBe('session-summary');
+    expect(data.rows[0].sessionId).toBe('session-a');
+  });
+
+  it('Given exported json, When report mcp runs, Then includes mcp summary rows', () => {
+    const out = execFileSync('node', [
+      entry,
+      'report',
+      'mcp',
+      '--input-json',
+      'test/fixtures/exported/session-a.json',
+    ]).toString('utf8');
+
+    const data = JSON.parse(out);
+    expect(data.view).toBe('mcp-summary');
+    expect(data.rows.length).toBeGreaterThan(0);
+  });
+});

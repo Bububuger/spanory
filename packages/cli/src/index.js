@@ -6,6 +6,14 @@ import { Command } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
+import {
+  loadExportedEvents,
+  summarizeAgents,
+  summarizeCommands,
+  summarizeMcp,
+  summarizeSessions,
+} from './report/aggregate.js';
 
 const runtimeAdapters = {
   'claude-code': claudeCodeAdapter,
@@ -232,6 +240,86 @@ claudeCode
         headers,
         exportJsonPath,
       });
+    }
+  });
+
+const report = program.command('report').description('Aggregate exported session JSON into infra-level views');
+
+report
+  .command('session')
+  .description('Session-level summary view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'session-summary', rows: summarizeSessions(sessions) }, null, 2));
+  });
+
+report
+  .command('mcp')
+  .description('MCP server aggregation view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'mcp-summary', rows: summarizeMcp(sessions) }, null, 2));
+  });
+
+report
+  .command('command')
+  .description('Agent command aggregation view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'command-summary', rows: summarizeCommands(sessions) }, null, 2));
+  });
+
+report
+  .command('agent')
+  .description('Agent activity summary per session')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'agent-summary', rows: summarizeAgents(sessions) }, null, 2));
+  });
+
+const alert = program.command('alert').description('Evaluate alert rules against exported telemetry data');
+
+alert
+  .command('eval')
+  .description('Run threshold rules and emit alert events')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .requiredOption('--rules <path>', 'Path to alert rules JSON file')
+  .option('--webhook-url <url>', 'Optional webhook URL to post alert payload')
+  .option('--webhook-headers <kv>', 'Webhook headers, comma-separated k=v')
+  .option('--fail-on-alert', 'Exit with non-zero code when alert count > 0', false)
+  .addHelpText(
+    'after',
+    '\nRule file format:\n'
+      + '  {\n'
+      + '    "rules": [\n'
+      + '      {"id":"high-token","scope":"session","metric":"usage.total","op":"gt","threshold":10000}\n'
+      + '    ]\n'
+      + '  }\n',
+  )
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    const rules = await loadAlertRules(options.rules);
+    const alerts = evaluateRules(rules, sessions);
+
+    const result = {
+      evaluatedAt: new Date().toISOString(),
+      sessions: sessions.length,
+      rules: rules.length,
+      alerts,
+    };
+    console.log(JSON.stringify(result, null, 2));
+
+    if (options.webhookUrl) {
+      await sendAlertWebhook(options.webhookUrl, result, parseHeaders(options.webhookHeaders));
+      console.log(`webhook=sent url=${options.webhookUrl}`);
+    }
+
+    if (options.failOnAlert && alerts.length > 0) {
+      process.exitCode = 2;
     }
   });
 

@@ -1,0 +1,1081 @@
+{
+  "context": {
+    "projectId": "test-project",
+    "sessionId": "session-a",
+    "transcriptPath": "packages/cli/test/fixtures/claude/projects/test-project/session-a.jsonl"
+  },
+  "events": [
+    {
+      "runtime": "claude-code",
+      "projectId": "test-project",
+      "sessionId": "session-a",
+      "turnId": "turn-1",
+      "category": "turn",
+      "name": "Claude Code - Turn turn-1",
+      "startedAt": "2026-02-27T10:00:00.000Z",
+      "endedAt": "2026-02-27T10:00:01.000Z",
+      "input": "<command-name>/mcp</command-name><command-args>list</command-args>",
+      "output": "Working on it",
+      "attributes": {
+        "agentic.event.category": "turn",
+        "langfuse.observation.type": "agent",
+        "gen_ai.operation.name": "invoke_agent",
+        "langfuse.observation.model.name": "claude-opus-4-6",
+        "gen_ai.usage.input_tokens": 10,
+        "gen_ai.usage.prompt_tokens": 10,
+        "gen_ai.usage.output_tokens": 5,
+        "gen_ai.usage.completion_tokens": 5,
+        "gen_ai.usage.total_tokens": 15,
+        "gen_ai.usage.details.cache_read_input_tokens": 2,
+        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+      }
+    },
+    {
+      "runtime": "claude-code",
+      "projectId": "test-project",
+      "sessionId": "session-a",
+      "turnId": "turn-1",
+      "category": "mcp",
+      "name": "MCP Slash Command",
+      "startedAt": "2026-02-27T10:00:00.000Z",
+      "endedAt": "2026-02-27T10:00:00.000Z",
+      "input": "<command-name>/mcp</command-name><command-args>list</command-args>",
+      "output": "",
+      "attributes": {
+        "agentic.event.category": "mcp",
+        "langfuse.observation.type": "tool",
+        "agentic.command.name": "mcp",
+        "agentic.command.args": "list",
+        "gen_ai.operation.name": "execute_tool"
+      }
+    },
+    {
+      "runtime": "claude-code",
+      "projectId": "test-project",
+      "sessionId": "session-a",
+      "turnId": "turn-1",
+      "category": "shell_command",
+      "name": "Tool: Bash",
+      "startedAt": "2026-02-27T10:00:01.000Z",
+      "endedAt": "2026-02-27T10:00:01.000Z",
+      "input": "ls -la",
+      "output": "",
+      "attributes": {
+        "agentic.event.category": "shell_command",
+        "langfuse.observation.type": "tool",
+        "process.command_line": "ls -la",
+        "gen_ai.tool.name": "Bash",
+        "gen_ai.tool.call.id": "tool-bash-1",
+        "gen_ai.operation.name": "execute_tool",
+        "langfuse.observation.model.name": "claude-opus-4-6",
+        "gen_ai.usage.input_tokens": 10,
+        "gen_ai.usage.prompt_tokens": 10,
+        "gen_ai.usage.output_tokens": 5,
+        "gen_ai.usage.completion_tokens": 5,
+        "gen_ai.usage.total_tokens": 15,
+        "gen_ai.usage.details.cache_read_input_tokens": 2,
+        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+      }
+    },
+    {
+      "runtime": "claude-code",
+      "projectId": "test-project",
+      "sessionId": "session-a",
+      "turnId": "turn-1",
+      "category": "mcp",
+      "name": "Tool: mcp__context7__resolve",
+      "startedAt": "2026-02-27T10:00:01.000Z",
+      "endedAt": "2026-02-27T10:00:01.000Z",
+      "input": "{\"query\":\"langfuse\"}",
+      "output": "",
+      "attributes": {
+        "agentic.event.category": "mcp",
+        "langfuse.observation.type": "tool",
+        "gen_ai.tool.name": "mcp__context7__resolve",
+        "mcp.request.id": "tool-mcp-1",
+        "gen_ai.operation.name": "execute_tool",
+        "agentic.mcp.server.name": "context7",
+        "langfuse.observation.model.name": "claude-opus-4-6",
+        "gen_ai.usage.input_tokens": 10,
+        "gen_ai.usage.prompt_tokens": 10,
+        "gen_ai.usage.output_tokens": 5,
+        "gen_ai.usage.completion_tokens": 5,
+        "gen_ai.usage.total_tokens": 15,
+        "gen_ai.usage.details.cache_read_input_tokens": 2,
+        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+      }
+    },
+    {
+      "runtime": "claude-code",
+      "projectId": "test-project",
+      "sessionId": "session-a",
+      "turnId": "turn-1",
+      "category": "agent_task",
+      "name": "Tool: Task",
+      "startedAt": "2026-02-27T10:00:01.000Z",
+      "endedAt": "2026-02-27T10:00:01.000Z",
+      "input": "{\"task\":\"index repo\"}",
+      "output": "",
+      "attributes": {
+        "agentic.event.category": "agent_task",
+        "langfuse.observation.type": "agent",
+        "gen_ai.tool.name": "Task",
+        "gen_ai.tool.call.id": "tool-task-1",
+        "gen_ai.operation.name": "invoke_agent",
+        "langfuse.observation.model.name": "claude-opus-4-6",
+        "gen_ai.usage.input_tokens": 10,
+        "gen_ai.usage.prompt_tokens": 10,
+        "gen_ai.usage.output_tokens": 5,
+        "gen_ai.usage.completion_tokens": 5,
+        "gen_ai.usage.total_tokens": 15,
+        "gen_ai.usage.details.cache_read_input_tokens": 2,
+        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+      }
+    },
+    {
+      "runtime": "claude-code",
+      "projectId": "test-project",
+      "sessionId": "session-a",
+      "turnId": "turn-2",
+      "category": "turn",
+      "name": "Claude Code - Turn turn-2",
+      "startedAt": "2026-02-27T10:00:02.000Z",
+      "endedAt": "2026-02-27T10:00:03.000Z",
+      "input": "",
+      "output": "All set",
+      "attributes": {
+        "agentic.event.category": "turn",
+        "langfuse.observation.type": "agent",
+        "gen_ai.operation.name": "invoke_agent",
+        "langfuse.observation.model.name": "claude-opus-4-6",
+        "gen_ai.usage.input_tokens": 7,
+        "gen_ai.usage.prompt_tokens": 7,
+        "gen_ai.usage.output_tokens": 3,
+        "gen_ai.usage.completion_tokens": 3,
+        "gen_ai.usage.total_tokens": 10,
+        "langfuse.observation.usage_details": "{\"input\":7,\"output\":3,\"total\":10}"
+      }
+    }
+  ],
+  "payload": {
+    "resourceSpans": [
+      {
+        "resource": {
+          "attributes": [
+            {
+              "key": "service.name",
+              "value": {
+                "stringValue": "spanory"
+              }
+            },
+            {
+              "key": "service.version",
+              "value": {
+                "stringValue": "0.1.0"
+              }
+            },
+            {
+              "key": "deployment.environment",
+              "value": {
+                "stringValue": "development"
+              }
+            }
+          ]
+        },
+        "scopeSpans": [
+          {
+            "scope": {
+              "name": "spanory"
+            },
+            "spans": [
+              {
+                "traceId": "7112ebb6529e4fd79127431b00ed89d4",
+                "spanId": "80ffc3debec94a50",
+                "name": "Claude Code - Turn turn-1",
+                "startTimeUnixNano": "1772186400000000000",
+                "endTimeUnixNano": "1772186401000000000",
+                "attributes": [
+                  {
+                    "key": "agentic.runtime.name",
+                    "value": {
+                      "stringValue": "claude-code"
+                    }
+                  },
+                  {
+                    "key": "agentic.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "agentic.project.id",
+                    "value": {
+                      "stringValue": "test-project"
+                    }
+                  },
+                  {
+                    "key": "langfuse.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.name",
+                    "value": {
+                      "stringValue": "Spanory claude-code turn-1"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.metadata",
+                    "value": {
+                      "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"test-project\",\"sessionId\":\"session-a\",\"turnId\":\"turn-1\"}"
+                    }
+                  },
+                  {
+                    "key": "agentic.turn.id",
+                    "value": {
+                      "stringValue": "turn-1"
+                    }
+                  },
+                  {
+                    "key": "agentic.event.category",
+                    "value": {
+                      "stringValue": "turn"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.type",
+                    "value": {
+                      "stringValue": "agent"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.operation.name",
+                    "value": {
+                      "stringValue": "invoke_agent"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.model.name",
+                    "value": {
+                      "stringValue": "claude-opus-4-6"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.input_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.prompt_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.output_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.completion_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.total_tokens",
+                    "value": {
+                      "doubleValue": 15
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "value": {
+                      "doubleValue": 2
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "value": {
+                      "doubleValue": 1
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.usage_details",
+                    "value": {
+                      "stringValue": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.input",
+                    "value": {
+                      "stringValue": "<command-name>/mcp</command-name><command-args>list</command-args>"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.output",
+                    "value": {
+                      "stringValue": "Working on it"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.input",
+                    "value": {
+                      "stringValue": "<command-name>/mcp</command-name><command-args>list</command-args>"
+                    }
+                  },
+                  {
+                    "key": "input.value",
+                    "value": {
+                      "stringValue": "<command-name>/mcp</command-name><command-args>list</command-args>"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.output",
+                    "value": {
+                      "stringValue": "Working on it"
+                    }
+                  },
+                  {
+                    "key": "output.value",
+                    "value": {
+                      "stringValue": "Working on it"
+                    }
+                  }
+                ]
+              },
+              {
+                "traceId": "7112ebb6529e4fd79127431b00ed89d4",
+                "spanId": "a640e7471a4747fe",
+                "parentSpanId": "80ffc3debec94a50",
+                "name": "MCP Slash Command",
+                "startTimeUnixNano": "1772186400000000000",
+                "endTimeUnixNano": "1772186400000000000",
+                "attributes": [
+                  {
+                    "key": "agentic.runtime.name",
+                    "value": {
+                      "stringValue": "claude-code"
+                    }
+                  },
+                  {
+                    "key": "agentic.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "agentic.project.id",
+                    "value": {
+                      "stringValue": "test-project"
+                    }
+                  },
+                  {
+                    "key": "langfuse.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.name",
+                    "value": {
+                      "stringValue": "Spanory claude-code turn-1"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.metadata",
+                    "value": {
+                      "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"test-project\",\"sessionId\":\"session-a\",\"turnId\":\"turn-1\"}"
+                    }
+                  },
+                  {
+                    "key": "agentic.turn.id",
+                    "value": {
+                      "stringValue": "turn-1"
+                    }
+                  },
+                  {
+                    "key": "agentic.event.category",
+                    "value": {
+                      "stringValue": "mcp"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.type",
+                    "value": {
+                      "stringValue": "tool"
+                    }
+                  },
+                  {
+                    "key": "agentic.command.name",
+                    "value": {
+                      "stringValue": "mcp"
+                    }
+                  },
+                  {
+                    "key": "agentic.command.args",
+                    "value": {
+                      "stringValue": "list"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.operation.name",
+                    "value": {
+                      "stringValue": "execute_tool"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.input",
+                    "value": {
+                      "stringValue": "<command-name>/mcp</command-name><command-args>list</command-args>"
+                    }
+                  },
+                  {
+                    "key": "input.value",
+                    "value": {
+                      "stringValue": "<command-name>/mcp</command-name><command-args>list</command-args>"
+                    }
+                  }
+                ]
+              },
+              {
+                "traceId": "7112ebb6529e4fd79127431b00ed89d4",
+                "spanId": "b3c8537e0c294f9c",
+                "parentSpanId": "80ffc3debec94a50",
+                "name": "Tool: Bash",
+                "startTimeUnixNano": "1772186401000000000",
+                "endTimeUnixNano": "1772186401000000000",
+                "attributes": [
+                  {
+                    "key": "agentic.runtime.name",
+                    "value": {
+                      "stringValue": "claude-code"
+                    }
+                  },
+                  {
+                    "key": "agentic.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "agentic.project.id",
+                    "value": {
+                      "stringValue": "test-project"
+                    }
+                  },
+                  {
+                    "key": "langfuse.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.name",
+                    "value": {
+                      "stringValue": "Spanory claude-code turn-1"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.metadata",
+                    "value": {
+                      "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"test-project\",\"sessionId\":\"session-a\",\"turnId\":\"turn-1\"}"
+                    }
+                  },
+                  {
+                    "key": "agentic.turn.id",
+                    "value": {
+                      "stringValue": "turn-1"
+                    }
+                  },
+                  {
+                    "key": "agentic.event.category",
+                    "value": {
+                      "stringValue": "shell_command"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.type",
+                    "value": {
+                      "stringValue": "tool"
+                    }
+                  },
+                  {
+                    "key": "process.command_line",
+                    "value": {
+                      "stringValue": "ls -la"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.tool.name",
+                    "value": {
+                      "stringValue": "Bash"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.tool.call.id",
+                    "value": {
+                      "stringValue": "tool-bash-1"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.operation.name",
+                    "value": {
+                      "stringValue": "execute_tool"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.model.name",
+                    "value": {
+                      "stringValue": "claude-opus-4-6"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.input_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.prompt_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.output_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.completion_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.total_tokens",
+                    "value": {
+                      "doubleValue": 15
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "value": {
+                      "doubleValue": 2
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "value": {
+                      "doubleValue": 1
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.usage_details",
+                    "value": {
+                      "stringValue": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.input",
+                    "value": {
+                      "stringValue": "ls -la"
+                    }
+                  },
+                  {
+                    "key": "input.value",
+                    "value": {
+                      "stringValue": "ls -la"
+                    }
+                  }
+                ]
+              },
+              {
+                "traceId": "7112ebb6529e4fd79127431b00ed89d4",
+                "spanId": "1d9cc9d66e8f4650",
+                "parentSpanId": "80ffc3debec94a50",
+                "name": "Tool: mcp__context7__resolve",
+                "startTimeUnixNano": "1772186401000000000",
+                "endTimeUnixNano": "1772186401000000000",
+                "attributes": [
+                  {
+                    "key": "agentic.runtime.name",
+                    "value": {
+                      "stringValue": "claude-code"
+                    }
+                  },
+                  {
+                    "key": "agentic.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "agentic.project.id",
+                    "value": {
+                      "stringValue": "test-project"
+                    }
+                  },
+                  {
+                    "key": "langfuse.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.name",
+                    "value": {
+                      "stringValue": "Spanory claude-code turn-1"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.metadata",
+                    "value": {
+                      "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"test-project\",\"sessionId\":\"session-a\",\"turnId\":\"turn-1\"}"
+                    }
+                  },
+                  {
+                    "key": "agentic.turn.id",
+                    "value": {
+                      "stringValue": "turn-1"
+                    }
+                  },
+                  {
+                    "key": "agentic.event.category",
+                    "value": {
+                      "stringValue": "mcp"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.type",
+                    "value": {
+                      "stringValue": "tool"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.tool.name",
+                    "value": {
+                      "stringValue": "mcp__context7__resolve"
+                    }
+                  },
+                  {
+                    "key": "mcp.request.id",
+                    "value": {
+                      "stringValue": "tool-mcp-1"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.operation.name",
+                    "value": {
+                      "stringValue": "execute_tool"
+                    }
+                  },
+                  {
+                    "key": "agentic.mcp.server.name",
+                    "value": {
+                      "stringValue": "context7"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.model.name",
+                    "value": {
+                      "stringValue": "claude-opus-4-6"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.input_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.prompt_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.output_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.completion_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.total_tokens",
+                    "value": {
+                      "doubleValue": 15
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "value": {
+                      "doubleValue": 2
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "value": {
+                      "doubleValue": 1
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.usage_details",
+                    "value": {
+                      "stringValue": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.input",
+                    "value": {
+                      "stringValue": "{\"query\":\"langfuse\"}"
+                    }
+                  },
+                  {
+                    "key": "input.value",
+                    "value": {
+                      "stringValue": "{\"query\":\"langfuse\"}"
+                    }
+                  }
+                ]
+              },
+              {
+                "traceId": "7112ebb6529e4fd79127431b00ed89d4",
+                "spanId": "97a01b7dd8f244e5",
+                "parentSpanId": "80ffc3debec94a50",
+                "name": "Tool: Task",
+                "startTimeUnixNano": "1772186401000000000",
+                "endTimeUnixNano": "1772186401000000000",
+                "attributes": [
+                  {
+                    "key": "agentic.runtime.name",
+                    "value": {
+                      "stringValue": "claude-code"
+                    }
+                  },
+                  {
+                    "key": "agentic.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "agentic.project.id",
+                    "value": {
+                      "stringValue": "test-project"
+                    }
+                  },
+                  {
+                    "key": "langfuse.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.name",
+                    "value": {
+                      "stringValue": "Spanory claude-code turn-1"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.metadata",
+                    "value": {
+                      "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"test-project\",\"sessionId\":\"session-a\",\"turnId\":\"turn-1\"}"
+                    }
+                  },
+                  {
+                    "key": "agentic.turn.id",
+                    "value": {
+                      "stringValue": "turn-1"
+                    }
+                  },
+                  {
+                    "key": "agentic.event.category",
+                    "value": {
+                      "stringValue": "agent_task"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.type",
+                    "value": {
+                      "stringValue": "agent"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.tool.name",
+                    "value": {
+                      "stringValue": "Task"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.tool.call.id",
+                    "value": {
+                      "stringValue": "tool-task-1"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.operation.name",
+                    "value": {
+                      "stringValue": "invoke_agent"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.model.name",
+                    "value": {
+                      "stringValue": "claude-opus-4-6"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.input_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.prompt_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.output_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.completion_tokens",
+                    "value": {
+                      "doubleValue": 5
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.total_tokens",
+                    "value": {
+                      "doubleValue": 15
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "value": {
+                      "doubleValue": 2
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "value": {
+                      "doubleValue": 1
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.usage_details",
+                    "value": {
+                      "stringValue": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.input",
+                    "value": {
+                      "stringValue": "{\"task\":\"index repo\"}"
+                    }
+                  },
+                  {
+                    "key": "input.value",
+                    "value": {
+                      "stringValue": "{\"task\":\"index repo\"}"
+                    }
+                  }
+                ]
+              },
+              {
+                "traceId": "71ff1f32d8cc43ef8b532895e2812435",
+                "spanId": "8453b62913a042f0",
+                "name": "Claude Code - Turn turn-2",
+                "startTimeUnixNano": "1772186402000000000",
+                "endTimeUnixNano": "1772186403000000000",
+                "attributes": [
+                  {
+                    "key": "agentic.runtime.name",
+                    "value": {
+                      "stringValue": "claude-code"
+                    }
+                  },
+                  {
+                    "key": "agentic.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "agentic.project.id",
+                    "value": {
+                      "stringValue": "test-project"
+                    }
+                  },
+                  {
+                    "key": "langfuse.session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "session.id",
+                    "value": {
+                      "stringValue": "session-a"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.name",
+                    "value": {
+                      "stringValue": "Spanory claude-code turn-2"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.metadata",
+                    "value": {
+                      "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"test-project\",\"sessionId\":\"session-a\",\"turnId\":\"turn-2\"}"
+                    }
+                  },
+                  {
+                    "key": "agentic.turn.id",
+                    "value": {
+                      "stringValue": "turn-2"
+                    }
+                  },
+                  {
+                    "key": "agentic.event.category",
+                    "value": {
+                      "stringValue": "turn"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.type",
+                    "value": {
+                      "stringValue": "agent"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.operation.name",
+                    "value": {
+                      "stringValue": "invoke_agent"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.model.name",
+                    "value": {
+                      "stringValue": "claude-opus-4-6"
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.input_tokens",
+                    "value": {
+                      "doubleValue": 7
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.prompt_tokens",
+                    "value": {
+                      "doubleValue": 7
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.output_tokens",
+                    "value": {
+                      "doubleValue": 3
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.completion_tokens",
+                    "value": {
+                      "doubleValue": 3
+                    }
+                  },
+                  {
+                    "key": "gen_ai.usage.total_tokens",
+                    "value": {
+                      "doubleValue": 10
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.usage_details",
+                    "value": {
+                      "stringValue": "{\"input\":7,\"output\":3,\"total\":10}"
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.input",
+                    "value": {
+                      "stringValue": ""
+                    }
+                  },
+                  {
+                    "key": "langfuse.trace.output",
+                    "value": {
+                      "stringValue": "All set"
+                    }
+                  },
+                  {
+                    "key": "langfuse.observation.output",
+                    "value": {
+                      "stringValue": "All set"
+                    }
+                  },
+                  {
+                    "key": "output.value",
+                    "value": {
+                      "stringValue": "All set"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
