@@ -74,4 +74,35 @@ describe('BDD hook ingestion', () => {
 
     expect(existsSync(outFile)).toBe(true);
   });
+
+  it('Given same session payload twice, When hook command runs twice, Then second run is skipped as unchanged', () => {
+    const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-home-'));
+    const projectDir = path.join(fakeHome, '.claude', 'projects', 'test-project');
+    mkdirSync(projectDir, { recursive: true });
+    const fixture = path.resolve('test/fixtures/claude/projects/test-project/session-a.jsonl');
+    const transcript = path.join(projectDir, 'session-a.jsonl');
+    cpSync(fixture, transcript);
+
+    const exportDir = mkdtempSync(path.join(tmpdir(), 'spanory-hook-'));
+    const payload = JSON.stringify({
+      hook_event_name: 'SessionEnd',
+      session_id: 'session-a',
+      transcript_path: transcript,
+    });
+    const env = { ...cleanEnv, HOME: fakeHome };
+
+    execFileSync(
+      'node',
+      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
+      { input: payload, env },
+    );
+
+    const second = execFileSync(
+      'node',
+      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
+      { input: payload, env, encoding: 'utf8' },
+    );
+
+    expect(second).toContain('skip=unchanged sessionId=session-a');
+  });
 });

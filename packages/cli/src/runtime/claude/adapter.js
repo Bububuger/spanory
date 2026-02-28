@@ -93,6 +93,46 @@ function extractToolResults(content) {
   return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_result');
 }
 
+function isToolResultOnlyContent(content) {
+  return Array.isArray(content)
+    && content.length > 0
+    && content.every((block) => block && typeof block === 'object' && block.type === 'tool_result');
+}
+
+function isPromptUserMessage(message) {
+  if (!message || message.type !== 'user' || message.isMeta) return false;
+  const { content } = message;
+  if (typeof content === 'string') return content.trim().length > 0;
+  if (!Array.isArray(content)) return false;
+  if (isToolResultOnlyContent(content)) return false;
+  return content.length > 0;
+}
+
+function normalizeUserInput(content) {
+  const text = extractText(content).trim();
+  if (text) return text;
+  if (Array.isArray(content)) return JSON.stringify(content);
+  if (typeof content === 'string') return content;
+  return '';
+}
+
+function extractToolResultText(block, message) {
+  const raw = block?.content;
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  if (Array.isArray(raw)) {
+    const text = extractText(raw).trim();
+    if (text) return text;
+    return JSON.stringify(raw);
+  }
+  if (raw && typeof raw === 'object') return JSON.stringify(raw);
+
+  const stdout = message?.toolUseResult?.stdout;
+  if (typeof stdout === 'string' && stdout.length > 0) return stdout;
+  const stderr = message?.toolUseResult?.stderr;
+  if (typeof stderr === 'string' && stderr.length > 0) return stderr;
+  return '';
+}
+
 function parseSlashCommand(text) {
   const m = text.match(/<command-name>\s*\/([^<\s]+)\s*<\/command-name>/i);
   if (!m) return null;
@@ -116,7 +156,7 @@ function parseProjectIdFromTranscript(transcriptPath) {
 }
 
 function createTurn(messages, turnId, projectId, sessionId) {
-  const user = messages.find((m) => m.type === 'user' && !m.isMeta) ?? messages[0];
+  const user = messages.find(isPromptUserMessage) ?? messages.find((m) => m.type === 'user' && !m.isMeta) ?? messages[0];
   const assistants = messages.filter((m) => m.type === 'assistant');
   const start = user?.timestamp ?? messages[0]?.timestamp ?? new Date();
   const end = messages[messages.length - 1]?.timestamp ?? start;
@@ -141,7 +181,7 @@ function createTurn(messages, turnId, projectId, sessionId) {
       name: `Claude Code - Turn ${turnId}`,
       startedAt: start.toISOString(),
       endedAt: end.toISOString(),
-      input: extractText(user?.content),
+      input: normalizeUserInput(user?.content),
       output,
       attributes: {
         'agentic.event.category': 'turn',
@@ -159,8 +199,17 @@ function createTurn(messages, turnId, projectId, sessionId) {
     for (const tr of extractToolResults(msg.content)) {
       const toolUseId = String(tr.tool_use_id ?? tr.toolUseId ?? '');
       if (!toolUseId) continue;
-      const content = typeof tr.content === 'string' ? tr.content : JSON.stringify(tr.content ?? '');
-      resultByToolId.set(toolUseId, content);
+      const content = extractToolResultText(tr, msg);
+      if (!resultByToolId.has(toolUseId) || !resultByToolId.get(toolUseId)) {
+        resultByToolId.set(toolUseId, content);
+      }
+    }
+
+    if (msg.sourceToolUseId) {
+      const fallback = extractToolResultText({}, msg);
+      if (fallback && (!resultByToolId.has(msg.sourceToolUseId) || !resultByToolId.get(msg.sourceToolUseId))) {
+        resultByToolId.set(msg.sourceToolUseId, fallback);
+      }
     }
   }
 
@@ -280,6 +329,12 @@ function createTurn(messages, turnId, projectId, sessionId) {
     }
   }
 
+  const turnInput = String(events[0].input ?? '').trim();
+  const turnOutput = String(events[0].output ?? '').trim();
+  if (!turnInput && !turnOutput && events.length === 1) {
+    return [];
+  }
+
   return events;
 }
 
@@ -296,6 +351,8 @@ async function readClaudeTranscript(transcriptPath) {
         content: entry?.message?.content ?? entry.content ?? '',
         model: entry?.message?.model ?? entry.model,
         usage: pickUsage(entry?.message?.usage ?? entry?.usage ?? entry?.message_usage),
+        toolUseResult: entry?.toolUseResult,
+        sourceToolUseId: entry?.sourceToolUseID ?? entry?.sourceToolUseId,
         timestamp: parseTimestamp(entry),
       });
     } catch {
@@ -311,7 +368,7 @@ function groupByTurns(messages) {
   let current = [];
 
   for (const msg of messages) {
-    if (msg.type === 'user' && !msg.isMeta) {
+    if (isPromptUserMessage(msg)) {
       if (current.length > 0) turns.push(current);
       current = [msg];
       continue;

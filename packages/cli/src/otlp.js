@@ -1,12 +1,12 @@
-import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
-function normalizeHexId(value, targetLength) {
-  const normalized = String(value ?? '')
-    .toLowerCase()
-    .replace(/[^0-9a-f]/g, '');
-  if (!normalized) return '0'.repeat(targetLength);
-  if (normalized.length >= targetLength) return normalized.slice(0, targetLength);
-  return normalized.padEnd(targetLength, '0');
+function stableHexId(parts, targetLength) {
+  const h = createHash('sha256');
+  for (const p of parts) {
+    h.update(String(p ?? ''));
+    h.update('\u001f');
+  }
+  return h.digest('hex').slice(0, targetLength);
 }
 
 function toUnixNano(dateString) {
@@ -60,15 +60,43 @@ export function compileOtlp(events, resource) {
   const traceByTurn = new Map();
   const rootByTurn = new Map();
   const spans = [];
+  const spanIdSet = new Set();
 
-  for (const event of events) {
+  for (let idx = 0; idx < events.length; idx += 1) {
+    const event = events[idx];
     const turnKey = event.turnId || `${event.sessionId}:root`;
     if (!traceByTurn.has(turnKey)) {
-      traceByTurn.set(turnKey, normalizeHexId(randomUUID(), 32));
+      traceByTurn.set(
+        turnKey,
+        stableHexId(
+          ['trace', event.runtime, event.projectId, event.sessionId, turnKey],
+          32,
+        ),
+      );
     }
     const traceId = traceByTurn.get(turnKey);
 
-    const spanId = normalizeHexId(randomUUID(), 16);
+    const eventStableKey = [
+      'span',
+      event.runtime,
+      event.projectId,
+      event.sessionId,
+      event.turnId ?? '',
+      event.category,
+      event.name,
+      event.startedAt,
+      event.endedAt ?? '',
+      event.attributes?.['gen_ai.tool.call.id'] ?? event.attributes?.['mcp.request.id'] ?? '',
+      event.input ?? '',
+      event.output ?? '',
+      idx,
+    ];
+    let spanId = stableHexId(eventStableKey, 16);
+    if (spanIdSet.has(spanId)) {
+      spanId = stableHexId([...eventStableKey, 'collision'], 16);
+    }
+    spanIdSet.add(spanId);
+
     let parentSpanId;
     if (event.category !== 'turn') {
       parentSpanId = rootByTurn.get(turnKey);
@@ -82,6 +110,7 @@ export function compileOtlp(events, resource) {
       'agentic.runtime.name': event.runtime,
       'agentic.session.id': event.sessionId,
       'agentic.project.id': event.projectId,
+      'langfuse.trace.id': traceId,
       'langfuse.session.id': event.sessionId,
       'session.id': event.sessionId,
       'langfuse.trace.name': `Spanory ${event.runtime} ${event.turnId ?? event.sessionId}`,
@@ -102,6 +131,7 @@ export function compileOtlp(events, resource) {
       ...(!event.attributes?.['langfuse.observation.type']
         ? { 'langfuse.observation.type': observationTypeForCategory(event.category) }
         : {}),
+      'langfuse.observation.id': spanId,
       ...(event.input ? { 'langfuse.observation.input': event.input, 'input.value': event.input } : {}),
       ...(event.output ? { 'langfuse.observation.output': event.output, 'output.value': event.output } : {}),
     };

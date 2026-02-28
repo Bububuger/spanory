@@ -1,0 +1,6 @@
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:00:00.000Z","message":{"content":"请帮我查一下仓库状态"}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:01.000Z","message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":12,"output_tokens":4},"content":[{"type":"thinking","thinking":"先执行命令"},{"type":"tool_use","id":"bash-1","name":"Bash","input":{"command":"git status --short"}}]}}
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:00:01.200Z","sourceToolUseID":"bash-1","toolUseResult":{"stdout":"M README.md","stderr":"","interrupted":false},"message":{"content":[{"type":"tool_result","tool_use_id":"bash-1","content":""}]}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:02.000Z","message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":8,"output_tokens":3},"content":[{"type":"tool_use","id":"bash-2","name":"Bash","input":{"command":"git branch --show-current"}}]}}
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T00:00:02.100Z","message":{"content":[{"type":"tool_result","tool_use_id":"bash-2","content":"main"}]}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:03.000Z","message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":4,"output_tokens":2},"content":[{"type":"text","text":"当前分支 main，README 有改动。"}]}}

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 import { Command } from 'commander';
 
@@ -78,6 +79,61 @@ async function readStdinText() {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
+function fingerprintSession(context, events) {
+  const hash = createHash('sha256');
+  hash.update(String(context.projectId ?? ''));
+  hash.update('\u001f');
+  hash.update(String(context.sessionId ?? ''));
+  hash.update('\u001f');
+  hash.update(String(context.transcriptPath ?? ''));
+  hash.update('\u001f');
+  for (const event of events) {
+    hash.update(String(event.turnId ?? ''));
+    hash.update('\u001f');
+    hash.update(String(event.category ?? ''));
+    hash.update('\u001f');
+    hash.update(String(event.name ?? ''));
+    hash.update('\u001f');
+    hash.update(String(event.startedAt ?? ''));
+    hash.update('\u001f');
+    hash.update(String(event.endedAt ?? ''));
+    hash.update('\u001f');
+    hash.update(String(event.input ?? ''));
+    hash.update('\u001f');
+    hash.update(String(event.output ?? ''));
+    hash.update('\u001f');
+    const attrs = event.attributes ?? {};
+    const keys = Object.keys(attrs).sort();
+    for (const key of keys) {
+      hash.update(key);
+      hash.update('=');
+      hash.update(String(attrs[key] ?? ''));
+      hash.update('\u001f');
+    }
+  }
+  return hash.digest('hex');
+}
+
+function hookStatePath(sessionId) {
+  return path.join(process.env.HOME || '', '.claude', 'state', 'spanory', `${sessionId}.json`);
+}
+
+async function readHookState(sessionId) {
+  const file = hookStatePath(sessionId);
+  try {
+    const raw = await readFile(file, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function writeHookState(sessionId, value) {
+  const file = hookStatePath(sessionId);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(value, null, 2), 'utf-8');
+}
+
 async function emitSession({ runtimeName, context, events, endpoint, headers, exportJsonPath }) {
   const payload = compileOtlp(events, getResource());
 
@@ -115,6 +171,15 @@ async function runHookMode(options) {
   }
 
   const events = await adapter.collectEvents(context);
+  const fingerprint = fingerprintSession(context, events);
+  if (!options.force) {
+    const prev = await readHookState(context.sessionId);
+    if (prev?.fingerprint === fingerprint) {
+      console.log(`skip=unchanged sessionId=${context.sessionId}`);
+      return;
+    }
+  }
+
   const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${context.sessionId}.json`) : undefined;
 
   await emitSession({
@@ -124,6 +189,13 @@ async function runHookMode(options) {
     endpoint: resolveEndpoint(options.endpoint),
     headers: resolveHeaders(options.headers),
     exportJsonPath,
+  });
+
+  await writeHookState(context.sessionId, {
+    sessionId: context.sessionId,
+    projectId: context.projectId,
+    fingerprint,
+    updatedAt: new Date().toISOString(),
   });
 }
 
@@ -217,6 +289,7 @@ claudeCode
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
   .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
   .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+  .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
   .addHelpText(
     'after',
     '\nExamples:\n'
@@ -363,6 +436,7 @@ program
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
   .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
   .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+  .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
   .addHelpText(
     'after',
     '\nMinimal usage in Claude SessionEnd hook command:\n'
@@ -372,6 +446,7 @@ program
     await runHookMode({
       endpoint: options.endpoint,
       headers: options.headers,
+      force: options.force,
       exportJsonDir: options.exportJsonDir ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR ?? path.join(process.env.HOME || '', '.claude', 'state', 'spanory-json'),
     });
   });
