@@ -1,89 +1,47 @@
-# Spanory P1 Alert+Report Implementation Plan (2026-02-28)
+# Spanory Hook Export Dir Resilience Plan (2026-03-01)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Implement P1-in-scope capabilities for Spanory infrastructure layer: alert evaluation engine and report views, without building a hosted dashboard or log platform.
+**Goal:** Make `spanory hook` resilient when the default or provided export directory does not exist by automatically creating parent directories before writing JSON snapshots.
 
-**Architecture:** Keep Spanory as telemetry infrastructure. Add local query/report aggregation over normalized events and a rule-based alert evaluator that can consume exported session JSON. Provide output adapters (stdout/webhook) instead of UI.
+**Architecture:** Keep current CLI contract unchanged. Add directory-creation guard in the centralized export write path so all commands (`hook`, `export`, `backfill`) benefit consistently.
 
-**Tech Stack:** Node.js (ESM), Commander.js CLI, Vitest (unit + BDD integration), existing runtime adapters.
+**Tech Stack:** Node.js (ESM), existing CLI command framework, Vitest BDD tests.
 
 ---
 
-### Task 1: Historical plan/todo management policy
+### Task 1: Implement directory auto-create before JSON writes
 
 **Files:**
-- Create: `docs/plans/history/README.md`
-- Create: `docs/todos/history/README.md`
-- Modify: `README.md`
-
-**Steps:**
-1. Document that each stage archives old `plan.md` and `todo.md` before creating new ones.
-2. Add README pointers for where plan/todo history lives.
-
-**Acceptance:** Historical files discoverable and policy documented.
-
-### Task 2: Build report aggregation module
-
-**Files:**
-- Create: `packages/cli/src/report/aggregate.js`
 - Modify: `packages/cli/src/index.js`
 
 **Steps:**
-1. Implement event-based aggregation helpers:
-   - `session-summary`
-   - `mcp-summary`
-   - `command-summary`
-   - `agent-summary`
-2. Support input from exported session JSON file(s).
-3. Add CLI command group `spanory report ...`.
+1. Import `mkdir` from `node:fs/promises`.
+2. Before writing `exportJsonPath`, ensure `dirname(exportJsonPath)` exists with recursive create.
+3. Keep behavior backward-compatible for existing commands.
 
-**Acceptance:** Report commands output deterministic JSON summaries.
+**Acceptance:** CLI no longer fails with ENOENT when export path parent directories are missing.
 
-### Task 3: Build alert evaluator module
+### Task 2: Add regression test for missing export directory
 
 **Files:**
-- Create: `packages/cli/src/alert/evaluate.js`
-- Modify: `packages/cli/src/index.js`
+- Modify: `packages/cli/test/bdd/hook.integration.spec.js`
 
 **Steps:**
-1. Define alert rule format (JSON): thresholds over summary metrics.
-2. Implement evaluator command `spanory alert eval`.
-3. Support sinks:
-   - stdout JSON
-   - optional webhook POST
-4. Include non-zero exit when alerts fire (optional flag-controlled).
+1. Add scenario where `--export-json-dir` points to a non-existing nested path.
+2. Verify command succeeds and output file is created.
 
-**Acceptance:** Rules trigger expected alerts on fixture data.
+**Acceptance:** BDD passes and proves missing directory is auto-created.
 
-### Task 4: Add tests (unit + BDD)
+### Task 3: Verify and update task status
 
 **Files:**
-- Create: `packages/cli/test/unit/report.spec.js`
-- Create: `packages/cli/test/unit/alert.spec.js`
-- Create: `packages/cli/test/bdd/report.integration.spec.js`
-- Create: `packages/cli/test/bdd/alert.integration.spec.js`
-- Create: `packages/cli/test/fixtures/exported/*.json`
-
-**Steps:**
-1. Unit test aggregation math and grouping.
-2. Unit test rule evaluator semantics.
-3. BDD test CLI commands and failure behavior.
-
-**Acceptance:** `npm test` and `npm run test:bdd` pass.
-
-### Task 5: Documentation and final verification
-
-**Files:**
-- Modify: `README.md`
 - Modify: `todo.md`
 
 **Steps:**
-1. Document new commands with examples.
-2. Run full verification:
-   - `npm run check`
-   - `npm test`
-   - `npm run test:bdd`
-3. Mark all todo items done with evidence.
+1. Run `npm run check`.
+2. Run `npm test`.
+3. Run `npm run test:bdd`.
+4. Mark todo items done.
 
-**Acceptance:** All checks pass; todo fully completed.
+**Acceptance:** All verification commands pass; todo fully completed.

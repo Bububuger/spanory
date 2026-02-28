@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Command } from 'commander';
@@ -91,6 +91,7 @@ async function emitSession({ runtimeName, context, events, endpoint, headers, ex
   }
 
   if (exportJsonPath) {
+    await mkdir(path.dirname(exportJsonPath), { recursive: true });
     await writeFile(exportJsonPath, JSON.stringify({ context, events, payload }, null, 2), 'utf-8');
     console.log(`json=${exportJsonPath}`);
   }

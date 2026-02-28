@@ -48,4 +48,30 @@ describe('BDD hook ingestion', () => {
       execFileSync('node', [entry, 'runtime', 'claude-code', 'hook'], { input: '{not-json', env: cleanEnv });
     }).toThrowError();
   });
+
+  it('Given a non-existing nested export directory, When hook command runs, Then directory is auto-created and json is written', () => {
+    const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-home-'));
+    const projectDir = path.join(fakeHome, '.claude', 'projects', 'test-project');
+    mkdirSync(projectDir, { recursive: true });
+    const fixture = path.resolve('test/fixtures/claude/projects/test-project/session-a.jsonl');
+    const transcript = path.join(projectDir, 'session-a.jsonl');
+    cpSync(fixture, transcript);
+
+    const exportDir = path.join(tmpdir(), `spanory-nested-${Date.now()}`, 'a', 'b', 'c');
+    const outFile = path.join(exportDir, 'session-a.json');
+
+    const payload = JSON.stringify({
+      hook_event_name: 'SessionEnd',
+      session_id: 'session-a',
+      transcript_path: transcript,
+    });
+
+    execFileSync(
+      'node',
+      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
+      { input: payload, env: { ...cleanEnv, HOME: fakeHome } },
+    );
+
+    expect(existsSync(outFile)).toBe(true);
+  });
 });

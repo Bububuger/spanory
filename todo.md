@@ -1,15 +1,13 @@
-# Spanory P1 Alert+Report TODO (2026-02-28)
+# Spanory Hook Export Dir Resilience TODO (2026-03-01)
 
 ## Progress Rule
 - 每完成一项必须执行对应验收命令并记录结果。
 - 不通过就继续修复，直到通过再进入下一项。
 
 ## Tasks
-- [x] T1 历史记录管理：归档并文档化 plan/todo 历史策略
-- [x] T2 Report 聚合模块：session/mcp/command/agent 视图与 CLI
-- [x] T3 Alert 规则引擎：阈值评估 + stdout/webhook 输出
-- [x] T4 测试：unit + bdd 覆盖 report/alert 正常与异常路径
-- [x] T5 文档与终验：README 更新 + 全量校验通过
+- [x] T1 CLI 健壮性：导出 JSON 前自动创建目录
+- [x] T2 回归测试：hook 在不存在导出目录时仍成功
+- [x] T3 终验：check/test/bdd 全通过并更新状态
 
 ## Verification Commands
 - `npm run check`
