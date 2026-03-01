@@ -112,4 +112,53 @@ describe('otlp compiler', () => {
     expect(toolAttrs['gen_ai.tool.name']).toBe('WebSearch');
     expect(toolAttrs['gen_ai.tool.call.id']).toBe('call-web-1');
   });
+
+  it('keeps trace input/output stable on child tool spans', () => {
+    const events = [
+      {
+        runtime: 'openclaw',
+        sessionId: 'oc-s2',
+        projectId: 'oc-p2',
+        turnId: 'turn-1',
+        category: 'turn',
+        name: 'Turn 1',
+        startedAt: '2026-03-01T00:00:00.000Z',
+        endedAt: '2026-03-01T00:00:01.000Z',
+        input: 'plugin smoke input 2',
+        output: 'plugin smoke output 2',
+        attributes: {
+          'langfuse.observation.model.name': 'openclaw-pro',
+        },
+      },
+      {
+        runtime: 'openclaw',
+        sessionId: 'oc-s2',
+        projectId: 'oc-p2',
+        turnId: 'turn-1',
+        category: 'shell_command',
+        name: 'Tool: Bash',
+        startedAt: '2026-03-01T00:00:00.200Z',
+        endedAt: '2026-03-01T00:00:00.300Z',
+        input: '{"command":"echo smoke2"}',
+        output: '{"stdout":"smoke2"}',
+        attributes: {
+          'gen_ai.tool.name': 'Bash',
+          'gen_ai.tool.call.id': 'call-bash-1',
+        },
+      },
+    ];
+
+    const payload = compileOtlp(events, { serviceName: 'spanory', serviceVersion: '0.1.0', environment: 'test' });
+    const spans = payload.resourceSpans[0].scopeSpans[0].spans;
+    expect(spans).toHaveLength(2);
+
+    const rootAttrs = Object.fromEntries(spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+    const toolAttrs = Object.fromEntries(spans[1].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+
+    expect(rootAttrs['langfuse.trace.input']).toBe('plugin smoke input 2');
+    expect(rootAttrs['langfuse.trace.output']).toBe('plugin smoke output 2');
+    expect(toolAttrs['langfuse.trace.input']).toBe('plugin smoke input 2');
+    expect(toolAttrs['langfuse.trace.output']).toBe('plugin smoke output 2');
+    expect(toolAttrs['langfuse.observation.input']).toBe('{"command":"echo smoke2"}');
+  });
 });
