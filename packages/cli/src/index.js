@@ -116,6 +116,40 @@ function fingerprintSession(context, events) {
   return hash.digest('hex');
 }
 
+function parseTurnOrdinal(turnId) {
+  const m = String(turnId ?? '').match(/^turn-(\d+)$/);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function selectLatestTurnEvents(events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return { turnId: undefined, events: [] };
+  }
+
+  let latestTurnId;
+  let latestTurnOrdinal = -1;
+  for (const event of events) {
+    if (!event?.turnId) continue;
+    const turnOrdinal = parseTurnOrdinal(event.turnId);
+    if (turnOrdinal === undefined) {
+      if (!latestTurnId) latestTurnId = event.turnId;
+      continue;
+    }
+    if (turnOrdinal > latestTurnOrdinal) {
+      latestTurnOrdinal = turnOrdinal;
+      latestTurnId = event.turnId;
+    }
+  }
+
+  if (!latestTurnId) return { turnId: undefined, events: [] };
+  return {
+    turnId: latestTurnId,
+    events: events.filter((event) => event.turnId === latestTurnId),
+  };
+}
+
 function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
   if (explicitRuntimeHome) return explicitRuntimeHome;
   if (runtimeName === 'openclaw') {
@@ -208,11 +242,32 @@ async function runHookMode(options) {
     ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
   };
 
-  const events = await adapter.collectEvents(contextWithRuntimeHome);
-  const fingerprint = fingerprintSession(contextWithRuntimeHome, events);
+  const allEvents = await adapter.collectEvents(contextWithRuntimeHome);
+  const fullFingerprint = fingerprintSession(contextWithRuntimeHome, allEvents);
+
+  let selectedTurnId;
+  let events = allEvents;
+  let selectedFingerprint = fullFingerprint;
+
+  if (options.lastTurnOnly) {
+    const latest = selectLatestTurnEvents(allEvents);
+    selectedTurnId = latest.turnId;
+    events = latest.events;
+    if (!selectedTurnId || events.length === 0) {
+      console.log(`skip=no-turn sessionId=${contextWithRuntimeHome.sessionId}`);
+      return;
+    }
+    selectedFingerprint = fingerprintSession(contextWithRuntimeHome, events);
+  }
+
   if (!options.force) {
     const prev = await readHookState(runtimeName, contextWithRuntimeHome.sessionId, options.runtimeHome);
-    if (prev?.fingerprint === fingerprint) {
+    if (options.lastTurnOnly) {
+      if (prev?.lastTurnId === selectedTurnId && prev?.lastTurnFingerprint === selectedFingerprint) {
+        console.log(`skip=unchanged-turn sessionId=${contextWithRuntimeHome.sessionId} turnId=${selectedTurnId}`);
+        return;
+      }
+    } else if (prev?.fingerprint === fullFingerprint) {
       console.log(`skip=unchanged sessionId=${contextWithRuntimeHome.sessionId}`);
       return;
     }
@@ -237,7 +292,8 @@ async function runHookMode(options) {
     {
       sessionId: contextWithRuntimeHome.sessionId,
       projectId: contextWithRuntimeHome.projectId,
-      fingerprint,
+      fingerprint: fullFingerprint,
+      ...(options.lastTurnOnly ? { lastTurnId: selectedTurnId, lastTurnFingerprint: selectedFingerprint } : {}),
       updatedAt: new Date().toISOString(),
     },
     options.runtimeHome,
@@ -339,6 +395,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
     .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
     .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
     .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+    .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
     .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
     .addHelpText(
       'after',
@@ -351,6 +408,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
       runtimeHome: options.runtimeHome,
       endpoint: options.endpoint,
       headers: options.headers,
+      lastTurnOnly: options.lastTurnOnly,
       force: options.force,
       exportJsonDir: options.exportJsonDir,
     }));
@@ -514,6 +572,7 @@ program
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
   .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
   .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+  .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
   .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
   .addHelpText(
     'after',
@@ -528,6 +587,7 @@ program
       runtimeHome: options.runtimeHome,
       endpoint: options.endpoint,
       headers: options.headers,
+      lastTurnOnly: options.lastTurnOnly,
       force: options.force,
       exportJsonDir:
         options.exportJsonDir

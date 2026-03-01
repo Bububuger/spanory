@@ -78,6 +78,18 @@ export SPANORY_HOOK_EXPORT_JSON_DIR="$HOME/.claude/state/spanory-json"
 spanory hook
 ```
 
+### 3.1) 绑定 Claude Code `Stop` Hook（每轮仅新增 turn）
+
+如果希望按轮实时上报，避免每次重发整个 session，可在 `Stop` Hook 中使用：
+
+```bash
+spanory hook --last-turn-only
+```
+
+说明：
+- `--last-turn-only` 仅发送最新 turn 的事件。
+- 会按 `sessionId + turnId + turn fingerprint` 去重；同一轮重复触发会跳过。
+
 ### 4) 验证是否生效
 
 查看 hook 日志：

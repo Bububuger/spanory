@@ -24,6 +24,7 @@ async function readClaudeTranscript(transcriptPath) {
         content: entry?.message?.content ?? entry.content ?? '',
         model: entry?.message?.model ?? entry.model,
         usage: pickUsage(entry?.message?.usage ?? entry?.usage ?? entry?.message_usage),
+        runtimeVersion: entry?.version,
         messageId: entry?.message?.id,
         toolUseResult: entry?.toolUseResult,
         sourceToolUseId: entry?.sourceToolUseID ?? entry?.sourceToolUseId,

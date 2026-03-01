@@ -139,6 +139,7 @@ async function readOpenclawTranscript(transcriptPath) {
         content: normalizeContent(entry),
         model: normalizeModel(entry),
         usage: normalizeUsage(entry),
+        runtimeVersion: entry?.version ?? entry?.app_version ?? entry?.appVersion,
         messageId: normalizeMessageId(entry),
         toolUseResult: normalizeToolUseResult(entry),
         sourceToolUseId: normalizeSourceToolUseId(entry),

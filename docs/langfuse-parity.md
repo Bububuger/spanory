@@ -27,6 +27,8 @@ defined at normalized event level; runtime-specific gaps only apply when source 
 | `service.name` | Yes | Yes | Done | Resource attr |
 | `service.version` | Yes | Yes | Done | Resource attr |
 | `deployment.environment` | Yes | Yes | Done | Resource attr |
+| `agentic.runtime.name` | Yes (custom) | Yes | Done | Runtime identifier from adapter (e.g. `claude-code`) |
+| `agentic.runtime.version` | Yes (custom) | Yes | Done | Parsed from transcript top-level `version` |
 | `session.id` | Yes | Yes | Done | Added for trace/session linking |
 | `langfuse.session.id` | Yes (compat) | Yes | Done | Added compat attr |
 | `langfuse.trace.name` | Yes | Yes | Done | Deterministic per runtime + turn/session |
@@ -39,6 +41,7 @@ defined at normalized event level; runtime-specific gaps only apply when source 
 | `input.value` | Yes | Yes | Done | Compatibility key |
 | `output.value` | Yes | Yes | Done | Compatibility key |
 | `langfuse.observation.model.name` | Yes | Yes | Done | Parsed from Claude message model |
+| `gen_ai.request.model` | Yes (semantic) | Yes | Done | Generic model name key (same source as Langfuse model name) |
 | `langfuse.observation.usage_details` | Yes | Yes | Done | JSON usage map |
 | `gen_ai.usage.input_tokens` | Yes | Yes | Done | Usage extraction |
 | `gen_ai.usage.output_tokens` | Yes | Yes | Done | Usage extraction |

@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-03-01T12:00:00.000Z","message":{"content":[{"type":"text","text":"第一轮问题"}]}}
+{"type":"assistant","timestamp":"2026-03-01T12:00:01.000Z","message":{"id":"msg-f-1","model":"claude-opus-4-6","usage":{"input_tokens":8,"output_tokens":4,"total_tokens":12},"content":[{"type":"text","text":"第一轮回答"}]}}
+{"type":"user","timestamp":"2026-03-01T12:01:00.000Z","message":{"content":[{"type":"text","text":"第二轮问题"}]}}
+{"type":"assistant","timestamp":"2026-03-01T12:01:01.000Z","message":{"id":"msg-f-2","model":"claude-opus-4-6","usage":{"input_tokens":7,"output_tokens":5,"total_tokens":12},"content":[{"type":"text","text":"第二轮回答"}]}}

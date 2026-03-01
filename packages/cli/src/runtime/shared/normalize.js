@@ -60,6 +60,14 @@ function usageAttributes(usage) {
   return attrs;
 }
 
+function modelAttributes(model) {
+  if (!model) return {};
+  return {
+    'langfuse.observation.model.name': model,
+    'gen_ai.request.model': model,
+  };
+}
+
 function extractText(content) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
@@ -159,6 +167,11 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
     addUsage(totalUsage, msg.usage);
   }
   const usage = Object.keys(totalUsage).length ? totalUsage : undefined;
+  const runtimeVersion = [...messages]
+    .map((m) => String(m.runtimeVersion ?? '').trim())
+    .filter(Boolean)
+    .at(-1);
+  const runtimeVersionAttrs = runtimeVersion ? { 'agentic.runtime.version': runtimeVersion } : {};
 
   const events = [
     {
@@ -176,7 +189,8 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         'agentic.event.category': 'turn',
         'langfuse.observation.type': 'agent',
         'gen_ai.operation.name': 'invoke_agent',
-        ...(latestModel ? { 'langfuse.observation.model.name': latestModel } : {}),
+        ...runtimeVersionAttrs,
+        ...modelAttributes(latestModel),
         ...usageAttributes(usage),
       },
     },
@@ -220,6 +234,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         attributes: {
           'agentic.event.category': isMcp ? 'mcp' : 'agent_command',
           'langfuse.observation.type': isMcp ? 'tool' : 'event',
+          ...runtimeVersionAttrs,
           'agentic.command.name': slash.name,
           'agentic.command.args': slash.args,
           'gen_ai.operation.name': isMcp ? 'execute_tool' : 'invoke_agent',
@@ -253,11 +268,12 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'shell_command',
             'langfuse.observation.type': 'tool',
+            ...runtimeVersionAttrs,
             'process.command_line': commandLine,
             'gen_ai.tool.name': 'Bash',
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
-            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...modelAttributes(assistant.model),
             ...usageAttributes(assistant.usage),
           },
         });
@@ -280,11 +296,12 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'mcp',
             'langfuse.observation.type': 'tool',
+            ...runtimeVersionAttrs,
             'gen_ai.tool.name': toolName,
             'mcp.request.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
             ...(serverName ? { 'agentic.mcp.server.name': serverName } : {}),
-            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...modelAttributes(assistant.model),
             ...usageAttributes(assistant.usage),
           },
         });
@@ -306,10 +323,11 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'agent_task',
             'langfuse.observation.type': 'agent',
+            ...runtimeVersionAttrs,
             'gen_ai.tool.name': 'Task',
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'invoke_agent',
-            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...modelAttributes(assistant.model),
             ...usageAttributes(assistant.usage),
           },
         });
@@ -331,10 +349,11 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'tool',
             'langfuse.observation.type': 'tool',
+            ...runtimeVersionAttrs,
             'gen_ai.tool.name': toolName,
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
-            ...(assistant.model ? { 'langfuse.observation.model.name': assistant.model } : {}),
+            ...modelAttributes(assistant.model),
             ...usageAttributes(assistant.usage),
           },
         });
