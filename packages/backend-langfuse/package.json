@@ -1,0 +1,12 @@
+{
+  "name": "@spanory/backend-langfuse",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "check": "node -e \"console.log('backend-langfuse:ok')\"",
+    "build": "node -e \"console.log('backend-langfuse:build:noop')\"",
+    "test": "node -e \"console.log('backend-langfuse:test:noop')\""
+  }
+}

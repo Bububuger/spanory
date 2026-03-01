@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-03-01T00:00:00.000Z","message":{"content":"hello"}}
+{"type":"assistant","timestamp":"2026-03-01T00:00:01.000Z","message":{"model":"openclaw-pro","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5},"content":[{"type":"text","text":"world"}]}}
