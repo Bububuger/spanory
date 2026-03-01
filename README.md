@@ -1,104 +1,84 @@
 # Spanory
 
-Spanory is a cross-runtime observability toolkit for agent systems.
+Spanory 是一个面向 AI Agent 的跨 runtime 可观测性工具：把 Claude Code / OpenClaw 的本地会话转成统一事件，再通过 OTLP HTTP 上报到 Langfuse 兼容端点。
 
-## MVP Status
+## 我们在做什么
 
-- Current status: runnable MVP
-- Supported runtimes:
-  - `claude-code`
-  - `openclaw`
-- Ingestion target: OTLP HTTP (Langfuse-compatible endpoint)
-- Supported use patterns:
-  - Realtime ingestion via runtime hook (`SessionEnd` style payload)
-  - Manual replay/backfill per session via CLI
+**一句话**：用统一数据模型，把不同 Agent runtime 的“会话行为”变成可检索、可回放、可告警的遥测数据。
 
-## Governance
+Spanory 当前聚焦三件事：
 
-- Changelog: `CHANGELOG.md`
-- Contributing guide: `CONTRIBUTING.md`
-- Ownership: `CODEOWNERS`
-- Plan history: `docs/plans/history/`
-- TODO history: `docs/todos/history/`
+- 统一：抽象 runtime 差异，输出统一 `SpanoryEvent`
+- 兼容：走 OTel/OTLP，默认对齐 Langfuse ingestion
+- 可操作：同时支持实时 Hook 上报和离线回放补数
 
-## Goal
+### 当前状态
 
-- Unified runtime-neutral event model
-- OTel-native transport
-- Full compatibility with Langfuse ingestion and UX
-- Local transcript parsing first
+- 阶段：可运行 MVP
+- 已支持 runtime：`claude-code`、`openclaw`
+- 已支持模式：
+  - Hook 实时上报（`SessionEnd` payload）
+  - CLI 单次导出与批量回放（`export` / `backfill`）
 
-## Language and Platform
+## 适用场景
 
-- Current implementation language: Node.js (ESM JavaScript), with TypeScript schema contracts in `@spanory/core`.
-- Why this choice:
-  - Fast iteration for parser and hook integration.
-  - Good runtime coverage for `macOS`, `Linux`, and `Windows`.
-- Cross-platform strategy:
-  - Core abstraction (`RuntimeAdapter`) is runtime-agnostic.
-  - Runtime parser is pluggable.
-  - OS hook entry is split by wrapper scripts.
+- 你在用多个 Agent runtime，希望统一看调用轨迹、Token、工具调用
+- 你已经在用 Langfuse（或 OTLP endpoint），需要把本地会话接入
+- 你要做成本/异常监控，需要可回放和告警能力
 
-## Workspace
+## 对比摘要（基于《Agent可观测性工具全景对比报告》，2026-03-01）
 
-- `packages/core`: normalized schema, parser interfaces, mapping contracts
-- `packages/langfuse`: Langfuse compatibility adapter
-- `packages/cli`: local parser and export CLI
-- `scripts/hooks`: OS-specific hook wrappers (mac first)
+- 定位差异：Spanory 在报告中的定位是 `CLI-Native Agent Observability`，主打 Hook 即用与本地会话采集；Langfuse/Phoenix 更偏平台化（评估、可视化、生态）。
+- Spanory 强项：Claude Code 原生 Hook、零代码侵入实时上报、离线补数（`backfill`）、本地 transcript 解析、CLI 报告与告警规则。
+- 竞品强项：Langfuse/Phoenix 在框架覆盖、评估体系与社区成熟度更强；OpenLLMetry/OpenLit 在通用 OTel 基础设施集成上更成熟。
+- 组合策略：将 Spanory 作为采集与补数层，将 Langfuse/Phoenix 作为分析与评估层，在低接入成本与平台能力之间取得平衡。
 
-## Runtime Abstraction
+## 项目结构（架构速览）
 
-`@spanory/core` defines:
+- `packages/core`：统一 schema、parser 接口、映射契约
+- `packages/langfuse`：Langfuse 兼容适配
+- `packages/cli`：本地解析与导出 CLI（`spanory`）
+- `scripts/hooks`：Hook 脚本（macOS/Linux/Windows）
 
-- `SpanoryEvent`: unified event object (`turn`, `agent_command`, `shell_command`, `mcp`, `agent_task`, `tool`)
-- `RuntimeCapabilities`: runtime capability matrix metadata
-- `HookPayload`: normalized hook input payload
-- `RuntimeAdapter`: `resolveContextFromHook` + `collectEvents`
+统一抽象定义在 `@spanory/core`：
 
-Runtime implementations:
+- `SpanoryEvent`：统一事件（`turn` / `agent_command` / `shell_command` / `mcp` / `agent_task` / `tool`）
+- `RuntimeCapabilities`：runtime 能力矩阵元数据
+- `HookPayload`：标准化 Hook 输入
+- `RuntimeAdapter`：`resolveContextFromHook` + `collectEvents`
 
-- `packages/cli/src/runtime/claude/adapter.js`
-- `packages/cli/src/runtime/openclaw/adapter.js`
+## 5 分钟快速开始（Claude Code）
 
-## Claude Code 接入（Hook 实时上报）
-
-### 1) 安装 `spanory` 命令
+### 1) 安装依赖与 CLI
 
 ```bash
-npm install -g packages/cli
+npm install
+npm install -g ./packages/cli
 spanory --help
 ```
 
-### 2) 配置 OTLP 环境变量（建议放到 `~/.env`）
+### 2) 配置 OTLP 环境变量（建议写到 `~/.env`）
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
 export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
 ```
 
-可选（保留本地 JSON 结果）：
+可选（保留本地 JSON）
 
 ```bash
 export SPANORY_HOOK_EXPORT_JSON_DIR="$HOME/.claude/state/spanory-json"
 ```
 
-### 3) 在 Claude Code 中绑定 `SessionEnd` Hook（极简）
+### 3) 绑定 Claude Code `SessionEnd` Hook
 
-在 Claude Code 的 Hook 配置中，将 `SessionEnd` command 直接设置为：
+在 Claude Code Hook 配置里，把 `SessionEnd` command 设为：
 
 ```bash
 spanory hook
 ```
 
-说明：
-- `spanory hook` 会从 `stdin` 读取 Claude hook payload。
-- 可通过 `--runtime` 切换 runtime（默认 `claude-code`）：
-  - `spanory hook --runtime claude-code`
-  - `spanory hook --runtime openclaw`
-- CLI 会自动读取 `~/.env`（若变量未在当前进程定义）。
-- 默认导出目录：`~/.claude/state/spanory-json`（可用 `SPANORY_HOOK_EXPORT_JSON_DIR` 覆盖）。
-
-### 4) 验证 Hook 是否生效
+### 4) 验证是否生效
 
 查看 hook 日志：
 
@@ -106,7 +86,7 @@ spanory hook
 tail -n 100 "$HOME/.claude/state/spanory-hook.log"
 ```
 
-手动模拟一次 hook payload（排障用）：
+手动模拟 payload（排障）：
 
 ```bash
 echo '{"hook_event_name":"SessionEnd","session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
@@ -115,9 +95,16 @@ spanory runtime claude-code hook \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-## CLI 离线回跑（历史补数）
+## 用法速查
 
-### 1) 回跑单个 session
+### 实时 Hook（极简入口）
+
+```bash
+spanory hook
+spanory hook --runtime openclaw
+```
+
+### 单会话导出（export）
 
 ```bash
 spanory runtime claude-code export \
@@ -136,9 +123,9 @@ spanory runtime claude-code export \
   --export-json /tmp/spanory-export.json
 ```
 
-### 2) 批量回跑（backfill）
+### 历史补数（backfill）
 
-先预览将处理哪些 session（不发送）：
+先 dry run：
 
 ```bash
 spanory runtime claude-code backfill \
@@ -148,7 +135,7 @@ spanory runtime claude-code backfill \
   --dry-run
 ```
 
-正式回跑并上报：
+正式上报：
 
 ```bash
 spanory runtime claude-code backfill \
@@ -159,17 +146,7 @@ spanory runtime claude-code backfill \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-按指定 session 列表回跑：
-
-```bash
-spanory runtime claude-code backfill \
-  --project-id claude-workspace-test \
-  --session-ids "session-a,session-b,session-c" \
-  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
-  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
-```
-
-## OpenClaw 接入（Hook + 回跑）
+### OpenClaw 接入
 
 默认会话目录：
 
@@ -177,13 +154,13 @@ spanory runtime claude-code backfill \
 ~/.openclaw/projects/<project-id>/<session-id>.jsonl
 ```
 
-可覆盖 OpenClaw runtime home：
+可覆盖 runtime home：
 
 ```bash
 export SPANORY_OPENCLOW_HOME="$HOME/.openclaw"
 ```
 
-实时 hook：
+Hook 示例：
 
 ```bash
 echo '{"session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
@@ -192,35 +169,7 @@ spanory runtime openclaw hook \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-离线导出：
-
-```bash
-spanory runtime openclaw export \
-  --project-id openclaw-workspace-test \
-  --session-id <SESSION_ID> \
-  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
-  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
-```
-
-批量回跑：
-
-```bash
-spanory runtime openclaw backfill \
-  --project-id openclaw-workspace-test \
-  --since 2026-02-27T00:00:00Z \
-  --limit 50 \
-  --dry-run
-```
-
-## 推荐使用方式
-
-- 日常使用：依赖 Hook 自动实时上报。
-- 缺失补数：使用 `export` 或 `backfill` 离线回跑。
-- 先 `--dry-run`，确认范围后再正式发送。
-
-## Report 视图（CLI）
-
-基于 `export` 产出的 JSON（单文件或目录）做聚合视图：
+### 聚合视图（report）
 
 ```bash
 spanory report session --input-json /path/to/exported.json
@@ -229,11 +178,9 @@ spanory report command --input-json /path/to/exported-or-dir
 spanory report agent --input-json /path/to/exported-or-dir
 ```
 
-输出为 JSON，便于后续接入你自己的可视化或任务系统。
+### 阈值告警（alert）
 
-## Alert 规则评估（CLI）
-
-规则文件格式（JSON）：
+规则文件示例：
 
 ```json
 {
@@ -244,7 +191,7 @@ spanory report agent --input-json /path/to/exported-or-dir
 }
 ```
 
-执行规则评估：
+执行评估：
 
 ```bash
 spanory alert eval \
@@ -252,7 +199,7 @@ spanory alert eval \
   --rules /path/to/rules.json
 ```
 
-有告警时返回非零退出码（用于 CI/自动化）：
+告警即失败（CI 常用）：
 
 ```bash
 spanory alert eval \
@@ -261,7 +208,7 @@ spanory alert eval \
   --fail-on-alert
 ```
 
-可选 webhook 通知：
+Webhook 通知：
 
 ```bash
 spanory alert eval \
@@ -271,56 +218,54 @@ spanory alert eval \
   --webhook-headers "Authorization=Bearer x-token"
 ```
 
-Recognized event categories:
+## 如何贡献
 
-- `turn`
-- `agent_command`
-- `shell_command` (Claude tool `Bash`)
-- `mcp`
-- `agent_task`
-- `tool`
+完整规范见 `CONTRIBUTING.md`，这里给最短路径：
 
-## Install and Binary
-
-Use as command without `node` prefix:
+1. 从 `main` 拉分支，前缀用 `codex/` 或 `feat/`
+2. 保持小而可评审的改动，避免顺手重构
+3. 行为变化必须配套测试（项目已有单测 + BDD）
+4. 提交前至少跑：
 
 ```bash
-npm install -g packages/cli
-spanory --help
-```
-
-Build standalone executable:
-
-```bash
-npm run build:bin
-./dist/spanory-macos-arm64 --help
-```
-
-Build all platforms:
-
-```bash
-bash scripts/release/build-binaries.sh all
-```
-
-## Other OS Wrappers
-
-- Linux wrapper skeleton:
-  - `scripts/hooks/claude-code-session-end-linux.sh`
-- Windows PowerShell wrapper skeleton:
-  - `scripts/hooks/claude-code-session-end.ps1`
-
-These wrappers call the same CLI, so event semantics stay consistent across OSes.
-
-## Development
-
-```bash
-npm install
 npm run check
+npm test
 ```
 
-## Quality Gates
+如改动触及 CLI 对外契约（命令/参数/行为），还需要：
 
-Before merge, required verification commands are:
+- 更新 `CHANGELOG.md`
+- 更新 `README.md` 中对应命令说明
+
+## AI 快速上手（Vibe Coding）
+
+### 先读哪几个文件
+
+- `README.md`：产品目标与命令入口
+- `CONTRIBUTING.md`：贡献与验证要求
+- `packages/core/src/index.ts`：统一 schema 契约
+- `packages/cli/src/index.js`：CLI 命令面
+- `packages/cli/src/runtime/*/adapter.js`：runtime 解析实现
+
+### AI 贡献默认工作流
+
+1. 先跑 `spanory --help` 和目标子命令 `--help`，确认真实参数
+2. 只改与任务直接相关的文件，优先小 diff
+3. 行为改动后，先跑最快相关检查，再补全测试矩阵
+4. 结论前给出可复现验证命令和结果摘要
+
+### 可直接复制给 AI 的任务模板
+
+```text
+你在 spanory 仓库里工作。请先阅读 README.md 与 CONTRIBUTING.md，
+再基于现有 CLI 和 adapter 实现完成任务，不要虚构命令或参数。
+约束：小步提交、避免无关重构、行为变化补测试。
+完成后请执行 npm run check 和 npm test，并汇报关键输出。
+```
+
+## 质量门禁
+
+合并前建议跑完整门禁：
 
 ```bash
 npm run check
@@ -329,9 +274,17 @@ npm run test:bdd
 npm run build:bin
 ```
 
-CI executes the same gates in `.github/workflows/ci.yml`.
+CI 使用同一套门禁（`.github/workflows/ci.yml`）。
 
-## Next
+## 治理与路线图
 
-- Add Codex/OpenCode adapters with the same runtime abstraction
-- Stabilize Langfuse-friendly naming/timeline conventions
+- 变更记录：`CHANGELOG.md`
+- 贡献规范：`CONTRIBUTING.md`
+- Code owners：`.github/CODEOWNERS`
+- 历史计划：`docs/plans/history/`
+- 历史待办：`docs/todos/history/`
+
+近期重点：
+
+- Codex/OpenCode adapter（复用统一 normalize pipeline）
+- Langfuse 命名与 timeline 对齐稳定化
