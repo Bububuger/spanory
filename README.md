@@ -91,6 +91,18 @@ spanory hook
 - CLI 会自动读取 `~/.env`（若变量未在当前进程定义）。
 - 默认导出目录：`~/.claude/state/spanory-json`（可用 `SPANORY_HOOK_EXPORT_JSON_DIR` 覆盖）。
 
+### 3.1) 在 Claude Code 中绑定 `Stop` Hook（每轮仅新增 turn）
+
+如果你希望按轮实时上报，避免每次重发整个 session，可在 `Stop` Hook 中使用：
+
+```bash
+spanory hook --last-turn-only
+```
+
+说明：
+- `--last-turn-only` 仅发送最新 turn 的事件。
+- 会按 `sessionId + turnId + turn fingerprint` 去重；同一轮重复触发会跳过。
+
 ### 4) 验证 Hook 是否生效
 
 查看 hook 日志：

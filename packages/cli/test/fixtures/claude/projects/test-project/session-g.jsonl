@@ -1,0 +1,4 @@
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T10:10:00.000Z","version":"2.1.63","message":{"content":"请列出当前目录"}}
+{"type":"assistant","timestamp":"2026-03-01T10:10:01.000Z","version":"2.1.63","message":{"model":"claude-sonnet-4-6","id":"msg-g-1","usage":{"input_tokens":10,"output_tokens":4,"total_tokens":14},"content":[{"type":"text","text":"正在执行"},{"type":"tool_use","id":"tool-g-bash-1","name":"Bash","input":{"command":"pwd"}}]}}
+{"type":"user","isMeta":false,"timestamp":"2026-03-01T10:10:02.000Z","version":"2.1.63","message":{"content":[{"type":"tool_result","tool_use_id":"tool-g-bash-1","content":"/Users/javis/Documents/workspace"}]}}
+{"type":"assistant","timestamp":"2026-03-01T10:10:03.000Z","version":"2.1.63","message":{"model":"claude-sonnet-4-6","id":"msg-g-2","usage":{"input_tokens":3,"output_tokens":5,"total_tokens":8},"content":[{"type":"text","text":"当前目录已输出"}]}}

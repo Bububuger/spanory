@@ -1,24 +1,28 @@
-# Spanory Missing Tool Coverage Fix Plan (2026-03-01)
+# Spanory Runtime Version and Model Key Plan (2026-03-01)
 
 ## Goal
-补齐非 Bash/MCP/Task 的通用 tool_use 上报，确保 tool 总数与真实调用一致。
+补齐 runtime/version 与通用模型字段：确保区分 instrumentation 版本（service.version）与 runtime 版本，并增加通用模型键。
 
 ## Scope
 - `packages/cli/src/runtime/claude/adapter.js`
-- `packages/cli/src/otlp.js`
 - `packages/cli/test/unit/adapter.spec.js`
-- 新增 fixture
+- `packages/cli/test/fixtures/claude/projects/test-project/session-g.jsonl`（新增）
+- `docs/langfuse-parity.md`
 
 ## Tasks
-### T1 通用工具事件映射
-- 对未命中 Bash/MCP/Task 的 tool_use 统一映射为 `category=tool`。
-- 上报 `gen_ai.tool.name`、`gen_ai.tool.call.id`、input/output。
+### T1 失败用例（TDD Red）
+- 新增 fixture（带 transcript 顶层 `version`）。
+- 单测断言存在：`agentic.runtime.version` 与 `gen_ai.request.model`。
 
-### T2 OTel 类型映射补齐
-- 在 `observationTypeForCategory` 中新增 `tool -> tool`。
+### T2 实现（Green）
+- transcript 解析提取 runtime version。
+- turn/tool 事件统一补 `agentic.runtime.version`。
+- 有模型的事件补 `gen_ai.request.model`（同时保留 `langfuse.observation.model.name`）。
 
-### T3 回归测试
-- 增加含 WebSearch 的 fixture 与单测，验证工具计数/输出。
+### T3 文档与回归
+- parity 文档补字段说明。
+- 跑指定单测 + 全量测试。
 
-### T4 验收
-- `npm run --workspace @spanory/cli test -- test/unit/adapter.spec.js`
+## Acceptance
+1. `npm run --workspace @spanory/cli test -- test/unit/adapter.spec.js`
+2. `npm test`
