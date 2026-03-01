@@ -1,0 +1,17 @@
+{
+  "name": "@spanory/spanory-openclaw-plugin",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  },
+  "scripts": {
+    "check": "node -e \"console.log('openclaw-plugin:ok')\"",
+    "build": "node -e \"console.log('openclaw-plugin:build:noop')\"",
+    "test": "node -e \"console.log('openclaw-plugin:test:noop')\""
+  }
+}

@@ -9,16 +9,20 @@
 5. CLI replay for single session
 6. OpenClaw runtime adapter (`export`, `hook`, `backfill`)
 7. Runtime-neutral normalization pipeline (shared turn/tool/usage mapping)
+8. Internal backend abstraction (`RuntimeAdapter -> canonical -> backend -> otlp-core`)
+9. OpenClaw plugin ingestion path (`session/tool/model hooks`, zero cron)
 
 ## In Progress
 
 1. Cross-OS wrapper hardening (Linux/Windows)
 2. Langfuse naming and timeline alignment
 3. Runtime capability matrix and parity maintenance
+4. OpenClaw plugin operational hardening (doctor + status + spool observability)
 
 ## Planned
 
-1. Runtime adapters for Codex/OpenCode (reusing shared normalize pipeline)
-2. Multi-session range backfill command
-3. Session and project level aggregation helpers
-4. Packaging and release flow (`npm` executable install)
+1. LangSmith backend adapter (currently deferred)
+2. Runtime adapters for Codex/OpenCode (reusing shared normalize pipeline)
+3. Multi-session range backfill command
+4. Session and project level aggregation helpers
+5. Packaging and release flow (`npm` executable install)

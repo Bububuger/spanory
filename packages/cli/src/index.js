@@ -2,12 +2,14 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 import { Command } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
   loadExportedEvents,
@@ -22,12 +24,27 @@ const runtimeAdapters = {
   openclaw: openclawAdapter,
 };
 
+const backendAdapters = {
+  langfuse: langfuseBackendAdapter,
+};
+
+const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
+
 function getResource() {
   return {
     serviceName: 'spanory',
     serviceVersion: process.env.SPANORY_VERSION ?? '0.1.1',
     environment: process.env.SPANORY_ENV ?? 'development',
   };
+}
+
+function getBackendAdapter() {
+  const backendName = process.env.SPANORY_BACKEND ?? 'langfuse';
+  const backend = backendAdapters[backendName];
+  if (!backend) {
+    throw new Error(`unsupported backend: ${backendName}`);
+  }
+  return backend;
 }
 
 function parseHookPayload(raw) {
@@ -167,7 +184,14 @@ function getRuntimeAdapter(runtimeName) {
 }
 
 async function emitSession({ runtimeName, context, events, endpoint, headers, exportJsonPath }) {
-  const payload = compileOtlp(events, getResource());
+  const backend = getBackendAdapter();
+  const backendEvents = backend.mapEvents(events, {
+    backendName: backend.backendName,
+    runtimeName,
+    projectId: context.projectId,
+    sessionId: context.sessionId,
+  });
+  const payload = compileOtlp(backendEvents, getResource());
 
   console.log(`runtime=${runtimeName} projectId=${context.projectId} sessionId=${context.sessionId} events=${events.length}`);
 
@@ -180,7 +204,7 @@ async function emitSession({ runtimeName, context, events, endpoint, headers, ex
 
   if (exportJsonPath) {
     await mkdir(path.dirname(exportJsonPath), { recursive: true });
-    await writeFile(exportJsonPath, JSON.stringify({ context, events, payload }, null, 2), 'utf-8');
+    await writeFile(exportJsonPath, JSON.stringify({ context, events: backendEvents, payload }, null, 2), 'utf-8');
     console.log(`json=${exportJsonPath}`);
   }
 }
@@ -249,14 +273,34 @@ function sessionIdFromFilename(filename) {
 }
 
 async function listCandidateSessions(runtimeName, projectId, options) {
-  const projectDir = path.join(resolveRuntimeProjectRoot(runtimeName, options.runtimeHome), projectId);
-
   if (options.sessionIds) {
     return options.sessionIds
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
       .map((sessionId) => ({ sessionId }));
+  }
+
+  let projectDir = path.join(resolveRuntimeProjectRoot(runtimeName, options.runtimeHome), projectId);
+  if (runtimeName === 'openclaw') {
+    const runtimeHome = resolveRuntimeHome(runtimeName, options.runtimeHome);
+    const openclawCandidates = [
+      path.join(runtimeHome, 'projects', projectId),
+      path.join(runtimeHome, 'agents', projectId, 'sessions'),
+    ];
+    let selected = null;
+    for (const dir of openclawCandidates) {
+      try {
+        await stat(dir);
+        selected = dir;
+        break;
+      } catch {
+        // try next candidate
+      }
+    }
+    if (selected) {
+      projectDir = selected;
+    }
   }
 
   const names = (await readdir(projectDir)).filter((name) => name.endsWith('.jsonl'));
@@ -291,6 +335,90 @@ function runtimeDisplayName(runtimeName) {
 
 function runtimeDescription(runtimeName) {
   return `${runtimeDisplayName(runtimeName)} transcript runtime`;
+}
+
+function runSystemCommand(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    encoding: 'utf-8',
+    ...options,
+  });
+  return {
+    code: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    error: result.error ? String(result.error.message ?? result.error) : undefined,
+  };
+}
+
+function resolveOpenclawPluginDir() {
+  if (process.env.SPANORY_OPENCLAW_PLUGIN_DIR) {
+    return process.env.SPANORY_OPENCLAW_PLUGIN_DIR;
+  }
+  return path.resolve(process.cwd(), 'packages/openclaw-plugin');
+}
+
+function parsePluginEnabledFromInfoOutput(output) {
+  if (!output) return undefined;
+  const yes = /enabled\s*[:=]\s*(true|yes|1)/i.test(output);
+  const no = /enabled\s*[:=]\s*(false|no|0)/i.test(output);
+  if (yes) return true;
+  if (no) return false;
+  return undefined;
+}
+
+async function runOpenclawPluginDoctor(runtimeHome) {
+  const checks = [];
+
+  const info = runSystemCommand('openclaw', ['plugins', 'info', OPENCLAW_SPANORY_PLUGIN_ID], {
+    env: {
+      ...process.env,
+      ...(runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', runtimeHome) } : {}),
+    },
+  });
+  checks.push({
+    id: 'plugin_installed',
+    ok: info.code === 0,
+    detail: info.code === 0 ? 'openclaw plugins info succeeded' : info.stderr || info.error || 'plugin not installed',
+  });
+
+  const enabled = parsePluginEnabledFromInfoOutput(`${info.stdout}\n${info.stderr}`);
+  checks.push({
+    id: 'plugin_enabled',
+    ok: enabled !== false,
+    detail: enabled === undefined ? 'cannot infer enabled status from openclaw output' : `enabled=${enabled}`,
+  });
+
+  checks.push({
+    id: 'otlp_endpoint',
+    ok: Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT),
+    detail: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      ? process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      : 'OTEL_EXPORTER_OTLP_ENDPOINT is unset',
+  });
+
+  const spoolDir = process.env.SPANORY_OPENCLAW_SPOOL_DIR
+    ?? path.join(resolveRuntimeStateRoot('openclaw', runtimeHome), 'spanory', 'spool');
+  try {
+    await mkdir(spoolDir, { recursive: true });
+    checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
+  } catch (err) {
+    checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
+  }
+
+  const statusFile = path.join(resolveRuntimeStateRoot('openclaw', runtimeHome), 'spanory', 'plugin-status.json');
+  try {
+    const raw = await readFile(statusFile, 'utf-8');
+    checks.push({ id: 'last_send_status', ok: true, detail: raw.slice(0, 500) });
+  } catch {
+    checks.push({
+      id: 'last_send_status',
+      ok: true,
+      detail: `status file not generated yet: ${statusFile}`,
+    });
+  }
+
+  const ok = checks.every((item) => item.ok);
+  return { ok, checks };
 }
 
 function registerRuntimeCommands(runtimeRoot, runtimeName) {
@@ -411,6 +539,92 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
         });
       }
     });
+
+  if (runtimeName === 'openclaw') {
+    const plugin = runtimeCmd
+      .command('plugin')
+      .description('Manage Spanory OpenClaw plugin runtime integration');
+
+    plugin
+      .command('install')
+      .description('Install Spanory OpenClaw plugin using openclaw plugins install -l')
+      .option('--plugin-dir <path>', 'Plugin directory path (default: packages/openclaw-plugin)')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .action((options) => {
+        const pluginDir = path.resolve(options.pluginDir ?? resolveOpenclawPluginDir());
+        const result = runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
+          env: {
+            ...process.env,
+            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+          },
+        });
+        if (result.stdout.trim()) console.log(result.stdout.trim());
+        if (result.code !== 0) {
+          throw new Error(result.stderr || result.error || 'openclaw plugins install failed');
+        }
+      });
+
+    plugin
+      .command('enable')
+      .description('Enable Spanory OpenClaw plugin')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .action((options) => {
+        const result = runSystemCommand('openclaw', ['plugins', 'enable', OPENCLAW_SPANORY_PLUGIN_ID], {
+          env: {
+            ...process.env,
+            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+          },
+        });
+        if (result.stdout.trim()) console.log(result.stdout.trim());
+        if (result.code !== 0) {
+          throw new Error(result.stderr || result.error || 'openclaw plugins enable failed');
+        }
+      });
+
+    plugin
+      .command('disable')
+      .description('Disable Spanory OpenClaw plugin')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .action((options) => {
+        const result = runSystemCommand('openclaw', ['plugins', 'disable', OPENCLAW_SPANORY_PLUGIN_ID], {
+          env: {
+            ...process.env,
+            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+          },
+        });
+        if (result.stdout.trim()) console.log(result.stdout.trim());
+        if (result.code !== 0) {
+          throw new Error(result.stderr || result.error || 'openclaw plugins disable failed');
+        }
+      });
+
+    plugin
+      .command('uninstall')
+      .description('Uninstall Spanory OpenClaw plugin')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .action((options) => {
+        const result = runSystemCommand('openclaw', ['plugins', 'uninstall', OPENCLAW_SPANORY_PLUGIN_ID], {
+          env: {
+            ...process.env,
+            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+          },
+        });
+        if (result.stdout.trim()) console.log(result.stdout.trim());
+        if (result.code !== 0) {
+          throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
+        }
+      });
+
+    plugin
+      .command('doctor')
+      .description('Run local diagnostic checks for Spanory OpenClaw plugin')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .action(async (options) => {
+        const report = await runOpenclawPluginDoctor(options.runtimeHome);
+        console.log(JSON.stringify(report, null, 2));
+        if (!report.ok) process.exitCode = 2;
+      });
+  }
 }
 
 const program = new Command();

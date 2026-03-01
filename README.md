@@ -9,7 +9,11 @@ Spanory is a cross-runtime observability toolkit for agent systems.
   - `claude-code`
   - `openclaw`
 - Ingestion target: OTLP HTTP (Langfuse-compatible endpoint)
+- Backend status:
+  - `langfuse`: implemented
+  - `langsmith`: deferred to next phase
 - Supported use patterns:
+  - Realtime ingestion via OpenClaw plugin hooks (no cron)
   - Realtime ingestion via runtime hook (`SessionEnd` style payload)
   - Manual replay/backfill per session via CLI
 
@@ -42,7 +46,10 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 ## Workspace
 
 - `packages/core`: normalized schema, parser interfaces, mapping contracts
-- `packages/langfuse`: Langfuse compatibility adapter
+- `packages/otlp-core`: OTLP compile/send transport core
+- `packages/backend-langfuse`: Langfuse backend adapter
+- `packages/openclaw-plugin`: OpenClaw plugin runtime ingestion path
+- `packages/langfuse`: legacy langfuse package (kept for compatibility)
 - `packages/cli`: local parser and export CLI
 - `scripts/hooks`: OS-specific hook wrappers (mac first)
 
@@ -54,11 +61,16 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 - `RuntimeCapabilities`: runtime capability matrix metadata
 - `HookPayload`: normalized hook input payload
 - `RuntimeAdapter`: `resolveContextFromHook` + `collectEvents`
+- `BackendAdapter`: canonical events -> backend events mapping
 
 Runtime implementations:
 
 - `packages/cli/src/runtime/claude/adapter.js`
 - `packages/cli/src/runtime/openclaw/adapter.js`
+
+Current pipeline:
+
+`RuntimeAdapter -> Canonical Events -> BackendAdapter(langfuse) -> OTLP Core -> OTLP HTTP`
 
 ## Claude Code 接入（Hook 实时上报）
 
@@ -169,13 +181,54 @@ spanory runtime claude-code backfill \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-## OpenClaw 接入（Hook + 回跑）
+## OpenClaw 接入（Plugin 主链路，零 cron）
 
-默认会话目录：
+### 1) 安装 Spanory OpenClaw Plugin（推荐）
 
 ```bash
-~/.openclaw/projects/<project-id>/<session-id>.jsonl
+spanory runtime openclaw plugin install
+spanory runtime openclaw plugin enable
+spanory runtime openclaw plugin doctor
 ```
+
+可选参数：
+
+- `--plugin-dir`：覆盖插件目录（默认 `packages/openclaw-plugin`）
+- `--runtime-home`：覆盖 OpenClaw home
+
+### 2) 配置 OTLP 环境变量
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
+```
+
+插件可靠性相关（可选）：
+
+```bash
+export SPANORY_OPENCLAW_SPOOL_DIR="$HOME/.openclaw/state/spanory/spool"
+export SPANORY_OPENCLAW_RETRY_MAX="6"
+```
+
+### 3) Plugin 运行状态检查
+
+```bash
+spanory runtime openclaw plugin doctor
+```
+
+`doctor` 会检查：
+- 插件安装状态
+- 启用状态
+- OTLP endpoint 配置
+- spool 可写
+- 最近发送状态文件
+
+## OpenClaw 补数链路（export/backfill）
+
+OpenClaw transcript 默认支持两种目录：
+
+- `~/.openclaw/projects/<project-id>/<session-id>.jsonl`
+- `~/.openclaw/agents/<agent-id>/sessions/<session-id>.jsonl`
 
 可覆盖 OpenClaw runtime home：
 
@@ -183,7 +236,7 @@ spanory runtime claude-code backfill \
 export SPANORY_OPENCLOW_HOME="$HOME/.openclaw"
 ```
 
-实时 hook：
+实时 hook（补数/排障场景）：
 
 ```bash
 echo '{"session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
@@ -206,7 +259,7 @@ spanory runtime openclaw export \
 
 ```bash
 spanory runtime openclaw backfill \
-  --project-id openclaw-workspace-test \
+  --project-id main \
   --since 2026-02-27T00:00:00Z \
   --limit 50 \
   --dry-run
@@ -214,7 +267,8 @@ spanory runtime openclaw backfill \
 
 ## 推荐使用方式
 
-- 日常使用：依赖 Hook 自动实时上报。
+- 日常使用：OpenClaw 使用 plugin 自动实时上报（零 cron）。
+- Claude Code 使用 `spanory hook` 实时上报。
 - 缺失补数：使用 `export` 或 `backfill` 离线回跑。
 - 先 `--dry-run`，确认范围后再正式发送。
 

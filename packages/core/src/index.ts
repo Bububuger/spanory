@@ -43,3 +43,17 @@ export interface RuntimeAdapter {
   resolveContextFromHook(payload: HookPayload): RuntimeAdapterContext | null;
   collectEvents(context: RuntimeAdapterContext): Promise<SpanoryEvent[]>;
 }
+
+export type CanonicalEvent = SpanoryEvent;
+
+export interface BackendCompileContext {
+  backendName: 'langfuse';
+  runtimeName: string;
+  projectId: string;
+  sessionId: string;
+}
+
+export interface BackendAdapter {
+  backendName: 'langfuse';
+  mapEvents(events: CanonicalEvent[], context?: BackendCompileContext): SpanoryEvent[];
+}
