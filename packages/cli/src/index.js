@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { Command } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
+import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
@@ -18,6 +19,7 @@ import {
 
 const runtimeAdapters = {
   'claude-code': claudeCodeAdapter,
+  openclaw: openclawAdapter,
 };
 
 function getResource() {
@@ -114,12 +116,36 @@ function fingerprintSession(context, events) {
   return hash.digest('hex');
 }
 
-function hookStatePath(sessionId) {
-  return path.join(process.env.HOME || '', '.claude', 'state', 'spanory', `${sessionId}.json`);
+function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
+  if (explicitRuntimeHome) return explicitRuntimeHome;
+  if (runtimeName === 'openclaw') {
+    return (
+      process.env.SPANORY_OPENCLOW_HOME
+      ?? process.env.SPANORY_OPENCLAW_HOME
+      ?? path.join(process.env.HOME || '', '.openclaw')
+    );
+  }
+  return path.join(process.env.HOME || '', '.claude');
 }
 
-async function readHookState(sessionId) {
-  const file = hookStatePath(sessionId);
+function resolveRuntimeProjectRoot(runtimeName, explicitRuntimeHome) {
+  return path.join(resolveRuntimeHome(runtimeName, explicitRuntimeHome), 'projects');
+}
+
+function resolveRuntimeStateRoot(runtimeName, explicitRuntimeHome) {
+  return path.join(resolveRuntimeHome(runtimeName, explicitRuntimeHome), 'state');
+}
+
+function resolveRuntimeExportDir(runtimeName, explicitRuntimeHome) {
+  return path.join(resolveRuntimeStateRoot(runtimeName, explicitRuntimeHome), 'spanory-json');
+}
+
+function hookStatePath(runtimeName, sessionId, runtimeHome) {
+  return path.join(resolveRuntimeStateRoot(runtimeName, runtimeHome), 'spanory', `${sessionId}.json`);
+}
+
+async function readHookState(runtimeName, sessionId, runtimeHome) {
+  const file = hookStatePath(runtimeName, sessionId, runtimeHome);
   try {
     const raw = await readFile(file, 'utf-8');
     return JSON.parse(raw);
@@ -128,10 +154,16 @@ async function readHookState(sessionId) {
   }
 }
 
-async function writeHookState(sessionId, value) {
-  const file = hookStatePath(sessionId);
+async function writeHookState(runtimeName, sessionId, value, runtimeHome) {
+  const file = hookStatePath(runtimeName, sessionId, runtimeHome);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, JSON.stringify(value, null, 2), 'utf-8');
+}
+
+function getRuntimeAdapter(runtimeName) {
+  const adapter = runtimeAdapters[runtimeName];
+  if (!adapter) throw new Error(`unsupported runtime: ${runtimeName}`);
+  return adapter;
 }
 
 async function emitSession({ runtimeName, context, events, endpoint, headers, exportJsonPath }) {
@@ -162,7 +194,8 @@ function resolveHeaders(optionValue) {
 }
 
 async function runHookMode(options) {
-  const adapter = runtimeAdapters['claude-code'];
+  const runtimeName = options.runtimeName ?? 'claude-code';
+  const adapter = getRuntimeAdapter(runtimeName);
   const raw = await readStdinText();
   const hookPayload = parseHookPayload(raw);
   const context = adapter.resolveContextFromHook(hookPayload);
@@ -170,41 +203,53 @@ async function runHookMode(options) {
     throw new Error('cannot resolve runtime context from hook payload; require session_id and transcript_path');
   }
 
-  const events = await adapter.collectEvents(context);
-  const fingerprint = fingerprintSession(context, events);
+  const contextWithRuntimeHome = {
+    ...context,
+    ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
+  };
+
+  const events = await adapter.collectEvents(contextWithRuntimeHome);
+  const fingerprint = fingerprintSession(contextWithRuntimeHome, events);
   if (!options.force) {
-    const prev = await readHookState(context.sessionId);
+    const prev = await readHookState(runtimeName, contextWithRuntimeHome.sessionId, options.runtimeHome);
     if (prev?.fingerprint === fingerprint) {
-      console.log(`skip=unchanged sessionId=${context.sessionId}`);
+      console.log(`skip=unchanged sessionId=${contextWithRuntimeHome.sessionId}`);
       return;
     }
   }
 
-  const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${context.sessionId}.json`) : undefined;
+  const exportJsonPath = options.exportJsonDir
+    ? path.join(options.exportJsonDir, `${contextWithRuntimeHome.sessionId}.json`)
+    : undefined;
 
   await emitSession({
     runtimeName: adapter.runtimeName,
-    context,
+    context: contextWithRuntimeHome,
     events,
     endpoint: resolveEndpoint(options.endpoint),
     headers: resolveHeaders(options.headers),
     exportJsonPath,
   });
 
-  await writeHookState(context.sessionId, {
-    sessionId: context.sessionId,
-    projectId: context.projectId,
-    fingerprint,
-    updatedAt: new Date().toISOString(),
-  });
+  await writeHookState(
+    runtimeName,
+    contextWithRuntimeHome.sessionId,
+    {
+      sessionId: contextWithRuntimeHome.sessionId,
+      projectId: contextWithRuntimeHome.projectId,
+      fingerprint,
+      updatedAt: new Date().toISOString(),
+    },
+    options.runtimeHome,
+  );
 }
 
 function sessionIdFromFilename(filename) {
   return filename.endsWith('.jsonl') ? filename.slice(0, -6) : filename;
 }
 
-async function listCandidateSessions(projectId, options) {
-  const projectDir = path.join(process.env.HOME || '', '.claude', 'projects', projectId);
+async function listCandidateSessions(runtimeName, projectId, options) {
+  const projectDir = path.join(resolveRuntimeProjectRoot(runtimeName, options.runtimeHome), projectId);
 
   if (options.sessionIds) {
     return options.sessionIds
@@ -239,6 +284,135 @@ async function listCandidateSessions(projectId, options) {
   return sorted.slice(0, Number(options.limit)).map(({ sessionId }) => ({ sessionId }));
 }
 
+function runtimeDisplayName(runtimeName) {
+  if (runtimeName === 'openclaw') return 'OpenClaw';
+  return 'Claude Code';
+}
+
+function runtimeDescription(runtimeName) {
+  return `${runtimeDisplayName(runtimeName)} transcript runtime`;
+}
+
+function registerRuntimeCommands(runtimeRoot, runtimeName) {
+  const runtimeCmd = runtimeRoot.command(runtimeName).description(runtimeDescription(runtimeName));
+  const displayName = runtimeDisplayName(runtimeName);
+
+  runtimeCmd
+    .command('export')
+    .description(`Export one ${displayName} session as OTLP spans`)
+    .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
+    .requiredOption('--session-id <id>', `${displayName} session id (jsonl filename without extension)`)
+    .option('--transcript-path <path>', 'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl')
+    .option('--runtime-home <path>', 'Override runtime home directory')
+    .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+    .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+    .option('--export-json <path>', 'Write parsed events and OTLP payload to a local JSON file')
+    .addHelpText(
+      'after',
+      '\nExamples:\n'
+        + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n`
+        + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
+    )
+    .action(async (options) => {
+      const adapter = getRuntimeAdapter(runtimeName);
+      const context = {
+        projectId: options.projectId,
+        sessionId: options.sessionId,
+        ...(options.transcriptPath ? { transcriptPath: options.transcriptPath } : {}),
+        ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
+      };
+      const events = await adapter.collectEvents(context);
+      await emitSession({
+        runtimeName: adapter.runtimeName,
+        context,
+        events,
+        endpoint: resolveEndpoint(options.endpoint),
+        headers: resolveHeaders(options.headers),
+        exportJsonPath: options.exportJson,
+      });
+    });
+
+  runtimeCmd
+    .command('hook')
+    .description(`Read ${displayName} hook payload from stdin and export the matched session`)
+    .option('--runtime-home <path>', 'Override runtime home directory')
+    .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+    .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+    .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+    .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
+    .addHelpText(
+      'after',
+      '\nExamples:\n'
+        + `  echo "{...}" | spanory runtime ${runtimeName} hook\n`
+        + `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${resolveRuntimeExportDir(runtimeName)}\n`,
+    )
+    .action(async (options) => runHookMode({
+      runtimeName,
+      runtimeHome: options.runtimeHome,
+      endpoint: options.endpoint,
+      headers: options.headers,
+      force: options.force,
+      exportJsonDir: options.exportJsonDir,
+    }));
+
+  runtimeCmd
+    .command('backfill')
+    .description(`Batch export historical ${displayName} sessions for one project`)
+    .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
+    .option('--runtime-home <path>', 'Override runtime home directory')
+    .option('--session-ids <csv>', 'Comma-separated session ids; if set, since/until/limit are ignored')
+    .option('--since <iso>', 'Only include sessions with transcript file mtime >= this ISO timestamp')
+    .option('--until <iso>', 'Only include sessions with transcript file mtime <= this ISO timestamp')
+    .option('--limit <n>', 'Max number of sessions when auto-selecting by mtime', '50')
+    .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+    .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+    .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per session into this directory')
+    .option('--dry-run', 'Print selected sessions without sending OTLP', false)
+    .addHelpText(
+      'after',
+      '\nExamples:\n'
+        + `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n`
+        + `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
+    )
+    .action(async (options) => {
+      const adapter = getRuntimeAdapter(runtimeName);
+      const endpoint = resolveEndpoint(options.endpoint);
+      const headers = resolveHeaders(options.headers);
+
+      const candidates = await listCandidateSessions(runtimeName, options.projectId, options);
+      if (!candidates.length) {
+        console.log('backfill=empty selected=0');
+        return;
+      }
+
+      console.log(`backfill=selected count=${candidates.length}`);
+
+      for (const candidate of candidates) {
+        const context = {
+          projectId: options.projectId,
+          sessionId: candidate.sessionId,
+          ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
+        };
+        if (options.dryRun) {
+          console.log(`dry-run sessionId=${candidate.sessionId}`);
+          continue;
+        }
+
+        const events = await adapter.collectEvents(context);
+        const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
+
+        await emitSession({
+          runtimeName: adapter.runtimeName,
+          context,
+          events,
+          endpoint,
+          headers,
+          exportJsonPath,
+        });
+      }
+    });
+}
+
 const program = new Command();
 program
   .name('spanory')
@@ -248,107 +422,9 @@ program
   .version('0.1.1');
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
-const claudeCode = runtime.command('claude-code').description('Claude Code transcript runtime');
-
-claudeCode
-  .command('export')
-  .description('Export one Claude Code session as OTLP spans')
-  .requiredOption('--project-id <id>', 'Claude project id (folder under ~/.claude/projects)')
-  .requiredOption('--session-id <id>', 'Claude session id (jsonl filename without extension)')
-  .option('--transcript-path <path>', 'Override transcript path instead of ~/.claude/projects/<project>/<session>.jsonl')
-  .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-  .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-  .option('--export-json <path>', 'Write parsed events and OTLP payload to a local JSON file')
-  .addHelpText(
-    'after',
-    '\nExamples:\n'
-      + '  spanory runtime claude-code export --project-id my-project --session-id 1234\n'
-      + '  spanory runtime claude-code export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n',
-  )
-  .action(async (options) => {
-    const adapter = runtimeAdapters['claude-code'];
-    const context = {
-      projectId: options.projectId,
-      sessionId: options.sessionId,
-      ...(options.transcriptPath ? { transcriptPath: options.transcriptPath } : {}),
-    };
-    const events = await adapter.collectEvents(context);
-    await emitSession({
-      runtimeName: adapter.runtimeName,
-      context,
-      events,
-      endpoint: resolveEndpoint(options.endpoint),
-      headers: resolveHeaders(options.headers),
-      exportJsonPath: options.exportJson,
-    });
-  });
-
-claudeCode
-  .command('hook')
-  .description('Read Claude hook payload from stdin and export the matched session')
-  .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-  .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-  .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-  .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
-  .addHelpText(
-    'after',
-    '\nExamples:\n'
-      + '  echo "{...}" | spanory runtime claude-code hook\n'
-      + '  cat payload.json | spanory runtime claude-code hook --export-json-dir ~/.claude/state/spanory-json\n',
-  )
-  .action(async (options) => runHookMode(options));
-
-claudeCode
-  .command('backfill')
-  .description('Batch export historical Claude sessions for one project')
-  .requiredOption('--project-id <id>', 'Claude project id (folder under ~/.claude/projects)')
-  .option('--session-ids <csv>', 'Comma-separated session ids; if set, since/until/limit are ignored')
-  .option('--since <iso>', 'Only include sessions with transcript file mtime >= this ISO timestamp')
-  .option('--until <iso>', 'Only include sessions with transcript file mtime <= this ISO timestamp')
-  .option('--limit <n>', 'Max number of sessions when auto-selecting by mtime', '50')
-  .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-  .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-  .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per session into this directory')
-  .option('--dry-run', 'Print selected sessions without sending OTLP', false)
-  .addHelpText(
-    'after',
-    '\nExamples:\n'
-      + '  spanory runtime claude-code backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n'
-      + '  spanory runtime claude-code backfill --project-id my-project --session-ids a,b,c --dry-run\n',
-  )
-  .action(async (options) => {
-    const adapter = runtimeAdapters['claude-code'];
-    const endpoint = resolveEndpoint(options.endpoint);
-    const headers = resolveHeaders(options.headers);
-
-    const candidates = await listCandidateSessions(options.projectId, options);
-    if (!candidates.length) {
-      console.log('backfill=empty selected=0');
-      return;
-    }
-
-    console.log(`backfill=selected count=${candidates.length}`);
-
-    for (const candidate of candidates) {
-      const context = { projectId: options.projectId, sessionId: candidate.sessionId };
-      if (options.dryRun) {
-        console.log(`dry-run sessionId=${candidate.sessionId}`);
-        continue;
-      }
-
-      const events = await adapter.collectEvents(context);
-      const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
-
-      await emitSession({
-        runtimeName: adapter.runtimeName,
-        context,
-        events,
-        endpoint,
-        headers,
-        exportJsonPath,
-      });
-    }
-  });
+for (const runtimeName of Object.keys(runtimeAdapters)) {
+  registerRuntimeCommands(runtime, runtimeName);
+}
 
 const report = program.command('report').description('Aggregate exported session JSON into infra-level views');
 
@@ -432,28 +508,37 @@ alert
 
 program
   .command('hook')
-  .description('Minimal hook entrypoint (defaults to Claude payload + ~/.env + default export dir)')
+  .description('Minimal hook entrypoint (defaults to runtime payload + ~/.env + default export dir)')
+  .option('--runtime <name>', 'Runtime name (default: SPANORY_HOOK_RUNTIME or claude-code)')
+  .option('--runtime-home <path>', 'Override runtime home directory')
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
   .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
   .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
   .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
   .addHelpText(
     'after',
-    '\nMinimal usage in Claude SessionEnd hook command:\n'
-      + '  spanory hook\n',
+    '\nMinimal usage in SessionEnd hook command:\n'
+      + '  spanory hook\n'
+      + '  spanory hook --runtime openclaw\n',
   )
   .action(async (options) => {
+    const runtimeName = options.runtime ?? process.env.SPANORY_HOOK_RUNTIME ?? 'claude-code';
     await runHookMode({
+      runtimeName,
+      runtimeHome: options.runtimeHome,
       endpoint: options.endpoint,
       headers: options.headers,
       force: options.force,
-      exportJsonDir: options.exportJsonDir ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR ?? path.join(process.env.HOME || '', '.claude', 'state', 'spanory-json'),
+      exportJsonDir:
+        options.exportJsonDir
+        ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR
+        ?? resolveRuntimeExportDir(runtimeName, options.runtimeHome),
     });
   });
 
 loadUserEnv()
   .then(() => program.parseAsync(process.argv))
   .catch((error) => {
-  console.error(`[spanory] ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
+    console.error(`[spanory] ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
   });

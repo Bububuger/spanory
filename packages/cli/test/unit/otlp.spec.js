@@ -59,4 +59,57 @@ describe('otlp compiler', () => {
     expect(parseHeaders('a=1,b=2')).toEqual({ a: '1', b: '2' });
     expect(parseHeaders('')).toBeUndefined();
   });
+
+  it('keeps parity attrs for openclaw runtime events', () => {
+    const events = [
+      {
+        runtime: 'openclaw',
+        sessionId: 'oc-s1',
+        projectId: 'oc-p1',
+        turnId: 'turn-1',
+        category: 'turn',
+        name: 'Turn 1',
+        startedAt: '2026-03-01T00:00:00.000Z',
+        endedAt: '2026-03-01T00:00:01.000Z',
+        input: 'hi',
+        output: 'hello',
+        attributes: {
+          'langfuse.observation.model.name': 'openclaw-pro',
+          'gen_ai.usage.input_tokens': 10,
+          'gen_ai.usage.output_tokens': 5,
+        },
+      },
+      {
+        runtime: 'openclaw',
+        sessionId: 'oc-s1',
+        projectId: 'oc-p1',
+        turnId: 'turn-1',
+        category: 'tool',
+        name: 'Tool: WebSearch',
+        startedAt: '2026-03-01T00:00:00.200Z',
+        endedAt: '2026-03-01T00:00:00.300Z',
+        input: '{\"query\":\"langfuse\"}',
+        output: 'ok',
+        attributes: {
+          'gen_ai.tool.name': 'WebSearch',
+          'gen_ai.tool.call.id': 'call-web-1',
+        },
+      },
+    ];
+    const payload = compileOtlp(events, { serviceName: 'spanory', serviceVersion: '0.1.0', environment: 'test' });
+    const spans = payload.resourceSpans[0].scopeSpans[0].spans;
+    expect(spans).toHaveLength(2);
+    expect(spans[1].parentSpanId).toBe(spans[0].spanId);
+
+    const rootAttrs = Object.fromEntries(spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+    const toolAttrs = Object.fromEntries(spans[1].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+
+    expect(rootAttrs['agentic.runtime.name']).toBe('openclaw');
+    expect(rootAttrs['langfuse.session.id']).toBe('oc-s1');
+    expect(rootAttrs['langfuse.trace.input']).toBe('hi');
+    expect(rootAttrs['langfuse.trace.output']).toBe('hello');
+    expect(toolAttrs['langfuse.observation.type']).toBe('tool');
+    expect(toolAttrs['gen_ai.tool.name']).toBe('WebSearch');
+    expect(toolAttrs['gen_ai.tool.call.id']).toBe('call-web-1');
+  });
 });

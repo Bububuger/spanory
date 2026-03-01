@@ -5,10 +5,12 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 ## MVP Status
 
 - Current status: runnable MVP
-- First runtime: Claude Code CLI
+- Supported runtimes:
+  - `claude-code`
+  - `openclaw`
 - Ingestion target: OTLP HTTP (Langfuse-compatible endpoint)
 - Supported use patterns:
-  - Realtime ingestion via Claude hook (`SessionEnd`)
+  - Realtime ingestion via runtime hook (`SessionEnd` style payload)
   - Manual replay/backfill per session via CLI
 
 ## Governance
@@ -34,7 +36,7 @@ Spanory is a cross-runtime observability toolkit for agent systems.
   - Good runtime coverage for `macOS`, `Linux`, and `Windows`.
 - Cross-platform strategy:
   - Core abstraction (`RuntimeAdapter`) is runtime-agnostic.
-  - Runtime parser is pluggable (Claude Code is the first adapter).
+  - Runtime parser is pluggable.
   - OS hook entry is split by wrapper scripts.
 
 ## Workspace
@@ -48,13 +50,15 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 
 `@spanory/core` defines:
 
-- `SpanoryEvent`: unified event object (`turn`, `agent_command`, `shell_command`, `mcp`, `agent_task`)
+- `SpanoryEvent`: unified event object (`turn`, `agent_command`, `shell_command`, `mcp`, `agent_task`, `tool`)
+- `RuntimeCapabilities`: runtime capability matrix metadata
 - `HookPayload`: normalized hook input payload
 - `RuntimeAdapter`: `resolveContextFromHook` + `collectEvents`
 
-Claude Code implementation:
+Runtime implementations:
 
 - `packages/cli/src/runtime/claude/adapter.js`
+- `packages/cli/src/runtime/openclaw/adapter.js`
 
 ## Claude Code 接入（Hook 实时上报）
 
@@ -88,6 +92,9 @@ spanory hook
 
 说明：
 - `spanory hook` 会从 `stdin` 读取 Claude hook payload。
+- 可通过 `--runtime` 切换 runtime（默认 `claude-code`）：
+  - `spanory hook --runtime claude-code`
+  - `spanory hook --runtime openclaw`
 - CLI 会自动读取 `~/.env`（若变量未在当前进程定义）。
 - 默认导出目录：`~/.claude/state/spanory-json`（可用 `SPANORY_HOOK_EXPORT_JSON_DIR` 覆盖）。
 
@@ -162,6 +169,49 @@ spanory runtime claude-code backfill \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
+## OpenClaw 接入（Hook + 回跑）
+
+默认会话目录：
+
+```bash
+~/.openclaw/projects/<project-id>/<session-id>.jsonl
+```
+
+可覆盖 OpenClaw runtime home：
+
+```bash
+export SPANORY_OPENCLOW_HOME="$HOME/.openclaw"
+```
+
+实时 hook：
+
+```bash
+echo '{"session_id":"<SESSION_ID>","transcript_path":"<TRANSCRIPT_PATH>"}' | \
+spanory runtime openclaw hook \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+离线导出：
+
+```bash
+spanory runtime openclaw export \
+  --project-id openclaw-workspace-test \
+  --session-id <SESSION_ID> \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+批量回跑：
+
+```bash
+spanory runtime openclaw backfill \
+  --project-id openclaw-workspace-test \
+  --since 2026-02-27T00:00:00Z \
+  --limit 50 \
+  --dry-run
+```
+
 ## 推荐使用方式
 
 - 日常使用：依赖 Hook 自动实时上报。
@@ -228,6 +278,7 @@ Recognized event categories:
 - `shell_command` (Claude tool `Bash`)
 - `mcp`
 - `agent_task`
+- `tool`
 
 ## Install and Binary
 
@@ -240,6 +291,7 @@ spanory --help
 
 Build standalone executable:
 
+```bash
 npm run build:bin
 ./dist/spanory-macos-arm64 --help
 ```
