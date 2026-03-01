@@ -51,6 +51,8 @@ describe('otlp compiler', () => {
     expect(attrs['langfuse.observation.id']).toBe(spans[0].spanId);
     expect(attrs['langfuse.observation.type']).toBe('agent');
     expect(attrs['session.id']).toBe('s1');
+    expect(attrs['agentic.session.id']).toBeUndefined();
+    expect(attrs['agentic.project.id']).toBeUndefined();
   });
 
   it('parses header list', () => {

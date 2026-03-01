@@ -23,7 +23,7 @@ const runtimeAdapters = {
 function getResource() {
   return {
     serviceName: 'spanory',
-    serviceVersion: process.env.SPANORY_VERSION ?? '0.1.0',
+    serviceVersion: process.env.SPANORY_VERSION ?? '0.1.1',
     environment: process.env.SPANORY_ENV ?? 'development',
   };
 }
@@ -245,7 +245,7 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version('0.1.0');
+  .version('0.1.1');
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
 const claudeCode = runtime.command('claude-code').description('Claude Code transcript runtime');
