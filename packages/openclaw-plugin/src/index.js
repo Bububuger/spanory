@@ -6,6 +6,7 @@ import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/src/index.js';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
+const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
 
 function toNumber(value) {
   const n = Number(value);
@@ -138,6 +139,41 @@ function extractAssistantOutput(event) {
     .filter(Boolean)
     .join('\n')
     .trim();
+}
+
+function normalizeRuntimeVersion(value) {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text || undefined;
+}
+
+function runtimeVersionAttributes(version) {
+  if (!version) return {};
+  return {
+    'runtime.version': version,
+    'agentic.runtime.version': version,
+  };
+}
+
+function extractPromptMetadata(prompt) {
+  const input = String(prompt ?? '');
+  const match = input.match(GATEWAY_INPUT_METADATA_BLOCK_RE);
+  if (!match) return { prompt: input, attributes: {} };
+
+  const attributes = {};
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      attributes['agentic.input.metadata'] = JSON.stringify(parsed);
+      if (parsed.message_id !== undefined) attributes['agentic.input.message_id'] = String(parsed.message_id);
+      if (parsed.sender !== undefined) attributes['agentic.input.sender'] = String(parsed.sender);
+    }
+  } catch {
+    // ignore malformed metadata JSON and only strip wrapper text
+  }
+
+  const normalizedPrompt = input.slice(match.index + match[0].length).trim() || input;
+  return { prompt: normalizedPrompt, attributes };
 }
 
 function normalizeToolParams(value) {
@@ -370,6 +406,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
         pendingToolCalls: new Map(),
         pendingOutputParts: [],
         pendingUsage: {},
+        pendingInputAttributes: {},
         currentBatch: null,
         flushTimer: null,
         seenToolCallIds: new Set(),
@@ -377,6 +414,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
         lastPrompt: '',
         lastInputAt: nowIso(),
         lastModel: undefined,
+        runtimeVersion: normalizeRuntimeVersion(process.env.OPENCLAW_RUNTIME_VERSION ?? process.env.OPENCLAW_VERSION),
         lastTouchedAt: Date.now(),
       });
     }
@@ -452,6 +490,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     state.pendingTurnId = undefined;
     state.pendingOutputParts = [];
     state.pendingUsage = {};
+    state.pendingInputAttributes = {};
   };
 
   const finalizePendingTurn = (state, options = {}) => {
@@ -478,6 +517,8 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
       attributes: {
         'agentic.event.category': 'turn',
         'gen_ai.operation.name': 'invoke_agent',
+        ...runtimeVersionAttributes(state.runtimeVersion),
+        ...(state.pendingInputAttributes ?? {}),
         ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
         ...usageToAttributes(state.pendingUsage),
       },
@@ -518,17 +559,35 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     if (finalizePendingTurn(state)) {
       flushCurrentBatch(state);
     }
-    state.lastPrompt = String(event?.prompt ?? '');
+    const normalized = extractPromptMetadata(event?.prompt ?? '');
+    const runtimeVersion = normalizeRuntimeVersion(
+      event?.runtimeVersion
+      ?? event?.runtime_version
+      ?? event?.openclawVersion
+      ?? event?.openclaw_version
+      ?? event?.version,
+    );
+    if (runtimeVersion) state.runtimeVersion = runtimeVersion;
+    state.lastPrompt = normalized.prompt;
     state.lastInputAt = nowIso();
     state.pendingTurnId = createTurnId(state);
     state.pendingOutputParts = [];
     state.pendingUsage = {};
+    state.pendingInputAttributes = normalized.attributes;
     state.lastTouchedAt = Date.now();
   };
 
   const onLlmOutput = (event, ctx) => {
     const state = getState(ctx);
     if (!state.pendingTurnId) return;
+    const runtimeVersion = normalizeRuntimeVersion(
+      event?.runtimeVersion
+      ?? event?.runtime_version
+      ?? event?.openclawVersion
+      ?? event?.openclaw_version
+      ?? event?.version,
+    );
+    if (runtimeVersion) state.runtimeVersion = runtimeVersion;
     state.lastModel = event?.model ?? state.lastModel;
     state.lastTouchedAt = Date.now();
     state.pendingUsage = mergeUsage(state.pendingUsage, event?.usage);
@@ -566,6 +625,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
       output,
       attributes: {
         'agentic.event.category': category,
+        ...runtimeVersionAttributes(state.runtimeVersion),
         ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
         ...buildToolAttributes(toolName, toolCallId),
       },
@@ -601,6 +661,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
       output,
       attributes: {
         'agentic.event.category': category,
+        ...runtimeVersionAttributes(state.runtimeVersion),
         ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
         ...buildToolAttributes(toolName, toolCallId),
       },
@@ -644,6 +705,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
       output: extractToolResultContent(message),
       attributes: {
         'agentic.event.category': category,
+        ...runtimeVersionAttributes(state.runtimeVersion),
         ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
         ...buildToolAttributes(toolName, toolCallId),
       },
@@ -676,6 +738,8 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
           attributes: {
             'agentic.event.category': 'turn',
             'gen_ai.operation.name': 'invoke_agent',
+            ...runtimeVersionAttributes(state.runtimeVersion),
+            ...(state.pendingInputAttributes ?? {}),
             ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
           },
         },
@@ -686,6 +750,22 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     }
     flushCurrentBatch(state);
     await queue.flush();
+  };
+
+  const onSessionStart = (event, ctx) => {
+    const state = getState(ctx);
+    const runtimeVersion = normalizeRuntimeVersion(
+      event?.runtimeVersion
+      ?? event?.runtime_version
+      ?? event?.openclawVersion
+      ?? event?.openclaw_version
+      ?? event?.version
+      ?? event?.session?.runtimeVersion
+      ?? event?.session?.runtime_version
+      ?? event?.session?.version,
+    );
+    if (runtimeVersion) state.runtimeVersion = runtimeVersion;
+    state.lastTouchedAt = Date.now();
   };
 
   const onGatewayStop = async () => {
@@ -699,6 +779,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
   };
 
   return {
+    onSessionStart,
     onLlmInput,
     onLlmOutput,
     onAfterToolCall,
@@ -711,7 +792,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
 
 export default function register(api) {
   const runtime = createOpenclawSpanoryPluginRuntime(api.logger);
-  api.on('session_start', (_event, _ctx) => {});
+  api.on('session_start', runtime.onSessionStart);
   api.on('llm_input', runtime.onLlmInput);
   api.on('llm_output', runtime.onLlmOutput);
   api.on('before_tool_call', (_event, _ctx) => ({}));
