@@ -1,0 +1,2 @@
+{"type":"user","isMeta":false,"timestamp":"2026-03-03T00:00:00.000Z","version":"2.1.70","message":{"content":"hello from main"}}
+{"type":"assistant","timestamp":"2026-03-03T00:00:01.000Z","version":"2.1.70","isSidechain":true,"agentId":"subagent-1","message":{"model":"claude-sonnet-4-6","id":"msg-h-1","usage":{"input_tokens":4,"output_tokens":2,"total_tokens":6},"content":[{"type":"text","text":"from sidechain"}]}}

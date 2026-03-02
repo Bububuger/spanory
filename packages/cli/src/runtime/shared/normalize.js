@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
@@ -47,6 +49,10 @@ function usageAttributes(usage) {
   if (usage.cache_creation_input_tokens !== undefined) {
     attrs['gen_ai.usage.details.cache_creation_input_tokens'] = usage.cache_creation_input_tokens;
   }
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const denominator = (usage.input_tokens ?? 0) + cacheRead;
+  const cacheHitRate = denominator > 0 ? cacheRead / denominator : 0;
+  attrs['gen_ai.usage.details.cache_hit_rate'] = Number(cacheHitRate.toFixed(6));
 
   attrs['langfuse.observation.usage_details'] = JSON.stringify({
     ...(usage.input_tokens !== undefined ? { input: usage.input_tokens } : {}),
@@ -143,6 +149,45 @@ function isMcpToolName(name) {
   return n === 'mcp' || n.startsWith('mcp__') || n.startsWith('mcp-');
 }
 
+function hashText(text) {
+  return createHash('sha256').update(String(text ?? '')).digest('hex');
+}
+
+function lineCount(text) {
+  const s = String(text ?? '');
+  if (!s) return 0;
+  return s.split(/\r?\n/).length;
+}
+
+function tokenSet(text) {
+  const tokens = String(text ?? '').trim().split(/\s+/).filter(Boolean);
+  return new Set(tokens);
+}
+
+function similarityScore(a, b) {
+  if (a === b) return 1;
+  const setA = tokenSet(a);
+  const setB = tokenSet(b);
+  if (setA.size === 0 && setB.size === 0) return 1;
+  if (setA.size === 0 || setB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const token of setA) {
+    if (setB.has(token)) intersection += 1;
+  }
+  const union = setA.size + setB.size - intersection;
+  if (union === 0) return 1;
+  return Number((intersection / union).toFixed(6));
+}
+
+function actorHeuristic(messages) {
+  const hasSidechainSignal = messages.some(
+    (m) => m?.isSidechain === true || (typeof m?.agentId === 'string' && m.agentId.trim().length > 0),
+  );
+  if (hasSidechainSignal) return { role: 'unknown', confidence: 0.6 };
+  return { role: 'main', confidence: 0.95 };
+}
+
 function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const user = messages.find(isPromptUserMessage) ?? messages.find((m) => m.role === 'user' && !m.isMeta) ?? messages[0];
   const assistantsRaw = messages.filter((m) => m.role === 'assistant');
@@ -172,6 +217,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
     .filter(Boolean)
     .at(-1);
   const runtimeVersionAttrs = runtimeVersion ? { 'agentic.runtime.version': runtimeVersion } : {};
+  const actor = actorHeuristic(messages);
 
   const events = [
     {
@@ -191,6 +237,8 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         'gen_ai.operation.name': 'invoke_agent',
         ...runtimeVersionAttrs,
         ...modelAttributes(latestModel),
+        'agentic.actor.role': actor.role,
+        'agentic.actor.role_confidence': actor.confidence,
         ...usageAttributes(usage),
       },
     },
@@ -366,6 +414,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
   if (!turnInput && !turnOutput && events.length === 1) {
     return [];
   }
+  events[0].attributes['agentic.subagent.calls'] = events.filter((e) => e.category === 'agent_task').length;
 
   return events;
 }
@@ -389,8 +438,38 @@ export function groupByTurns(messages) {
 export function normalizeTranscriptMessages({ runtime, projectId, sessionId, messages }) {
   const turns = groupByTurns(messages);
   const events = [];
+  let previousInput = '';
+  let previousHash = '';
+  let hasPreviousTurn = false;
+
   for (let i = 0; i < turns.length; i += 1) {
-    events.push(...createTurn(turns[i], `turn-${i + 1}`, projectId, sessionId, runtime));
+    const turnEvents = createTurn(turns[i], `turn-${i + 1}`, projectId, sessionId, runtime);
+    if (!turnEvents.length) continue;
+
+    const turnEvent = turnEvents[0];
+    const input = String(turnEvent.input ?? '');
+    const inputHash = hashText(input);
+
+    if (!hasPreviousTurn) {
+      turnEvent.attributes['agentic.turn.input.hash'] = inputHash;
+      turnEvent.attributes['agentic.turn.input.prev_hash'] = '';
+      turnEvent.attributes['agentic.turn.diff.char_delta'] = 0;
+      turnEvent.attributes['agentic.turn.diff.line_delta'] = 0;
+      turnEvent.attributes['agentic.turn.diff.similarity'] = 1;
+      turnEvent.attributes['agentic.turn.diff.changed'] = false;
+      hasPreviousTurn = true;
+    } else {
+      turnEvent.attributes['agentic.turn.input.hash'] = inputHash;
+      turnEvent.attributes['agentic.turn.input.prev_hash'] = previousHash;
+      turnEvent.attributes['agentic.turn.diff.char_delta'] = input.length - previousInput.length;
+      turnEvent.attributes['agentic.turn.diff.line_delta'] = lineCount(input) - lineCount(previousInput);
+      turnEvent.attributes['agentic.turn.diff.similarity'] = similarityScore(previousInput, input);
+      turnEvent.attributes['agentic.turn.diff.changed'] = inputHash !== previousHash;
+    }
+
+    previousInput = input;
+    previousHash = inputHash;
+    events.push(...turnEvents);
   }
   return events;
 }

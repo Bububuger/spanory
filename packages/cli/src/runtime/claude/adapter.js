@@ -11,6 +11,15 @@ function parseTimestamp(entry) {
   return date;
 }
 
+function normalizeIsSidechain(entry) {
+  const raw = entry?.isSidechain ?? entry?.is_sidechain ?? entry?.message?.isSidechain ?? entry?.message?.is_sidechain;
+  return raw === true;
+}
+
+function normalizeAgentId(entry) {
+  return entry?.agentId ?? entry?.agent_id ?? entry?.message?.agentId ?? entry?.message?.agent_id;
+}
+
 async function readClaudeTranscript(transcriptPath) {
   const raw = await readFile(transcriptPath, 'utf-8');
   const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
@@ -21,6 +30,8 @@ async function readClaudeTranscript(transcriptPath) {
       messages.push({
         role: entry.type,
         isMeta: entry.isMeta ?? false,
+        isSidechain: normalizeIsSidechain(entry),
+        agentId: normalizeAgentId(entry),
         content: entry?.message?.content ?? entry.content ?? '',
         model: entry?.message?.model ?? entry.model,
         usage: pickUsage(entry?.message?.usage ?? entry?.usage ?? entry?.message_usage),

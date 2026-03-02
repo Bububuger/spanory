@@ -6,6 +6,22 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function toOptionalNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function round6(value) {
+  return Number(Number(value).toFixed(6));
+}
+
+function parseTurnOrdinal(turnId) {
+  const m = String(turnId ?? '').match(/^turn-(\d+)$/);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function usageFromEvent(event) {
   const attrs = event.attributes ?? {};
   const input = toNumber(attrs['gen_ai.usage.input_tokens']);
@@ -128,4 +144,118 @@ export function summarizeAgents(sessions) {
     });
   }
   return out;
+}
+
+export function summarizeCache(sessions) {
+  return sessions.map((s) => {
+    const turns = s.events.filter((e) => e.category === 'turn');
+    let inputTokens = 0;
+    let cacheReadInputTokens = 0;
+    let cacheCreationInputTokens = 0;
+    const explicitHitRates = [];
+
+    for (const turn of turns) {
+      const attrs = turn.attributes ?? {};
+      inputTokens += toNumber(attrs['gen_ai.usage.input_tokens']);
+      cacheReadInputTokens += toNumber(attrs['gen_ai.usage.details.cache_read_input_tokens']);
+      cacheCreationInputTokens += toNumber(attrs['gen_ai.usage.details.cache_creation_input_tokens']);
+      const hitRate = toOptionalNumber(attrs['gen_ai.usage.details.cache_hit_rate']);
+      if (hitRate !== undefined) explicitHitRates.push(hitRate);
+    }
+
+    const cacheHitRate = explicitHitRates.length > 0
+      ? round6(explicitHitRates.reduce((acc, v) => acc + v, 0) / explicitHitRates.length)
+      : round6((inputTokens + cacheReadInputTokens) > 0 ? cacheReadInputTokens / (inputTokens + cacheReadInputTokens) : 0);
+
+    return {
+      projectId: s.context.projectId ?? s.events[0]?.projectId,
+      sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
+      runtime: s.events[0]?.runtime,
+      turns: turns.length,
+      inputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+      cacheHitRate,
+    };
+  });
+}
+
+export function summarizeTools(sessions) {
+  const agg = new Map();
+  for (const s of sessions) {
+    for (const e of s.events) {
+      if (!['tool', 'mcp', 'shell_command', 'agent_task'].includes(e.category)) continue;
+      const attrs = e.attributes ?? {};
+      const tool = attrs['gen_ai.tool.name'] ?? e.name;
+      const key = `${e.category}:${tool}`;
+      const cur = agg.get(key) ?? {
+        category: e.category,
+        tool,
+        calls: 0,
+        sessions: new Set(),
+      };
+      cur.calls += 1;
+      cur.sessions.add(e.sessionId);
+      agg.set(key, cur);
+    }
+  }
+
+  return [...agg.values()]
+    .map((v) => ({
+      category: v.category,
+      tool: v.tool,
+      calls: v.calls,
+      sessions: v.sessions.size,
+    }))
+    .sort((a, b) => {
+      if (b.calls !== a.calls) return b.calls - a.calls;
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      return a.tool.localeCompare(b.tool);
+    });
+}
+
+export function summarizeTurnDiff(sessions) {
+  const rows = [];
+  for (const s of sessions) {
+    const turns = s.events
+      .filter((e) => e.category === 'turn')
+      .slice()
+      .sort((a, b) => {
+        const ao = parseTurnOrdinal(a.turnId);
+        const bo = parseTurnOrdinal(b.turnId);
+        if (ao === undefined && bo === undefined) return String(a.turnId ?? '').localeCompare(String(b.turnId ?? ''));
+        if (ao === undefined) return 1;
+        if (bo === undefined) return -1;
+        return ao - bo;
+      });
+
+    for (let i = 0; i < turns.length; i += 1) {
+      const turn = turns[i];
+      const attrs = turn.attributes ?? {};
+      const input = String(turn.input ?? '');
+      const prevInput = String(turns[i - 1]?.input ?? '');
+      const charDelta = toOptionalNumber(attrs['agentic.turn.diff.char_delta'])
+        ?? (i === 0 ? 0 : input.length - prevInput.length);
+      const lineDelta = toOptionalNumber(attrs['agentic.turn.diff.line_delta'])
+        ?? (i === 0 ? 0 : (input ? input.split(/\r?\n/).length : 0) - (prevInput ? prevInput.split(/\r?\n/).length : 0));
+      const similarity = toOptionalNumber(attrs['agentic.turn.diff.similarity']) ?? (i === 0 ? 1 : undefined);
+      const changed = typeof attrs['agentic.turn.diff.changed'] === 'boolean'
+        ? attrs['agentic.turn.diff.changed']
+        : (i === 0 ? false : input !== prevInput);
+
+      rows.push({
+        projectId: s.context.projectId ?? turn.projectId,
+        sessionId: s.context.sessionId ?? turn.sessionId,
+        runtime: turn.runtime,
+        turnId: turn.turnId,
+        inputHash: attrs['agentic.turn.input.hash'] ?? '',
+        prevHash: attrs['agentic.turn.input.prev_hash'] ?? '',
+        charDelta,
+        lineDelta,
+        similarity,
+        changed,
+      });
+    }
+  }
+  return rows;
 }

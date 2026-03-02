@@ -96,4 +96,18 @@ describe('openclawAdapter', () => {
     expect(tools).toHaveLength(1);
     expect(tools[0].attributes['gen_ai.tool.name']).toBe('WebSearch');
   });
+
+  it('maps sidechain hints and marks turn actor as unknown', async () => {
+    const transcriptPath = path.resolve('test/fixtures/openclaw/projects/test-project/session-sidechain.jsonl');
+    const events = await openclawAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-sidechain',
+      transcriptPath,
+    });
+
+    const turn = events.find((e) => e.category === 'turn');
+    expect(turn).toBeTruthy();
+    expect(turn.attributes['agentic.actor.role']).toBe('unknown');
+    expect(turn.attributes['agentic.actor.role_confidence']).toBe(0.6);
+  });
 });

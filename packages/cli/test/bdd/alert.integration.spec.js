@@ -50,4 +50,28 @@ describe('BDD alert eval command', () => {
       );
     }).toThrowError();
   });
+
+  it('Given extended session metrics rules, When alert eval runs, Then new metric alerts are emitted', () => {
+    const out = execFileSync(
+      'node',
+      [
+        entry,
+        'alert',
+        'eval',
+        '--input-json',
+        'test/fixtures/exported/session-a.json',
+        '--rules',
+        'test/fixtures/alert-rules-extended.json',
+      ],
+      { env: cleanEnv },
+    ).toString('utf8');
+
+    const data = JSON.parse(out);
+    const ids = new Set(data.alerts.map((alert) => alert.ruleId));
+    expect(ids.has('cache-read-high')).toBe(true);
+    expect(ids.has('cache-create-high')).toBe(true);
+    expect(ids.has('cache-hit-high')).toBe(true);
+    expect(ids.has('subagent-calls-high')).toBe(true);
+    expect(ids.has('diff-char-max-high')).toBe(true);
+  });
 });

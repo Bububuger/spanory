@@ -12,11 +12,14 @@ import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
+  summarizeCache,
   loadExportedEvents,
   summarizeAgents,
   summarizeCommands,
   summarizeMcp,
   summarizeSessions,
+  summarizeTools,
+  summarizeTurnDiff,
 } from './report/aggregate.js';
 
 const runtimeAdapters = {
@@ -734,6 +737,33 @@ report
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'agent-summary', rows: summarizeAgents(sessions) }, null, 2));
+  });
+
+report
+  .command('cache')
+  .description('Cache usage summary per session')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'cache-summary', rows: summarizeCache(sessions) }, null, 2));
+  });
+
+report
+  .command('tool')
+  .description('Tool usage aggregation view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'tool-summary', rows: summarizeTools(sessions) }, null, 2));
+  });
+
+report
+  .command('turn-diff')
+  .description('Turn input diff summary view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'turn-diff-summary', rows: summarizeTurnDiff(sessions) }, null, 2));
   });
 
 const alert = program.command('alert').description('Evaluate alert rules against exported telemetry data');

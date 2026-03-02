@@ -1,0 +1,9 @@
+{
+  "rules": [
+    {"id":"cache-read-high","scope":"session","metric":"cache.read","op":"gte","threshold":2},
+    {"id":"cache-create-high","scope":"session","metric":"cache.creation","op":"gte","threshold":1},
+    {"id":"cache-hit-high","scope":"session","metric":"cache.hit_rate","op":"gt","threshold":0.1},
+    {"id":"subagent-calls-high","scope":"session","metric":"subagent.calls","op":"gte","threshold":1},
+    {"id":"diff-char-max-high","scope":"session","metric":"diff.char_delta.max","op":"gte","threshold":1}
+  ]
+}

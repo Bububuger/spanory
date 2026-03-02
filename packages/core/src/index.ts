@@ -44,6 +44,39 @@ export interface RuntimeAdapter {
   collectEvents(context: RuntimeAdapterContext): Promise<SpanoryEvent[]>;
 }
 
+export interface CaptureRecord {
+  runtime: string;
+  sessionId?: string;
+  projectId?: string;
+  turnId?: string;
+  timestamp: string;
+  channel: 'http' | 'stdio' | 'file' | 'hook';
+  direction: 'request' | 'response' | 'event';
+  name: string;
+  payload?: unknown;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface CaptureRedactionPolicy {
+  enabled: boolean;
+  mode: 'allowlist' | 'denylist';
+  rules: Array<{
+    target: 'header' | 'query' | 'body' | 'path';
+    pattern: string;
+    replaceWith?: string;
+  }>;
+  maxPayloadBytes?: number;
+  dropBinary?: boolean;
+}
+
+export interface CaptureAdapter {
+  runtimeName: string;
+  enabled?(context: RuntimeAdapterContext): boolean;
+  startSession?(context: RuntimeAdapterContext): Promise<void> | void;
+  capture(record: CaptureRecord, context: RuntimeAdapterContext): Promise<void> | void;
+  flush?(context: RuntimeAdapterContext): Promise<void> | void;
+}
+
 export type CanonicalEvent = SpanoryEvent;
 
 export interface BackendCompileContext {
