@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, existsSync, mkdirSync, cpSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
@@ -158,5 +158,57 @@ describe('BDD hook ingestion', () => {
     expect(new Set(third.events.map((e) => e.turnId))).toEqual(new Set(['turn-3']));
     expect(third.events.filter((e) => e.category === 'turn')).toHaveLength(1);
     expect(third.events.find((e) => e.category === 'turn').input).toContain('第三轮问题');
+  });
+
+  it('Given delayed assistant output, When last-turn-only hook runs, Then it retries within 1s and captures output', async () => {
+    const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-home-'));
+    const projectDir = path.join(fakeHome, '.claude', 'projects', 'test-project');
+    mkdirSync(projectDir, { recursive: true });
+    const transcript = path.join(projectDir, 'session-retry.jsonl');
+    appendFileSync(
+      transcript,
+      '{"type":"user","timestamp":"2026-03-01T12:00:00.000Z","message":{"content":"hello"}}\n',
+    );
+
+    const exportDir = mkdtempSync(path.join(tmpdir(), 'spanory-hook-'));
+    const payload = JSON.stringify({
+      hook_event_name: 'Stop',
+      session_id: 'session-retry',
+      transcript_path: transcript,
+    });
+    const env = { ...cleanEnv, HOME: fakeHome };
+
+    const output = await new Promise((resolve, reject) => {
+      const child = execFile(
+        'node',
+        [entry, 'runtime', 'claude-code', 'hook', '--last-turn-only', '--export-json-dir', exportDir],
+        { env },
+        (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`hook failed: ${stderr || error.message}`));
+            return;
+          }
+          resolve(stdout);
+        },
+      );
+
+      child.stdin.write(payload);
+      child.stdin.end();
+
+      setTimeout(() => {
+        appendFileSync(
+          transcript,
+          '{"type":"assistant","timestamp":"2026-03-01T12:00:00.300Z","message":{"id":"msg-retry-1","model":"claude-opus-4-6","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2},"content":[{"type":"text","text":"late answer"}]}}\n',
+        );
+      }, 200);
+    });
+
+    expect(output).not.toContain('retry=empty-output-timeout');
+    const outFile = path.join(exportDir, 'session-retry.json');
+    expect(existsSync(outFile)).toBe(true);
+    const data = JSON.parse(readFileSync(outFile, 'utf8'));
+    const turn = data.events.find((event) => event.category === 'turn');
+    expect(turn).toBeTruthy();
+    expect(turn.output).toContain('late answer');
   });
 });

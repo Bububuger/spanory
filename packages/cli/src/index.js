@@ -32,6 +32,8 @@ const backendAdapters = {
 };
 
 const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
+const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
+const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
 
 function getResource() {
   return {
@@ -170,6 +172,17 @@ function selectLatestTurnEvents(events) {
   };
 }
 
+function isTurnOutputEmpty(events, turnId) {
+  if (!Array.isArray(events) || events.length === 0) return true;
+  const turn = events.find((event) => event.category === 'turn' && (!turnId || event.turnId === turnId));
+  if (!turn) return true;
+  return String(turn.output ?? '').trim().length === 0;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
   if (explicitRuntimeHome) return explicitRuntimeHome;
   if (runtimeName === 'openclaw') {
@@ -269,22 +282,44 @@ async function runHookMode(options) {
     ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
   };
 
-  const allEvents = await adapter.collectEvents(contextWithRuntimeHome);
-  const fullFingerprint = fingerprintSession(contextWithRuntimeHome, allEvents);
-
+  let allEvents = [];
+  let fullFingerprint = '';
   let selectedTurnId;
-  let events = allEvents;
-  let selectedFingerprint = fullFingerprint;
+  let events = [];
+  let selectedFingerprint = '';
 
-  if (options.lastTurnOnly) {
-    const latest = selectLatestTurnEvents(allEvents);
-    selectedTurnId = latest.turnId;
-    events = latest.events;
-    if (!selectedTurnId || events.length === 0) {
-      console.log(`skip=no-turn sessionId=${contextWithRuntimeHome.sessionId}`);
-      return;
+  const retryDeadline = Date.now() + EMPTY_OUTPUT_RETRY_WINDOW_MS;
+  for (;;) {
+    allEvents = await adapter.collectEvents(contextWithRuntimeHome);
+    fullFingerprint = fingerprintSession(contextWithRuntimeHome, allEvents);
+    selectedTurnId = undefined;
+    events = allEvents;
+    selectedFingerprint = fullFingerprint;
+
+    if (options.lastTurnOnly) {
+      const latest = selectLatestTurnEvents(allEvents);
+      selectedTurnId = latest.turnId;
+      events = latest.events;
+      if (!selectedTurnId || events.length === 0) {
+        console.log(`skip=no-turn sessionId=${contextWithRuntimeHome.sessionId}`);
+        return;
+      }
+      selectedFingerprint = fingerprintSession(contextWithRuntimeHome, events);
     }
-    selectedFingerprint = fingerprintSession(contextWithRuntimeHome, events);
+
+    const shouldRetryEmptyOutput = options.lastTurnOnly && isTurnOutputEmpty(events, selectedTurnId);
+    if (!shouldRetryEmptyOutput) break;
+
+    const remainingMs = retryDeadline - Date.now();
+    if (remainingMs <= 0) {
+      console.log(
+        `retry=empty-output-timeout sessionId=${contextWithRuntimeHome.sessionId} turnId=${selectedTurnId} waitedMs=${EMPTY_OUTPUT_RETRY_WINDOW_MS}`,
+      );
+      break;
+    }
+
+    const waitMs = Math.min(EMPTY_OUTPUT_RETRY_INTERVAL_MS, remainingMs);
+    await sleep(waitMs);
   }
 
   if (!options.force) {
