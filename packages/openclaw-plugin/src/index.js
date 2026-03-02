@@ -120,6 +120,26 @@ function extractToolResultContent(message) {
   return '';
 }
 
+function extractAssistantOutput(event) {
+  const assistantTexts = Array.isArray(event?.assistantTexts) ? event.assistantTexts.join('\n').trim() : '';
+  if (assistantTexts) return assistantTexts;
+
+  const lastAssistant = event?.lastAssistant;
+  if (!lastAssistant || typeof lastAssistant !== 'object') return '';
+  if (typeof lastAssistant.content === 'string' && lastAssistant.content.trim()) return lastAssistant.content.trim();
+  if (!Array.isArray(lastAssistant.content)) return '';
+
+  return lastAssistant.content
+    .map((block) => {
+      if (typeof block === 'string') return block;
+      if (block && typeof block === 'object' && typeof block.text === 'string') return block.text;
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
 function normalizeToolParams(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value;
   if (typeof value === 'string' && value.trim()) {
@@ -512,7 +532,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     state.lastModel = event?.model ?? state.lastModel;
     state.lastTouchedAt = Date.now();
     state.pendingUsage = mergeUsage(state.pendingUsage, event?.usage);
-    const output = Array.isArray(event?.assistantTexts) ? event.assistantTexts.join('\n').trim() : '';
+    const output = extractAssistantOutput(event);
     if (!output) return;
     state.pendingOutputParts.push(output);
     finalizePendingTurn(state, { requireOutput: true });
