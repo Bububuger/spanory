@@ -1,5 +1,5 @@
-# Spanory 修复 TODO：trace.input 覆盖问题（2026-03-01）
+# Spanory 修复 TODO：turn 输入输出错配（2026-03-03 第三阶段）
 
-- [x] T1 新增失败测试并跑到 RED
-- [x] T2 实现最小修复（otlp-core）
-- [x] T3 运行验收测试并标记完成
+- [x] T1 新增失败测试（同输入多 llm_output 聚合）
+- [x] T2 实现 runtime 聚合修复（pending turn + 延迟落盘）
+- [x] T3 验收（单测 + replay 对账）

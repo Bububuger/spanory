@@ -1,33 +1,39 @@
-# Spanory 修复计划：OpenClaw trace.input 被 tool/hook 覆盖（2026-03-01）
+# Spanory 修复计划：OpenClaw turn 输入输出错配（2026-03-03 第三阶段）
 
 ## Goal
-修复 OpenClaw 上报到 Langfuse/ClickHouse 后，`default.traces.input` 偶发被 tool/hook 输入覆盖的问题，确保 trace 级 input/output 始终与该 turn 的用户输入/助手输出一致。
+修复 OpenClaw plugin 实时上报中的 turn 切分策略，避免同一轮对话被拆成多个 turn，导致 input/output 错位、空输出 turn 过多的问题。
 
 ## Root Cause
-当前 OTLP 编译仅在 `category=turn` span 上写入 `langfuse.trace.input/output`。在下游聚合时，child span（tool/hook）可能影响 trace 级 input 展示，导致 trace.input 与根 AGENT observation.input 不一致。
+- 当前 runtime 在每次 `llm_output` 触发时都直接创建并发送一个 turn。
+- OpenClaw 在工具调用链中可能产生多次 `llm_output`（例如先工具调用、后最终回复），导致同一用户输入被拆成多个 turn：
+  - 前一个 turn 只有输入/工具，无最终输出
+  - 后一个 turn 才有输出，从而看起来 input/output 对不上。
 
 ## Scope
 - In scope:
-  - `packages/otlp-core/src/index.js`：为同一 turn 的所有 spans 写一致的 trace 级字段（来源优先取 turn 事件）。
-  - `packages/cli/test/unit/otlp.spec.js`：新增回归测试，覆盖“tool 输入不应覆盖 trace 输入”。
+  - `packages/openclaw-plugin/src/index.js`
+    - turn 生命周期改为“按一次用户输入聚合”，在最终文本出现或 session_end 时落盘
+    - 调整 tool 归属：等待 turn 建立前的 tool 暂存到当前输入轮次
+  - `packages/cli/test/unit/openclaw.plugin.runtime.spec.js`
+    - 新增 “空 llm_output + tool + 最终 llm_output” 回归测试
 - Out of scope:
-  - OpenClaw runtime hook 事件结构调整
-  - ClickHouse/Langfuse 表结构变更
+  - 历史脏数据批量清洗（仅通过 replay 补齐）
 
 ## Tasks
 
-### T1 复现并锁定失败场景（测试先行）
-- 在 OTLP 单测中加入覆盖案例：同一 turn 含 turn + tool 事件，断言 tool span 也携带与 turn 一致的 `langfuse.trace.input/output`。
-- 先运行该测试并确认失败（RED）。
+### T1 新增失败用例（RED）
+- 构造同一用户输入下两次 `llm_output`：第一次无 assistantTexts，第二次有最终文本。
+- 断言只生成一个 turn，且该 turn 同时包含正确 input/output 与 tool 细节。
 
-### T2 最小修复 OTLP 编译逻辑
-- 在 `compileOtlpSpans` 中先聚合 turn 级 trace context（input/output），再写入每个 span。
-- 保持 trace id/span id 稳定性与现有 parent-child 逻辑不变。
+### T2 修改 runtime 聚合策略（GREEN）
+- 在 `onLlmInput` 生成 pending turn 上下文。
+- `onLlmOutput` 对空文本只更新上下文，不立即落 turn。
+- 在获得最终文本或 `session_end` 时一次性生成 turn 并挂载 pending tools。
 
-### T3 验证与回归
-- 运行新增单测（GREEN）。
-- 运行 OTLP 相关单测集，确认无回归。
+### T3 验证与真实回归
+- 跑单测。
+- 对指定 session 重新 replay 并抽查 turn/tool 对齐。
 
 ## Acceptance
-- 同一 trace 下，不论 tool/hook 事件是否存在，trace 级 input/output 与 turn 事件一致。
-- `packages/cli/test/unit/otlp.spec.js` 全通过。
+- 相同用户输入不再拆成多个无意义 turn。
+- turn 的 input/output 与 tool 明细在 Langfuse 中可对应。
