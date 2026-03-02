@@ -1,4 +1,5 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -153,6 +154,24 @@ function runtimeVersionAttributes(version) {
     'runtime.version': version,
     'agentic.runtime.version': version,
   };
+}
+
+function detectOpenclawRuntimeVersion() {
+  const envVersion = normalizeRuntimeVersion(
+    process.env.OPENCLAW_RUNTIME_VERSION
+    ?? process.env.OPENCLAW_VERSION
+    ?? process.env.npm_package_version,
+  );
+  if (envVersion) return envVersion;
+  try {
+    const stdout = execFileSync('openclaw', ['--version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return normalizeRuntimeVersion(stdout);
+  } catch {
+    return 'unknown';
+  }
 }
 
 function extractPromptMetadata(prompt) {
@@ -372,6 +391,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
   const sessions = new Map();
   const sessionAliases = new Map();
   const queue = createRuntimeQueue(logger);
+  const defaultRuntimeVersion = detectOpenclawRuntimeVersion();
 
   const resolveStateKey = (ctx) => {
     if (ctx?.sessionId) {
@@ -414,7 +434,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
         lastPrompt: '',
         lastInputAt: nowIso(),
         lastModel: undefined,
-        runtimeVersion: normalizeRuntimeVersion(process.env.OPENCLAW_RUNTIME_VERSION ?? process.env.OPENCLAW_VERSION),
+        runtimeVersion: defaultRuntimeVersion,
         lastTouchedAt: Date.now(),
       });
     }
