@@ -752,7 +752,11 @@ function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile })
   return '#!/usr/bin/env bash\n'
     + 'set -euo pipefail\n'
     + 'payload="${1:-}"\n'
-    + 'if [[ -z "$payload" ]]; then\n'
+    + 'if [[ -z "$payload" ]] && [[ ! -t 0 ]]; then\n'
+    + '  payload="$(cat || true)"\n'
+    + 'fi\n'
+    + 'if [[ -z "${payload//[$\'\\t\\r\\n \']/}" ]]; then\n'
+    + `  echo "skip=empty-payload source=codex-notify args=$#" >> "${logFile}"\n`
     + '  exit 0\n'
     + 'fi\n'
     + `echo "$payload" | "${spanoryBin}" runtime codex hook \\\n`

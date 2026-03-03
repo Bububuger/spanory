@@ -67,6 +67,8 @@ describe('BDD setup command', () => {
     const codexScriptRaw = readFileSync(codexScript, 'utf-8');
     expect(codexScriptRaw).toContain('runtime codex hook');
     expect(codexScriptRaw).toContain('--last-turn-only');
+    expect(codexScriptRaw).toContain('[[ ! -t 0 ]]');
+    expect(codexScriptRaw).toContain('skip=empty-payload');
     const mode = statSync(codexScript).mode;
     expect((mode & 0o111) > 0).toBe(true);
 
