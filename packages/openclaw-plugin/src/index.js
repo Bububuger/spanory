@@ -1,4 +1,5 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -6,6 +7,7 @@ import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/src/index.js';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
+const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
 
 function toNumber(value) {
   const n = Number(value);
@@ -48,6 +50,22 @@ function usageToAttributes(usage) {
   return attrs;
 }
 
+function mergeUsage(target = {}, usage) {
+  if (!usage || typeof usage !== 'object') return target;
+  const next = { ...target };
+  const input = toNumber(usage.input ?? usage.input_tokens ?? usage.prompt_tokens);
+  const output = toNumber(usage.output ?? usage.output_tokens ?? usage.completion_tokens);
+  const total = toNumber(usage.total ?? usage.total_tokens);
+  const cacheRead = toNumber(usage.cacheRead ?? usage.cache_read_input_tokens);
+  const cacheWrite = toNumber(usage.cacheWrite ?? usage.cache_creation_input_tokens);
+  if (input !== undefined) next.input = (next.input ?? 0) + input;
+  if (output !== undefined) next.output = (next.output ?? 0) + output;
+  if (total !== undefined) next.total = (next.total ?? 0) + total;
+  if (cacheRead !== undefined) next.cacheRead = (next.cacheRead ?? 0) + cacheRead;
+  if (cacheWrite !== undefined) next.cacheWrite = (next.cacheWrite ?? 0) + cacheWrite;
+  return next;
+}
+
 function normalizeToolCategory(name) {
   const n = String(name ?? '');
   if (n === 'Bash' || n === 'exec') return 'shell_command';
@@ -55,6 +73,12 @@ function normalizeToolCategory(name) {
   if (lower === 'mcp' || lower.startsWith('mcp__') || lower.startsWith('mcp-')) return 'mcp';
   if (n === 'Task') return 'agent_task';
   return 'tool';
+}
+
+function normalizeToolName(name) {
+  const n = String(name ?? 'tool');
+  if (n === 'exec') return 'Bash';
+  return n;
 }
 
 function buildToolAttributes(name, toolCallId) {
@@ -72,11 +96,143 @@ function buildToolAttributes(name, toolCallId) {
   return attrs;
 }
 
+function extractToolResultContent(message) {
+  const content = message?.content;
+  if (typeof content === 'string' && content.trim()) return content;
+  if (Array.isArray(content)) {
+    const text = content
+      .map((block) => {
+        if (typeof block === 'string') return block;
+        if (block && typeof block === 'object' && typeof block.text === 'string') return block.text;
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    if (text) return text;
+  }
+
+  const details = message?.details;
+  if (details && typeof details === 'object') {
+    if (typeof details.aggregated === 'string' && details.aggregated.trim()) return details.aggregated;
+    if (typeof details.stdout === 'string' && details.stdout.trim()) return details.stdout;
+    if (typeof details.stderr === 'string' && details.stderr.trim()) return details.stderr;
+  }
+
+  return '';
+}
+
+function extractAssistantOutput(event) {
+  const assistantTexts = Array.isArray(event?.assistantTexts) ? event.assistantTexts.join('\n').trim() : '';
+  if (assistantTexts) return assistantTexts;
+
+  const lastAssistant = event?.lastAssistant;
+  if (!lastAssistant || typeof lastAssistant !== 'object') return '';
+  if (typeof lastAssistant.content === 'string' && lastAssistant.content.trim()) return lastAssistant.content.trim();
+  if (!Array.isArray(lastAssistant.content)) return '';
+
+  return lastAssistant.content
+    .map((block) => {
+      if (typeof block === 'string') return block;
+      if (block && typeof block === 'object' && typeof block.text === 'string') return block.text;
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
+function normalizeRuntimeVersion(value) {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text || undefined;
+}
+
+function runtimeVersionAttributes(version) {
+  if (!version) return {};
+  return {
+    'runtime.version': version,
+    'agentic.runtime.version': version,
+  };
+}
+
+function detectOpenclawRuntimeVersion() {
+  const envVersion = normalizeRuntimeVersion(
+    process.env.OPENCLAW_RUNTIME_VERSION
+    ?? process.env.OPENCLAW_VERSION
+    ?? process.env.npm_package_version,
+  );
+  if (envVersion) return envVersion;
+  try {
+    const stdout = execFileSync('openclaw', ['--version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return normalizeRuntimeVersion(stdout);
+  } catch {
+    return 'unknown';
+  }
+}
+
+function extractPromptMetadata(prompt) {
+  const input = String(prompt ?? '');
+  const match = input.match(GATEWAY_INPUT_METADATA_BLOCK_RE);
+  if (!match) return { prompt: input, attributes: {} };
+
+  const attributes = {};
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      attributes['agentic.input.metadata'] = JSON.stringify(parsed);
+      if (parsed.message_id !== undefined) attributes['agentic.input.message_id'] = String(parsed.message_id);
+      if (parsed.sender !== undefined) attributes['agentic.input.sender'] = String(parsed.sender);
+    }
+  } catch {
+    // ignore malformed metadata JSON and only strip wrapper text
+  }
+
+  const normalizedPrompt = input.slice(match.index + match[0].length).trim() || input;
+  return { prompt: normalizedPrompt, attributes };
+}
+
+function normalizeToolParams(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch {
+      // ignore invalid JSON and fall through
+    }
+  }
+  return {};
+}
+
+function extractAssistantToolCalls(message) {
+  if (!message || typeof message !== 'object') return [];
+  if (message.role !== 'assistant') return [];
+  if (!Array.isArray(message.content)) return [];
+  const out = [];
+  for (const block of message.content) {
+    if (!block || typeof block !== 'object') continue;
+    if (block.type !== 'toolCall') continue;
+    const toolCallId = block.id ?? block.toolCallId ?? undefined;
+    if (!toolCallId) continue;
+    out.push({
+      toolCallId,
+      toolName: normalizeToolName(block.name ?? block.toolName ?? 'tool'),
+      params: normalizeToolParams(block.arguments ?? block.params),
+    });
+  }
+  return out;
+}
+
 function sessionIdsFromContext(ctx = {}) {
   const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? 'unknown-session';
   const sessionId = ctx.sessionId ?? sessionKey;
   const projectId = ctx.agentId ?? sessionKey.split(':')[1] ?? 'openclaw';
-  return { sessionKey, sessionId, projectId };
+  const stateKey = `${projectId}:${sessionId}`;
+  return { stateKey, sessionKey, sessionId, projectId };
 }
 
 function nowIso() {
@@ -153,13 +309,21 @@ function retryDelayMs(attempt) {
   return Math.min(2000, 200 * (2 ** attempt));
 }
 
+function flushDelayMs() {
+  const raw = Number(process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS ?? 300);
+  if (!Number.isFinite(raw) || raw < 0) return 300;
+  return Math.floor(raw);
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function sendWithRetry(payload) {
   const endpoint = otlpEndpoint();
-  if (!endpoint) return false;
+  if (!endpoint) {
+    throw new Error('OTEL_EXPORTER_OTLP_ENDPOINT is unset');
+  }
   const headers = otlpHeaders();
   const max = retryMax();
   let lastErr;
@@ -225,51 +389,147 @@ function createRuntimeQueue(logger) {
 
 export function createOpenclawSpanoryPluginRuntime(logger) {
   const sessions = new Map();
+  const sessionAliases = new Map();
   const queue = createRuntimeQueue(logger);
+  const defaultRuntimeVersion = detectOpenclawRuntimeVersion();
 
-  const getState = (ctx) => {
+  const resolveStateKey = (ctx) => {
+    if (ctx?.sessionId) {
+      const ids = sessionIdsFromContext(ctx);
+      return { stateKey: ids.stateKey, ids };
+    }
+
+    if (ctx?.sessionKey && sessionAliases.has(ctx.sessionKey)) {
+      const stateKey = sessionAliases.get(ctx.sessionKey);
+      const existing = sessions.get(stateKey);
+      if (existing) return { stateKey, ids: existing };
+    }
+
     const ids = sessionIdsFromContext(ctx);
-    if (!sessions.has(ids.sessionKey)) {
-      sessions.set(ids.sessionKey, {
+    return { stateKey: ids.stateKey, ids };
+  };
+
+  const getState = (ctx, options = {}) => {
+    const { requireResolved = false } = options;
+    const hasResolvedAlias = Boolean(ctx?.sessionId) || (ctx?.sessionKey && sessionAliases.has(ctx.sessionKey));
+    if (requireResolved && !hasResolvedAlias) return null;
+
+    const { stateKey, ids } = resolveStateKey(ctx);
+    if (!sessions.has(stateKey)) {
+      sessions.set(stateKey, {
+        stateKey,
         ...ids,
         turnCounter: 0,
+        pendingTurnId: undefined,
         lastTurnId: undefined,
         pendingTools: [],
+        pendingToolCalls: new Map(),
+        pendingOutputParts: [],
+        pendingUsage: {},
+        pendingInputAttributes: {},
         currentBatch: null,
+        flushTimer: null,
+        seenToolCallIds: new Set(),
+        seenToolCallOrder: [],
         lastPrompt: '',
         lastInputAt: nowIso(),
         lastModel: undefined,
+        runtimeVersion: defaultRuntimeVersion,
+        lastTouchedAt: Date.now(),
       });
     }
-    return sessions.get(ids.sessionKey);
+    const state = sessions.get(stateKey);
+    state.lastTouchedAt = Date.now();
+    if (ctx?.sessionKey) sessionAliases.set(ctx.sessionKey, stateKey);
+    return state;
+  };
+
+  const findFallbackState = (ctx) => {
+    const candidates = [];
+    for (const state of sessions.values()) {
+      if (ctx?.agentId && state.projectId !== ctx.agentId) continue;
+      candidates.push(state);
+    }
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => (b.lastTouchedAt ?? 0) - (a.lastTouchedAt ?? 0));
+    return candidates[0];
+  };
+
+  const getToolState = (ctx) => {
+    const resolved = getState(ctx, { requireResolved: true });
+    if (resolved) return resolved;
+    const fallback = findFallbackState(ctx);
+    if (!fallback) return null;
+    fallback.lastTouchedAt = Date.now();
+    if (ctx?.sessionKey) sessionAliases.set(ctx.sessionKey, fallback.stateKey);
+    return fallback;
+  };
+
+  const seenToolCall = (state, toolCallId) => {
+    if (!toolCallId) return false;
+    if (state.seenToolCallIds.has(toolCallId)) return true;
+    state.seenToolCallIds.add(toolCallId);
+    state.seenToolCallOrder.push(toolCallId);
+    if (state.seenToolCallOrder.length > 500) {
+      const evicted = state.seenToolCallOrder.shift();
+      if (evicted) state.seenToolCallIds.delete(evicted);
+    }
+    return false;
+  };
+
+  const clearTurnFlushTimer = (state) => {
+    if (state.flushTimer) {
+      clearTimeout(state.flushTimer);
+      state.flushTimer = null;
+    }
   };
 
   const flushCurrentBatch = (state) => {
+    clearTurnFlushTimer(state);
     if (!state.currentBatch || !state.currentBatch.length) return;
     queue.submit(state.currentBatch);
     state.currentBatch = null;
   };
 
-  const onLlmInput = (event, ctx) => {
-    const state = getState(ctx);
-    state.lastPrompt = String(event?.prompt ?? '');
-    state.lastInputAt = nowIso();
+  const scheduleTurnFlush = (state) => {
+    clearTurnFlushTimer(state);
+    const delayMs = flushDelayMs();
+    state.flushTimer = setTimeout(() => {
+      state.flushTimer = null;
+      flushCurrentBatch(state);
+    }, delayMs);
   };
 
-  const onLlmOutput = (event, ctx) => {
-    const state = getState(ctx);
-    flushCurrentBatch(state);
+  const createTurnId = (state) => {
     state.turnCounter += 1;
-    state.lastTurnId = `turn-${state.turnCounter}`;
-    state.lastModel = event?.model ?? state.lastModel;
-    const output = Array.isArray(event?.assistantTexts) ? event.assistantTexts.join('\n') : '';
+    const turnMs = Number.isFinite(Date.parse(state.lastInputAt)) ? Date.parse(state.lastInputAt) : Date.now();
+    return `turn-${turnMs}-${state.turnCounter}`;
+  };
+
+  const clearPendingTurn = (state) => {
+    state.pendingTurnId = undefined;
+    state.pendingOutputParts = [];
+    state.pendingUsage = {};
+    state.pendingInputAttributes = {};
+  };
+
+  const finalizePendingTurn = (state, options = {}) => {
+    const { force = false, requireOutput = false } = options;
+    if (!state.pendingTurnId) return false;
+    const output = state.pendingOutputParts.map((part) => String(part ?? '')).filter(Boolean).join('\n').trim();
+    const hasTools = state.pendingTools.length > 0;
+    if (requireOutput && !output) return false;
+    if (!force && !output && !hasTools) return false;
+
+    const turnId = state.pendingTurnId;
+    state.lastTurnId = turnId;
     const turnEvent = {
       runtime: 'openclaw',
       projectId: state.projectId,
       sessionId: state.sessionId,
-      turnId: state.lastTurnId,
+      turnId,
       category: 'turn',
-      name: `Spanory openclaw - Turn ${state.lastTurnId}`,
+      name: `Spanory openclaw - Turn ${turnId}`,
       startedAt: state.lastInputAt,
       endedAt: nowIso(),
       input: state.lastPrompt ?? '',
@@ -277,23 +537,100 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
       attributes: {
         'agentic.event.category': 'turn',
         'gen_ai.operation.name': 'invoke_agent',
+        ...runtimeVersionAttributes(state.runtimeVersion),
+        ...(state.pendingInputAttributes ?? {}),
         ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
-        ...usageToAttributes(event?.usage),
+        ...usageToAttributes(state.pendingUsage),
       },
     };
-    const tools = state.pendingTools.map((tool) => ({ ...tool, turnId: state.lastTurnId }));
+    const tools = state.pendingTools.map((tool) => ({ ...tool, turnId }));
     state.pendingTools = [];
     state.currentBatch = [turnEvent, ...tools];
+    clearPendingTurn(state);
+    scheduleTurnFlush(state);
+    return true;
+  };
+
+  const enqueueToolEvent = (state, toolEvent) => {
+    state.lastTouchedAt = Date.now();
+    const hasPendingUnmaterializedTurn = Boolean(
+      state.pendingTurnId
+      && state.pendingTurnId !== state.lastTurnId
+      && (!state.currentBatch || state.currentBatch.length === 0),
+    );
+    if (hasPendingUnmaterializedTurn) {
+      state.pendingTools.push({ ...toolEvent, turnId: state.pendingTurnId });
+      return;
+    }
+    if (state.currentBatch && state.currentBatch.length > 0) {
+      const turnId = state.currentBatch[0].turnId;
+      state.currentBatch.push({ ...toolEvent, turnId });
+      scheduleTurnFlush(state);
+    } else if (state.lastTurnId) {
+      queue.submit([{ ...toolEvent, turnId: state.lastTurnId }]);
+    } else {
+      state.pendingTools.push(toolEvent);
+    }
+  };
+
+  const onLlmInput = (event, ctx) => {
+    const state = getState(ctx);
+    flushCurrentBatch(state);
+    if (finalizePendingTurn(state)) {
+      flushCurrentBatch(state);
+    }
+    const normalized = extractPromptMetadata(event?.prompt ?? '');
+    const runtimeVersion = normalizeRuntimeVersion(
+      event?.runtimeVersion
+      ?? event?.runtime_version
+      ?? event?.openclawVersion
+      ?? event?.openclaw_version
+      ?? event?.version,
+    );
+    if (runtimeVersion) state.runtimeVersion = runtimeVersion;
+    state.lastPrompt = normalized.prompt;
+    state.lastInputAt = nowIso();
+    state.pendingTurnId = createTurnId(state);
+    state.pendingOutputParts = [];
+    state.pendingUsage = {};
+    state.pendingInputAttributes = normalized.attributes;
+    state.lastTouchedAt = Date.now();
+  };
+
+  const onLlmOutput = (event, ctx) => {
+    const state = getState(ctx);
+    if (!state.pendingTurnId) return;
+    const runtimeVersion = normalizeRuntimeVersion(
+      event?.runtimeVersion
+      ?? event?.runtime_version
+      ?? event?.openclawVersion
+      ?? event?.openclaw_version
+      ?? event?.version,
+    );
+    if (runtimeVersion) state.runtimeVersion = runtimeVersion;
+    state.lastModel = event?.model ?? state.lastModel;
+    state.lastTouchedAt = Date.now();
+    state.pendingUsage = mergeUsage(state.pendingUsage, event?.usage);
+    const output = extractAssistantOutput(event);
+    if (!output) return;
+    state.pendingOutputParts.push(output);
+    finalizePendingTurn(state, { requireOutput: true });
   };
 
   const onAfterToolCall = (event, ctx) => {
-    const state = getState(ctx);
-    const toolName = String(event?.toolName ?? 'tool');
+    const state = getToolState(ctx);
+    if (!state) return;
+    state.lastTouchedAt = Date.now();
+    const toolName = normalizeToolName(event?.toolName ?? 'tool');
     const category = normalizeToolCategory(toolName);
     const startedAt = nowIso();
     const output = event?.error ? String(event.error) : JSON.stringify(event?.result ?? '');
-    const input = JSON.stringify(event?.params ?? {});
+    const params = normalizeToolParams(event?.params);
+    const input = JSON.stringify(params);
     const toolCallId = event?.toolCallId ?? event?.tool_call_id ?? undefined;
+    if (!toolCallId) return;
+    if (seenToolCall(state, toolCallId)) return;
+    state.pendingToolCalls.set(toolCallId, { toolName, params });
 
     const toolEvent = {
       runtime: 'openclaw',
@@ -308,23 +645,104 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
       output,
       attributes: {
         'agentic.event.category': category,
+        ...runtimeVersionAttributes(state.runtimeVersion),
         ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
         ...buildToolAttributes(toolName, toolCallId),
       },
     };
-    if (state.currentBatch && state.currentBatch.length > 0) {
-      const turnId = state.currentBatch[0].turnId;
-      state.currentBatch.push({ ...toolEvent, turnId });
-    } else {
-      state.pendingTools.push(toolEvent);
+    enqueueToolEvent(state, toolEvent);
+  };
+
+  const onToolResultPersist = (event, ctx) => {
+    const state = getToolState(ctx);
+    if (!state) return;
+    state.lastTouchedAt = Date.now();
+
+    const toolCallId = event?.toolCallId ?? ctx?.toolCallId ?? event?.message?.toolCallId ?? undefined;
+    const cachedCall = toolCallId ? state.pendingToolCalls.get(toolCallId) : undefined;
+    const toolName = normalizeToolName(event?.toolName ?? cachedCall?.toolName ?? ctx?.toolName ?? 'tool');
+    if (seenToolCall(state, toolCallId)) return;
+    if (toolCallId) state.pendingToolCalls.delete(toolCallId);
+
+    const category = normalizeToolCategory(toolName);
+    const startedAt = nowIso();
+    const output = extractToolResultContent(event?.message);
+    const input = JSON.stringify(cachedCall?.params ?? {});
+    const toolEvent = {
+      runtime: 'openclaw',
+      projectId: state.projectId,
+      sessionId: state.sessionId,
+      turnId: state.lastTurnId,
+      category,
+      name: `Tool: ${toolName}`,
+      startedAt,
+      endedAt: startedAt,
+      input,
+      output,
+      attributes: {
+        'agentic.event.category': category,
+        ...runtimeVersionAttributes(state.runtimeVersion),
+        ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
+        ...buildToolAttributes(toolName, toolCallId),
+      },
+    };
+
+    enqueueToolEvent(state, toolEvent);
+  };
+
+  const onBeforeMessageWrite = (event, ctx) => {
+    const state = getToolState(ctx);
+    if (!state) return {};
+    state.lastTouchedAt = Date.now();
+    const message = event?.message;
+    if (!message || typeof message !== 'object') return {};
+
+    const assistantToolCalls = extractAssistantToolCalls(message);
+    for (const call of assistantToolCalls) {
+      state.pendingToolCalls.set(call.toolCallId, { toolName: call.toolName, params: call.params });
     }
+
+    if (message.role !== 'toolResult') return {};
+
+    const toolCallId = message.toolCallId ?? undefined;
+    const cachedCall = toolCallId ? state.pendingToolCalls.get(toolCallId) : undefined;
+    const toolName = normalizeToolName(message.toolName ?? cachedCall?.toolName ?? ctx?.toolName ?? 'tool');
+    if (seenToolCall(state, toolCallId)) return {};
+    if (toolCallId) state.pendingToolCalls.delete(toolCallId);
+
+    const category = normalizeToolCategory(toolName);
+    const startedAt = nowIso();
+    const toolEvent = {
+      runtime: 'openclaw',
+      projectId: state.projectId,
+      sessionId: state.sessionId,
+      turnId: state.lastTurnId,
+      category,
+      name: `Tool: ${toolName}`,
+      startedAt,
+      endedAt: startedAt,
+      input: JSON.stringify(cachedCall?.params ?? {}),
+      output: extractToolResultContent(message),
+      attributes: {
+        'agentic.event.category': category,
+        ...runtimeVersionAttributes(state.runtimeVersion),
+        ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
+        ...buildToolAttributes(toolName, toolCallId),
+      },
+    };
+
+    enqueueToolEvent(state, toolEvent);
+    return {};
   };
 
   const onSessionEnd = async (_event, ctx) => {
     const state = getState(ctx);
+    if (finalizePendingTurn(state)) {
+      flushCurrentBatch(state);
+    }
     if ((!state.currentBatch || state.currentBatch.length === 0) && state.pendingTools.length > 0) {
-      state.turnCounter += 1;
-      const turnId = `turn-${state.turnCounter}`;
+      const turnId = state.pendingTurnId ?? createTurnId(state);
+      state.lastTurnId = turnId;
       state.currentBatch = [
         {
           runtime: 'openclaw',
@@ -340,25 +758,53 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
           attributes: {
             'agentic.event.category': 'turn',
             'gen_ai.operation.name': 'invoke_agent',
+            ...runtimeVersionAttributes(state.runtimeVersion),
+            ...(state.pendingInputAttributes ?? {}),
             ...(state.lastModel ? { 'langfuse.observation.model.name': state.lastModel } : {}),
           },
         },
         ...state.pendingTools.map((tool) => ({ ...tool, turnId })),
       ];
       state.pendingTools = [];
+      clearPendingTurn(state);
     }
     flushCurrentBatch(state);
     await queue.flush();
   };
 
+  const onSessionStart = (event, ctx) => {
+    const state = getState(ctx);
+    const runtimeVersion = normalizeRuntimeVersion(
+      event?.runtimeVersion
+      ?? event?.runtime_version
+      ?? event?.openclawVersion
+      ?? event?.openclaw_version
+      ?? event?.version
+      ?? event?.session?.runtimeVersion
+      ?? event?.session?.runtime_version
+      ?? event?.session?.version,
+    );
+    if (runtimeVersion) state.runtimeVersion = runtimeVersion;
+    state.lastTouchedAt = Date.now();
+  };
+
   const onGatewayStop = async () => {
+    for (const state of sessions.values()) {
+      if (finalizePendingTurn(state)) {
+        flushCurrentBatch(state);
+      }
+      flushCurrentBatch(state);
+    }
     await queue.flush();
   };
 
   return {
+    onSessionStart,
     onLlmInput,
     onLlmOutput,
     onAfterToolCall,
+    onToolResultPersist,
+    onBeforeMessageWrite,
     onSessionEnd,
     onGatewayStop,
   };
@@ -366,12 +812,13 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
 
 export default function register(api) {
   const runtime = createOpenclawSpanoryPluginRuntime(api.logger);
-  api.on('session_start', (_event, _ctx) => {});
+  api.on('session_start', runtime.onSessionStart);
   api.on('llm_input', runtime.onLlmInput);
   api.on('llm_output', runtime.onLlmOutput);
   api.on('before_tool_call', (_event, _ctx) => ({}));
   api.on('after_tool_call', runtime.onAfterToolCall);
-  api.on('tool_result_persist', (_event, _ctx) => undefined);
+  api.on('tool_result_persist', runtime.onToolResultPersist);
+  api.on('before_message_write', runtime.onBeforeMessageWrite);
   api.on('session_end', runtime.onSessionEnd);
   api.on('gateway_stop', runtime.onGatewayStop);
 }

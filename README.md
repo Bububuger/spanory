@@ -333,9 +333,17 @@ spanory report session --input-json /path/to/exported.json
 spanory report mcp --input-json /path/to/exported-or-dir
 spanory report command --input-json /path/to/exported-or-dir
 spanory report agent --input-json /path/to/exported-or-dir
+spanory report cache --input-json /path/to/exported-or-dir
+spanory report tool --input-json /path/to/exported-or-dir
+spanory report turn-diff --input-json /path/to/exported-or-dir
 ```
 
 输出为 JSON，便于后续接入你自己的可视化或任务系统。
+
+新增视图输出字段（核心）：
+- `cache-summary`: `inputTokens`, `cacheReadInputTokens`, `cacheCreationInputTokens`, `cacheHitRate`
+- `tool-summary`: `category`, `tool`, `calls`, `sessions`
+- `turn-diff-summary`: `turnId`, `charDelta`, `lineDelta`, `similarity`, `changed`
 
 ## Alert 规则评估（CLI）
 
@@ -357,6 +365,13 @@ spanory alert eval \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json
 ```
+
+`scope=session` 新增可用指标：
+- `cache.read`
+- `cache.creation`
+- `cache.hit_rate`
+- `subagent.calls`
+- `diff.char_delta.max`
 
 有告警时返回非零退出码（用于 CI/自动化）：
 

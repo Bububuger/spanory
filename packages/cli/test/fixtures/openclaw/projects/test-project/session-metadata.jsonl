@@ -1,0 +1,3 @@
+{"type":"session","version":3,"id":"session-metadata","timestamp":"2026-03-01T00:00:00.000Z","cwd":"/tmp/openclaw"}
+{"type":"message","id":"u1","timestamp":"2026-03-01T00:00:00.100Z","message":{"role":"user","content":[{"type":"text","text":"Conversation info (untrusted metadata):\n```json\n{\n  \"message_id\": \"bdb36354-f616-480e-999f-eac0adff9729\",\n  \"sender\": \"gateway-client\"\n}\n```\n\n[Tue 2026-03-03 04:29 GMT+8] 真实用户输入文本"}]}}
+{"type":"message","id":"a1","timestamp":"2026-03-01T00:00:00.200Z","message":{"role":"assistant","model":"openclaw-pro","usage":{"input":3,"output":2,"totalTokens":5},"content":[{"type":"text","text":"收到"}]}}

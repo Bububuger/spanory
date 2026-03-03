@@ -84,6 +84,7 @@ describe('openclawAdapter', () => {
     const turns = events.filter((e) => e.category === 'turn');
     expect(turns).toHaveLength(1);
     expect(turns[0].attributes['langfuse.observation.model.name']).toBe('openclaw-pro');
+    expect(turns[0].attributes['runtime.version']).toBe('3');
     expect(turns[0].attributes['gen_ai.usage.input_tokens']).toBe(15);
     expect(turns[0].attributes['gen_ai.usage.output_tokens']).toBe(6);
     expect(turns[0].attributes['gen_ai.usage.total_tokens']).toBe(24);
@@ -95,5 +96,35 @@ describe('openclawAdapter', () => {
     const tools = events.filter((e) => e.category === 'tool');
     expect(tools).toHaveLength(1);
     expect(tools[0].attributes['gen_ai.tool.name']).toBe('WebSearch');
+  });
+
+  it('maps sidechain hints and marks turn actor as unknown', async () => {
+    const transcriptPath = path.resolve('test/fixtures/openclaw/projects/test-project/session-sidechain.jsonl');
+    const events = await openclawAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-sidechain',
+      transcriptPath,
+    });
+
+    const turn = events.find((e) => e.category === 'turn');
+    expect(turn).toBeTruthy();
+    expect(turn.attributes['agentic.actor.role']).toBe('unknown');
+    expect(turn.attributes['agentic.actor.role_confidence']).toBe(0.6);
+  });
+
+  it('strips gateway metadata wrapper from input and keeps metadata in attributes', async () => {
+    const transcriptPath = path.resolve('test/fixtures/openclaw/projects/test-project/session-metadata.jsonl');
+    const events = await openclawAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-metadata',
+      transcriptPath,
+    });
+
+    const turns = events.filter((e) => e.category === 'turn');
+    expect(turns).toHaveLength(1);
+    expect(turns[0].input).toBe('[Tue 2026-03-03 04:29 GMT+8] 真实用户输入文本');
+    expect(turns[0].attributes['agentic.input.message_id']).toBe('bdb36354-f616-480e-999f-eac0adff9729');
+    expect(turns[0].attributes['agentic.input.sender']).toBe('gateway-client');
+    expect(turns[0].attributes['runtime.version']).toBe('3');
   });
 });

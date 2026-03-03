@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
@@ -47,6 +49,10 @@ function usageAttributes(usage) {
   if (usage.cache_creation_input_tokens !== undefined) {
     attrs['gen_ai.usage.details.cache_creation_input_tokens'] = usage.cache_creation_input_tokens;
   }
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const denominator = (usage.input_tokens ?? 0) + cacheRead;
+  const cacheHitRate = denominator > 0 ? cacheRead / denominator : 0;
+  attrs['gen_ai.usage.details.cache_hit_rate'] = Number(cacheHitRate.toFixed(6));
 
   attrs['langfuse.observation.usage_details'] = JSON.stringify({
     ...(usage.input_tokens !== undefined ? { input: usage.input_tokens } : {}),
@@ -106,12 +112,46 @@ function isPromptUserMessage(message) {
   return content.length > 0;
 }
 
+const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
+
+function runtimeVersionAttributes(version) {
+  if (version === undefined || version === null) return {};
+  const normalized = String(version).trim();
+  if (!normalized) return {};
+  return {
+    'runtime.version': normalized,
+    'agentic.runtime.version': normalized,
+  };
+}
+
+function extractGatewayInputMetadata(text) {
+  if (!text) return { input: '', attributes: {} };
+  const match = text.match(GATEWAY_INPUT_METADATA_BLOCK_RE);
+  if (!match) return { input: text.trim(), attributes: {} };
+
+  const attributes = {};
+  const metadataRaw = match[1];
+  try {
+    const parsed = JSON.parse(metadataRaw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      attributes['agentic.input.metadata'] = JSON.stringify(parsed);
+      if (parsed.message_id !== undefined) attributes['agentic.input.message_id'] = String(parsed.message_id);
+      if (parsed.sender !== undefined) attributes['agentic.input.sender'] = String(parsed.sender);
+    }
+  } catch {
+    // ignore malformed metadata JSON and only strip wrapper text
+  }
+
+  const input = text.slice(match.index + match[0].length).trim() || text.trim();
+  return { input, attributes };
+}
+
 function normalizeUserInput(content) {
   const text = extractText(content).trim();
-  if (text) return text;
-  if (Array.isArray(content)) return JSON.stringify(content);
-  if (typeof content === 'string') return content;
-  return '';
+  if (text) return extractGatewayInputMetadata(text);
+  if (Array.isArray(content)) return { input: JSON.stringify(content), attributes: {} };
+  if (typeof content === 'string') return extractGatewayInputMetadata(content);
+  return { input: '', attributes: {} };
 }
 
 function extractToolResultText(block, message) {
@@ -143,6 +183,45 @@ function isMcpToolName(name) {
   return n === 'mcp' || n.startsWith('mcp__') || n.startsWith('mcp-');
 }
 
+function hashText(text) {
+  return createHash('sha256').update(String(text ?? '')).digest('hex');
+}
+
+function lineCount(text) {
+  const s = String(text ?? '');
+  if (!s) return 0;
+  return s.split(/\r?\n/).length;
+}
+
+function tokenSet(text) {
+  const tokens = String(text ?? '').trim().split(/\s+/).filter(Boolean);
+  return new Set(tokens);
+}
+
+function similarityScore(a, b) {
+  if (a === b) return 1;
+  const setA = tokenSet(a);
+  const setB = tokenSet(b);
+  if (setA.size === 0 && setB.size === 0) return 1;
+  if (setA.size === 0 || setB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const token of setA) {
+    if (setB.has(token)) intersection += 1;
+  }
+  const union = setA.size + setB.size - intersection;
+  if (union === 0) return 1;
+  return Number((intersection / union).toFixed(6));
+}
+
+function actorHeuristic(messages) {
+  const hasSidechainSignal = messages.some(
+    (m) => m?.isSidechain === true || (typeof m?.agentId === 'string' && m.agentId.trim().length > 0),
+  );
+  if (hasSidechainSignal) return { role: 'unknown', confidence: 0.6 };
+  return { role: 'main', confidence: 0.95 };
+}
+
 function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const user = messages.find(isPromptUserMessage) ?? messages.find((m) => m.role === 'user' && !m.isMeta) ?? messages[0];
   const assistantsRaw = messages.filter((m) => m.role === 'assistant');
@@ -159,6 +238,12 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const end = messages[messages.length - 1]?.timestamp ?? start;
 
   const output = assistants.map((m) => extractText(m.content)).filter(Boolean).join('\n');
+  const runtimeVersion = [...messages]
+    .map((m) => String(m.runtimeVersion ?? '').trim())
+    .filter(Boolean)
+    .at(-1);
+  const runtimeAttrs = runtimeVersionAttributes(runtimeVersion);
+  const normalizedInput = normalizeUserInput(user?.content);
 
   const totalUsage = {};
   let latestModel;
@@ -167,11 +252,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
     addUsage(totalUsage, msg.usage);
   }
   const usage = Object.keys(totalUsage).length ? totalUsage : undefined;
-  const runtimeVersion = [...messages]
-    .map((m) => String(m.runtimeVersion ?? '').trim())
-    .filter(Boolean)
-    .at(-1);
-  const runtimeVersionAttrs = runtimeVersion ? { 'agentic.runtime.version': runtimeVersion } : {};
+  const actor = actorHeuristic(messages);
 
   const events = [
     {
@@ -183,14 +264,17 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
       name: `Spanory ${runtime} - Turn ${turnId}`,
       startedAt: start.toISOString(),
       endedAt: end.toISOString(),
-      input: normalizeUserInput(user?.content),
+      input: normalizedInput.input,
       output,
       attributes: {
         'agentic.event.category': 'turn',
         'langfuse.observation.type': 'agent',
         'gen_ai.operation.name': 'invoke_agent',
-        ...runtimeVersionAttrs,
+        ...runtimeAttrs,
         ...modelAttributes(latestModel),
+        'agentic.actor.role': actor.role,
+        'agentic.actor.role_confidence': actor.confidence,
+        ...normalizedInput.attributes,
         ...usageAttributes(usage),
       },
     },
@@ -234,7 +318,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         attributes: {
           'agentic.event.category': isMcp ? 'mcp' : 'agent_command',
           'langfuse.observation.type': isMcp ? 'tool' : 'event',
-          ...runtimeVersionAttrs,
+          ...runtimeAttrs,
           'agentic.command.name': slash.name,
           'agentic.command.args': slash.args,
           'gen_ai.operation.name': isMcp ? 'execute_tool' : 'invoke_agent',
@@ -268,7 +352,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'shell_command',
             'langfuse.observation.type': 'tool',
-            ...runtimeVersionAttrs,
+            ...runtimeAttrs,
             'process.command_line': commandLine,
             'gen_ai.tool.name': 'Bash',
             'gen_ai.tool.call.id': toolId,
@@ -296,7 +380,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'mcp',
             'langfuse.observation.type': 'tool',
-            ...runtimeVersionAttrs,
+            ...runtimeAttrs,
             'gen_ai.tool.name': toolName,
             'mcp.request.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
@@ -323,7 +407,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'agent_task',
             'langfuse.observation.type': 'agent',
-            ...runtimeVersionAttrs,
+            ...runtimeAttrs,
             'gen_ai.tool.name': 'Task',
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'invoke_agent',
@@ -349,7 +433,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'tool',
             'langfuse.observation.type': 'tool',
-            ...runtimeVersionAttrs,
+            ...runtimeAttrs,
             'gen_ai.tool.name': toolName,
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
@@ -366,6 +450,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
   if (!turnInput && !turnOutput && events.length === 1) {
     return [];
   }
+  events[0].attributes['agentic.subagent.calls'] = events.filter((e) => e.category === 'agent_task').length;
 
   return events;
 }
@@ -389,8 +474,38 @@ export function groupByTurns(messages) {
 export function normalizeTranscriptMessages({ runtime, projectId, sessionId, messages }) {
   const turns = groupByTurns(messages);
   const events = [];
+  let previousInput = '';
+  let previousHash = '';
+  let hasPreviousTurn = false;
+
   for (let i = 0; i < turns.length; i += 1) {
-    events.push(...createTurn(turns[i], `turn-${i + 1}`, projectId, sessionId, runtime));
+    const turnEvents = createTurn(turns[i], `turn-${i + 1}`, projectId, sessionId, runtime);
+    if (!turnEvents.length) continue;
+
+    const turnEvent = turnEvents[0];
+    const input = String(turnEvent.input ?? '');
+    const inputHash = hashText(input);
+
+    if (!hasPreviousTurn) {
+      turnEvent.attributes['agentic.turn.input.hash'] = inputHash;
+      turnEvent.attributes['agentic.turn.input.prev_hash'] = '';
+      turnEvent.attributes['agentic.turn.diff.char_delta'] = 0;
+      turnEvent.attributes['agentic.turn.diff.line_delta'] = 0;
+      turnEvent.attributes['agentic.turn.diff.similarity'] = 1;
+      turnEvent.attributes['agentic.turn.diff.changed'] = false;
+      hasPreviousTurn = true;
+    } else {
+      turnEvent.attributes['agentic.turn.input.hash'] = inputHash;
+      turnEvent.attributes['agentic.turn.input.prev_hash'] = previousHash;
+      turnEvent.attributes['agentic.turn.diff.char_delta'] = input.length - previousInput.length;
+      turnEvent.attributes['agentic.turn.diff.line_delta'] = lineCount(input) - lineCount(previousInput);
+      turnEvent.attributes['agentic.turn.diff.similarity'] = similarityScore(previousInput, input);
+      turnEvent.attributes['agentic.turn.diff.changed'] = inputHash !== previousHash;
+    }
+
+    previousInput = input;
+    previousHash = inputHash;
+    events.push(...turnEvents);
   }
   return events;
 }

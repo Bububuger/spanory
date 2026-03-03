@@ -115,4 +115,19 @@ describe('claudeCodeAdapter', () => {
     expect(bash.attributes['gen_ai.request.model']).toBe('claude-sonnet-4-6');
     expect(bash.attributes['langfuse.observation.model.name']).toBe('claude-sonnet-4-6');
   });
+
+  it('maps sidechain hints and marks turn actor as unknown', async () => {
+    const transcriptPath = path.resolve('test/fixtures/claude/projects/test-project/session-h.jsonl');
+    const events = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-h',
+      transcriptPath,
+    });
+
+    const turn = events.find((e) => e.category === 'turn');
+    expect(turn).toBeTruthy();
+    expect(turn.attributes['agentic.actor.role']).toBe('unknown');
+    expect(turn.attributes['agentic.actor.role_confidence']).toBe(0.6);
+    expect(turn.attributes['agentic.runtime.version']).toBe('2.1.70');
+  });
 });

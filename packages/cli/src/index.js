@@ -13,11 +13,14 @@ import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
+  summarizeCache,
   loadExportedEvents,
   summarizeAgents,
   summarizeCommands,
   summarizeMcp,
   summarizeSessions,
+  summarizeTools,
+  summarizeTurnDiff,
 } from './report/aggregate.js';
 
 const runtimeAdapters = {
@@ -31,6 +34,8 @@ const backendAdapters = {
 
 const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
 const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
+const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
+const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
 
 function getResource() {
   return {
@@ -169,6 +174,17 @@ function selectLatestTurnEvents(events) {
   };
 }
 
+function isTurnOutputEmpty(events, turnId) {
+  if (!Array.isArray(events) || events.length === 0) return true;
+  const turn = events.find((event) => event.category === 'turn' && (!turnId || event.turnId === turnId));
+  if (!turn) return true;
+  return String(turn.output ?? '').trim().length === 0;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
   if (explicitRuntimeHome) return explicitRuntimeHome;
   if (runtimeName === 'openclaw') {
@@ -271,22 +287,44 @@ async function runHookMode(options) {
     ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
   };
 
-  const allEvents = await adapter.collectEvents(contextWithRuntimeHome);
-  const fullFingerprint = fingerprintSession(contextWithRuntimeHome, allEvents);
-
+  let allEvents = [];
+  let fullFingerprint = '';
   let selectedTurnId;
-  let events = allEvents;
-  let selectedFingerprint = fullFingerprint;
+  let events = [];
+  let selectedFingerprint = '';
 
-  if (options.lastTurnOnly) {
-    const latest = selectLatestTurnEvents(allEvents);
-    selectedTurnId = latest.turnId;
-    events = latest.events;
-    if (!selectedTurnId || events.length === 0) {
-      console.log(`skip=no-turn sessionId=${contextWithRuntimeHome.sessionId}`);
-      return;
+  const retryDeadline = Date.now() + EMPTY_OUTPUT_RETRY_WINDOW_MS;
+  for (;;) {
+    allEvents = await adapter.collectEvents(contextWithRuntimeHome);
+    fullFingerprint = fingerprintSession(contextWithRuntimeHome, allEvents);
+    selectedTurnId = undefined;
+    events = allEvents;
+    selectedFingerprint = fullFingerprint;
+
+    if (options.lastTurnOnly) {
+      const latest = selectLatestTurnEvents(allEvents);
+      selectedTurnId = latest.turnId;
+      events = latest.events;
+      if (!selectedTurnId || events.length === 0) {
+        console.log(`skip=no-turn sessionId=${contextWithRuntimeHome.sessionId}`);
+        return;
+      }
+      selectedFingerprint = fingerprintSession(contextWithRuntimeHome, events);
     }
-    selectedFingerprint = fingerprintSession(contextWithRuntimeHome, events);
+
+    const shouldRetryEmptyOutput = options.lastTurnOnly && isTurnOutputEmpty(events, selectedTurnId);
+    if (!shouldRetryEmptyOutput) break;
+
+    const remainingMs = retryDeadline - Date.now();
+    if (remainingMs <= 0) {
+      console.log(
+        `retry=empty-output-timeout sessionId=${contextWithRuntimeHome.sessionId} turnId=${selectedTurnId} waitedMs=${EMPTY_OUTPUT_RETRY_WINDOW_MS}`,
+      );
+      break;
+    }
+
+    const waitMs = Math.min(EMPTY_OUTPUT_RETRY_INTERVAL_MS, remainingMs);
+    await sleep(waitMs);
   }
 
   if (!options.force) {
@@ -850,6 +888,33 @@ report
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'agent-summary', rows: summarizeAgents(sessions) }, null, 2));
+  });
+
+report
+  .command('cache')
+  .description('Cache usage summary per session')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'cache-summary', rows: summarizeCache(sessions) }, null, 2));
+  });
+
+report
+  .command('tool')
+  .description('Tool usage aggregation view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'tool-summary', rows: summarizeTools(sessions) }, null, 2));
+  });
+
+report
+  .command('turn-diff')
+  .description('Turn input diff summary view')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'turn-diff-summary', rows: summarizeTurnDiff(sessions) }, null, 2));
   });
 
 const alert = program.command('alert').description('Evaluate alert rules against exported telemetry data');

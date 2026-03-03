@@ -68,12 +68,12 @@ export function parseOtlpHeaders(input) {
 
 export function compileOtlpSpans(events, resource) {
   const traceByTurn = new Map();
+  const traceContextByTurn = new Map();
   const rootByTurn = new Map();
   const spans = [];
   const spanIdSet = new Set();
 
-  for (let idx = 0; idx < events.length; idx += 1) {
-    const event = events[idx];
+  for (const event of events) {
     const turnKey = event.turnId || `${event.sessionId}:root`;
     if (!traceByTurn.has(turnKey)) {
       traceByTurn.set(
@@ -84,7 +84,42 @@ export function compileOtlpSpans(events, resource) {
         ),
       );
     }
+
+    if (!traceContextByTurn.has(turnKey)) {
+      traceContextByTurn.set(turnKey, {
+        traceName: `Spanory ${event.runtime} ${event.turnId ?? event.sessionId}`,
+        traceMetadata: JSON.stringify({
+          runtime: event.runtime,
+          projectId: event.projectId,
+          sessionId: event.sessionId,
+          turnId: event.turnId ?? null,
+        }),
+        traceInput: '',
+        traceOutput: '',
+        hasTurnEvent: false,
+      });
+    }
+
+    const context = traceContextByTurn.get(turnKey);
+    if (event.category === 'turn') {
+      const eventInput = event.input ?? '';
+      const eventOutput = event.output ?? '';
+      if (!context.hasTurnEvent) {
+        context.traceInput = eventInput;
+        context.traceOutput = eventOutput;
+        context.hasTurnEvent = true;
+      } else {
+        if (!context.traceInput && eventInput) context.traceInput = eventInput;
+        if (!context.traceOutput && eventOutput) context.traceOutput = eventOutput;
+      }
+    }
+  }
+
+  for (let idx = 0; idx < events.length; idx += 1) {
+    const event = events[idx];
+    const turnKey = event.turnId || `${event.sessionId}:root`;
     const traceId = traceByTurn.get(turnKey);
+    const traceContext = traceContextByTurn.get(turnKey);
 
     const eventStableKey = [
       'span',
@@ -121,8 +156,8 @@ export function compileOtlpSpans(events, resource) {
       'langfuse.trace.id': traceId,
       'langfuse.session.id': event.sessionId,
       'session.id': event.sessionId,
-      'langfuse.trace.name': `Spanory ${event.runtime} ${event.turnId ?? event.sessionId}`,
-      'langfuse.trace.metadata': JSON.stringify({
+      'langfuse.trace.name': traceContext?.traceName ?? `Spanory ${event.runtime} ${event.turnId ?? event.sessionId}`,
+      'langfuse.trace.metadata': traceContext?.traceMetadata ?? JSON.stringify({
         runtime: event.runtime,
         projectId: event.projectId,
         sessionId: event.sessionId,
@@ -130,10 +165,10 @@ export function compileOtlpSpans(events, resource) {
       }),
       ...(event.turnId ? { 'agentic.turn.id': event.turnId } : {}),
       ...(event.attributes ?? {}),
-      ...(event.category === 'turn'
+      ...(traceContext?.hasTurnEvent
         ? {
-            'langfuse.trace.input': event.input ?? '',
-            'langfuse.trace.output': event.output ?? '',
+            'langfuse.trace.input': traceContext.traceInput,
+            'langfuse.trace.output': traceContext.traceOutput,
           }
         : {}),
       ...(!event.attributes?.['langfuse.observation.type']
@@ -193,4 +228,3 @@ export async function sendOtlpHttp(endpoint, payload, headers = {}) {
     throw new Error(`OTLP HTTP ${response.status}`);
   }
 }
-

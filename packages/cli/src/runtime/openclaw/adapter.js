@@ -124,18 +124,51 @@ function normalizeUsage(entry) {
   });
 }
 
+function normalizeIsSidechain(entry) {
+  const raw = entry?.isSidechain
+    ?? entry?.is_sidechain
+    ?? entry?.message?.isSidechain
+    ?? entry?.message?.is_sidechain
+    ?? entry?.payload?.isSidechain
+    ?? entry?.payload?.is_sidechain;
+  return raw === true;
+}
+
+function normalizeAgentId(entry) {
+  return (
+    entry?.agentId
+    ?? entry?.agent_id
+    ?? entry?.message?.agentId
+    ?? entry?.message?.agent_id
+    ?? entry?.payload?.agentId
+    ?? entry?.payload?.agent_id
+  );
+}
+
 async function readOpenclawTranscript(transcriptPath) {
   const raw = await readFile(transcriptPath, 'utf-8');
   const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
   const messages = [];
+  let runtimeVersion;
   for (const line of lines) {
     try {
       const entry = JSON.parse(line);
+      if (entry?.type === 'session') {
+        runtimeVersion = entry?.runtimeVersion
+          ?? entry?.runtime_version
+          ?? entry?.openclawVersion
+          ?? entry?.openclaw_version
+          ?? entry?.version
+          ?? runtimeVersion;
+        continue;
+      }
       const role = normalizeRole(entry);
       if (!role) continue;
       messages.push({
         role,
         isMeta: entry?.isMeta ?? entry?.is_meta ?? false,
+        isSidechain: normalizeIsSidechain(entry),
+        agentId: normalizeAgentId(entry),
         content: normalizeContent(entry),
         model: normalizeModel(entry),
         usage: normalizeUsage(entry),
@@ -143,6 +176,7 @@ async function readOpenclawTranscript(transcriptPath) {
         messageId: normalizeMessageId(entry),
         toolUseResult: normalizeToolUseResult(entry),
         sourceToolUseId: normalizeSourceToolUseId(entry),
+        runtimeVersion: entry?.runtimeVersion ?? entry?.runtime_version ?? runtimeVersion,
         timestamp: parseTimestamp(entry),
       });
     } catch {

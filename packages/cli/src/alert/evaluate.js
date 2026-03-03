@@ -1,8 +1,19 @@
 import { readFile } from 'node:fs/promises';
 
-import { summarizeAgents, summarizeCommands, summarizeMcp, summarizeSessions } from '../report/aggregate.js';
+import {
+  summarizeAgents,
+  summarizeCache,
+  summarizeCommands,
+  summarizeMcp,
+  summarizeSessions,
+  summarizeTurnDiff,
+} from '../report/aggregate.js';
 
-function getMetricFromSessionRow(row, metric) {
+function getMetricFromSessionRow(row, metric, refs = {}) {
+  const cacheRow = refs.cacheBySessionId?.get(row.sessionId);
+  const agentRow = refs.agentBySessionId?.get(row.sessionId);
+  const turnDiffRows = refs.turnDiffBySessionId?.get(row.sessionId) ?? [];
+
   switch (metric) {
     case 'events':
       return row.events ?? 0;
@@ -14,6 +25,16 @@ function getMetricFromSessionRow(row, metric) {
       return row.usage?.input ?? 0;
     case 'usage.output':
       return row.usage?.output ?? 0;
+    case 'cache.read':
+      return cacheRow?.cacheReadInputTokens ?? 0;
+    case 'cache.creation':
+      return cacheRow?.cacheCreationInputTokens ?? 0;
+    case 'cache.hit_rate':
+      return cacheRow?.cacheHitRate ?? 0;
+    case 'subagent.calls':
+      return agentRow?.agentTasks ?? 0;
+    case 'diff.char_delta.max':
+      return turnDiffRows.reduce((max, rowItem) => Math.max(max, Math.abs(Number(rowItem.charDelta ?? 0))), 0);
     default:
       return 0;
   }
@@ -45,9 +66,23 @@ function compare(value, op, threshold) {
 
 function evaluateSessionRule(rule, sessions) {
   const rows = summarizeSessions(sessions);
+  const cacheBySessionId = new Map(summarizeCache(sessions).map((row) => [row.sessionId, row]));
+  const agentBySessionId = new Map(summarizeAgents(sessions).map((row) => [row.sessionId, row]));
+  const turnDiffBySessionId = new Map();
+  for (const row of summarizeTurnDiff(sessions)) {
+    const key = row.sessionId;
+    const list = turnDiffBySessionId.get(key) ?? [];
+    list.push(row);
+    turnDiffBySessionId.set(key, list);
+  }
+
   const matched = rows
     .map((row) => {
-      const value = getMetricFromSessionRow(row, rule.metric);
+      const value = getMetricFromSessionRow(row, rule.metric, {
+        cacheBySessionId,
+        agentBySessionId,
+        turnDiffBySessionId,
+      });
       return { row, value };
     })
     .filter((x) => compare(x.value, rule.op, Number(rule.threshold)));

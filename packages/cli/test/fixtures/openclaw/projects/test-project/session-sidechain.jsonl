@@ -1,0 +1,2 @@
+{"type":"message","id":"u-side-1","timestamp":"2026-03-03T01:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}
+{"type":"message","id":"a-side-1","timestamp":"2026-03-03T01:00:01.000Z","is_sidechain":true,"agent_id":"subagent-oc-1","message":{"role":"assistant","model":"openclaw-pro","usage":{"input":3,"output":2,"totalTokens":5},"content":[{"type":"text","text":"from openclaw sidechain"}]}}
