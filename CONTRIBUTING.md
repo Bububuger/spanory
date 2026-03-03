@@ -30,3 +30,17 @@
 - OTLP/Langfuse compatibility changes must include:
   - parity matrix update (`docs/langfuse-parity.md`)
   - tests for any new/changed fields
+
+## Release Flow
+
+1. Ensure local gates pass:
+   - `npm run check`
+   - `npm test`
+   - `npm run test:bdd`
+2. Create and push a semver tag from `main`:
+   - `git tag vX.Y.Z`
+   - `git push origin vX.Y.Z`
+3. GitHub Actions will run `.github/workflows/release.yml`:
+   - verify gates
+   - build `linux/macos/windows` binaries
+   - publish GitHub Release and upload binaries

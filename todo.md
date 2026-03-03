@@ -1,26 +1,45 @@
-# OpenCode Plugin 接入 TODO（Derived from plan.md）
+# Spanory TODO：CI/CD 完善（2026-03-03）
 
-- [x] T0 校准 OpenCode plugin 事件/SDK 契约，并补 fixture
-  - 验收：`npm run --workspace @spanory/cli test -- test/unit/opencode.plugin.runtime.spec.js -t "contract"`
+## T1 阶段初始化
+- [x] 归档旧 `plan.md` 与 `todo.md`
+- [x] 生成本阶段 `plan.md`
+- [x] 生成本阶段 `todo.md`
 
-- [x] T1 完成 `packages/opencode-plugin` runtime（hook + normalize + send）
-  - 验收：`npm run --workspace @spanory/cli test -- test/unit/opencode.plugin.runtime.spec.js`
+验收：
+- [x] `ls docs/plans/archive | tail -n 6`
+- [x] `rg -n "CI/CD|release.yml|concurrency" plan.md todo.md`
 
-- [x] T2 完成 spool/retry/status（失败落盘、恢复补发）
-  - 验收：`npm run --workspace @spanory/cli test -- test/unit/opencode.plugin.runtime.spec.js -t "spool"`
+## T2 改造 CI 工作流
+- [x] 更新 `.github/workflows/ci.yml`
+- [x] 增加并发控制与最小权限
+- [x] 拆分质量门禁与二进制 smoke job
 
-- [x] T3 新增 `spanory runtime opencode plugin install|uninstall|doctor`
-  - 验收：`npm run --workspace @spanory/cli test:bdd -- test/bdd/opencode.plugin.integration.spec.js`
+验收：
+- [x] YAML 可解析
+- [x] `npm run check`
 
-- [x] T4 补齐测试矩阵并做 openclaw 回归
-  - 验收：
-    - `npm run --workspace @spanory/cli test`
-    - `npm run --workspace @spanory/cli test:bdd`
+## T3 新增 CD 发布工作流
+- [x] 新增 `.github/workflows/release.yml`
+- [x] 配置 tag 触发、verify 门禁、跨平台构建
+- [x] 配置 release 发布与 artifact 附件
 
-- [x] T5 更新 README / capability / parity 文档
-  - 验收：`npm run --workspace @spanory/cli check`
+验收：
+- [x] YAML 可解析
+- [x] 关键字段检查：`on.push.tags`、`permissions.contents: write`、`strategy.matrix`
 
-- [x] T6 运行质量门并记录结果
-  - 验收：
-    - `npm run check`
-    - `npm test`
+## T4 更新文档
+- [x] 更新 `README.md` CI/CD 说明
+- [x] 更新 `CONTRIBUTING.md` 发布入口
+
+验收：
+- [x] `rg -n "CI/CD|tag|release|vX.Y.Z|workflow" README.md CONTRIBUTING.md`
+
+## T5 全量回归与提交
+- [x] `npm run check`
+- [x] `npm test`
+- [x] `npm run test:bdd`
+- [ ] 提交本次改动
+
+验收：
+- [ ] 所有命令退出码为 0
+- [ ] `git status` clean（提交后）

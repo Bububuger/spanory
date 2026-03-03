@@ -5,9 +5,18 @@ on:
     branches: [main, "codex/**", "feat/**"]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  test-and-build:
+  quality-gates:
+    name: Quality Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,8 +39,34 @@ jobs:
       - name: BDD Tests
         run: npm run test:bdd
 
+  binary-smoke:
+    name: Binary Smoke (Linux)
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
       - name: Build Binary
-        run: npm run build:bin
+        run: npm run --workspace @spanory/cli build:bin:linux-x64
 
       - name: Binary Smoke
         run: ./dist/spanory-linux-x64 --help
+
+      - name: Upload Binary Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spanory-linux-x64-ci
+          path: dist/spanory-linux-x64
+          retention-days: 7

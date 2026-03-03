@@ -150,6 +150,18 @@ npm run test:bdd
 
 CI runs the same gates via `.github/workflows/ci.yml`.
 
+## CI/CD
+
+- CI: `.github/workflows/ci.yml`
+  - Runs on `push` (main/codex/**/feat/**) and `pull_request`
+  - Enforces quality gates: `check` + `test` + `test:bdd`
+  - Builds Linux binary and runs smoke check (`--help`)
+- CD: `.github/workflows/release.yml`
+  - Triggered by tag push: `v*` (for example `v0.2.0`)
+  - Verifies quality gates before release
+  - Builds release binaries on Linux/macOS/Windows
+  - Publishes GitHub Release with attached binaries
+
 ## Roadmap
 
 - [ ] Codex runtime adapter

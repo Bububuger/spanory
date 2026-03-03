@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: Verify Before Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Check
+        run: npm run check
+
+      - name: Unit Tests
+        run: npm test
+
+      - name: BDD Tests
+        run: npm run test:bdd
+
+  build-binaries:
+    name: Build ${{ matrix.artifact_name }}
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: spanory-linux-x64
+            artifact_path: dist/spanory-linux-x64
+            build_command: npm run --workspace @spanory/cli build:bin:linux-x64
+            smoke_command: ./dist/spanory-linux-x64 --help
+            shell: bash
+          - os: macos-14
+            artifact_name: spanory-macos-arm64
+            artifact_path: dist/spanory-macos-arm64
+            build_command: npm run --workspace @spanory/cli build:bin:macos-arm64
+            smoke_command: ./dist/spanory-macos-arm64 --help
+            shell: bash
+          - os: windows-latest
+            artifact_name: spanory-win-x64.exe
+            artifact_path: dist/spanory-win-x64.exe
+            build_command: npm run --workspace @spanory/cli build:bin:win-x64
+            smoke_command: .\\dist\\spanory-win-x64.exe --help
+            shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build Binary
+        shell: ${{ matrix.shell }}
+        run: ${{ matrix.build_command }}
+
+      - name: Binary Smoke
+        shell: ${{ matrix.shell }}
+        run: ${{ matrix.smoke_command }}
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-binaries
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: spanory-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/spanory-linux-x64
+            dist/spanory-macos-arm64
+            dist/spanory-win-x64.exe
