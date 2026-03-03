@@ -26,3 +26,4 @@
 3. Multi-session range backfill command
 4. Session and project level aggregation helpers
 5. Packaging and release flow (`npm` executable install)
+6. Local UI for viewing session summaries and reports (browser-based dashboard)

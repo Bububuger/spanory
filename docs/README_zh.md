@@ -38,16 +38,18 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<L
 export SPANORY_HOOK_EXPORT_JSON_DIR="$HOME/.claude/state/spanory-json"
 ```
 
-### 3) 在 Claude Code 中绑定 `SessionEnd` Hook（极简）
+### 3) 在 Claude Code 中绑定 Hook（极简）
 
-在 Claude Code 的 Hook 配置中，将 `SessionEnd` command 直接设置为：
+在 Claude Code 的 Hook 配置中，将 `SessionEnd` 和/或 `Stop` 的 command 设置为：
 
 ```bash
 spanory hook
 ```
 
+> **推荐：** 同时绑定 `Stop` 事件。`Stop` 在每次 assistant turn 结束时触发，可实现近实时上报，无需等到会话结束。
+
 说明：
-- `spanory hook` 会从 `stdin` 读取 Claude hook payload。
+- `spanory hook` 会从 `stdin` 读取 Claude hook payload（自动识别 `SessionEnd` / `Stop`）。
 - 可通过 `--runtime` 切换 runtime（默认 `claude-code`）：
   - `spanory hook --runtime claude-code`
   - `spanory hook --runtime openclaw`

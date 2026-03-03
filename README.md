@@ -64,13 +64,15 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <PUBLIC_KEY>:<SECRET_KEY
 
 ### Claude Code — Realtime Hook
 
-Set `SessionEnd` hook command in Claude Code config:
+Set hook command in Claude Code config for `SessionEnd` and/or `Stop` events:
 
 ```bash
 spanory hook
 ```
 
 The CLI reads the hook payload from stdin, parses the session transcript, and ships traces via OTLP automatically.
+
+> **Recommended:** Bind the `Stop` event in addition to `SessionEnd`. `Stop` fires on every assistant turn completion, enabling near real-time trace reporting instead of waiting for the session to end.
 
 ### OpenClaw — Plugin (Zero Cron)
 
@@ -153,6 +155,7 @@ CI runs the same gates via `.github/workflows/ci.yml`.
 - [ ] Codex runtime adapter
 - [ ] LangSmith backend adapter
 - [ ] Langfuse-friendly naming/timeline conventions
+- [ ] Local UI for viewing session summaries and reports
 
 ## Contributing
 
