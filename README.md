@@ -54,11 +54,22 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 
 Releases page: [https://github.com/Bububuger/spanory/releases](https://github.com/Bububuger/spanory/releases)
 
+Each release includes:
+
+- `spanory-<version>-darwin-arm64.tar.gz` (macOS Apple Silicon)
+- `spanory-<version>-darwin-x64.tar.gz` (macOS Intel)
+- `spanory-<version>-linux-x64.tar.gz` (Linux x64)
+- `spanory-<version>-windows-x64.zip` (Windows x64)
+- `SHA256SUMS.txt`
+
 macOS / Linux:
 
 ```bash
-TAG=v0.1.1 # replace with the target release tag
-OS_ARCH=darwin-arm64 # darwin-x64 for Intel Mac, linux-x64 for Linux
+TAG=vX.Y.Z # replace with the target release tag
+# macOS arch: arm64 => darwin-arm64, x86_64 => darwin-x64
+# Linux (supported): x86_64 => linux-x64
+OS_ARCH=darwin-arm64
+# quick check on macOS: uname -m
 curl -fL -o spanory.tar.gz \
   "https://github.com/Bububuger/spanory/releases/download/${TAG}/spanory-${TAG#v}-${OS_ARCH}.tar.gz"
 tar -xzf spanory.tar.gz
@@ -70,7 +81,7 @@ spanory --help
 Windows (PowerShell):
 
 ```powershell
-$Tag = "v0.1.1" # replace with the target release tag
+$Tag = "vX.Y.Z" # replace with the target release tag
 Invoke-WebRequest -Uri "https://github.com/Bububuger/spanory/releases/download/$Tag/spanory-$($Tag.TrimStart('v'))-windows-x64.zip" -OutFile "spanory.zip"
 Expand-Archive -Path "spanory.zip" -DestinationPath ".\\spanory-bin" -Force
 .\\spanory-bin\\spanory.exe --help
@@ -218,7 +229,7 @@ npm run build:bin
 bash scripts/release/build-binaries.sh all
 
 # Package release archives locally
-npm run package:release-assets -- v0.1.1
+npm run package:release-assets -- vX.Y.Z
 ```
 
 ## Development

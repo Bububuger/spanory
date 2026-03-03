@@ -335,11 +335,22 @@ spanory alert eval \
 
 Release 页面： [https://github.com/Bububuger/spanory/releases](https://github.com/Bububuger/spanory/releases)
 
+每个 Release 会包含：
+
+- `spanory-<version>-darwin-arm64.tar.gz`（macOS Apple Silicon）
+- `spanory-<version>-darwin-x64.tar.gz`（macOS Intel）
+- `spanory-<version>-linux-x64.tar.gz`（Linux x64）
+- `spanory-<version>-windows-x64.zip`（Windows x64）
+- `SHA256SUMS.txt`
+
 macOS / Linux：
 
 ```bash
-TAG=v0.1.1 # 替换为目标版本 tag
-OS_ARCH=darwin-arm64 # Intel Mac 改为 darwin-x64，Linux 改为 linux-x64
+TAG=vX.Y.Z # 替换为目标版本 tag
+# macOS 架构：arm64 => darwin-arm64，x86_64 => darwin-x64
+# Linux（当前支持）：x86_64 => linux-x64
+OS_ARCH=darwin-arm64
+# macOS 快速判断架构：uname -m
 curl -fL -o spanory.tar.gz \
   "https://github.com/Bububuger/spanory/releases/download/${TAG}/spanory-${TAG#v}-${OS_ARCH}.tar.gz"
 tar -xzf spanory.tar.gz
@@ -351,7 +362,7 @@ spanory --help
 Windows（PowerShell）：
 
 ```powershell
-$Tag = "v0.1.1" # 替换为目标版本 tag
+$Tag = "vX.Y.Z" # 替换为目标版本 tag
 Invoke-WebRequest -Uri "https://github.com/Bububuger/spanory/releases/download/$Tag/spanory-$($Tag.TrimStart('v'))-windows-x64.zip" -OutFile "spanory.zip"
 Expand-Archive -Path "spanory.zip" -DestinationPath ".\\spanory-bin" -Force
 .\\spanory-bin\\spanory.exe --help
@@ -435,7 +446,7 @@ bash scripts/release/build-binaries.sh all
 按版本打包 Release 附件（`tar.gz/zip + SHA256SUMS`）：
 
 ```bash
-npm run package:release-assets -- v0.1.1
+npm run package:release-assets -- vX.Y.Z
 ```
 
 ## 开发
