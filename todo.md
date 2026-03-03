@@ -36,8 +36,8 @@
 - [x] `npm run check`
 - [x] `npm test`
 - [x] `npm run test:bdd`
-- [ ] 提交并推送
+- [x] 提交并推送
 
 验收：
 - [x] 三个命令均 0 退出
-- [ ] `git status` clean（提交后）
+- [x] `git status` clean（提交后）
