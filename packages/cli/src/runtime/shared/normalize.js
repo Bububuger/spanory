@@ -119,7 +119,6 @@ function runtimeVersionAttributes(version) {
   const normalized = String(version).trim();
   if (!normalized) return {};
   return {
-    'runtime.version': normalized,
     'agentic.runtime.version': normalized,
   };
 }

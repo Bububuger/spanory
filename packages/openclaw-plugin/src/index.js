@@ -151,7 +151,6 @@ function normalizeRuntimeVersion(value) {
 function runtimeVersionAttributes(version) {
   if (!version) return {};
   return {
-    'runtime.version': version,
     'agentic.runtime.version': version,
   };
 }

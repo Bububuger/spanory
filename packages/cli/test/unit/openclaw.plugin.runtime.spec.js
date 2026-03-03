@@ -697,7 +697,7 @@ describe('openclaw plugin runtime', () => {
       expect(turnAttrs['langfuse.observation.input']).toBe('[Tue 2026-03-03 04:29 GMT+8] 真实用户输入文本');
       expect(turnAttrs['agentic.input.message_id']).toBe('bdb36354-f616-480e-999f-eac0adff9729');
       expect(turnAttrs['agentic.input.sender']).toBe('gateway-client');
-      expect(turnAttrs['runtime.version']).toBe('2026.2.19-2');
+      expect(turnAttrs['agentic.runtime.version']).toBe('2026.2.19-2');
     } finally {
       if (prevHome === undefined) delete process.env.SPANORY_OPENCLAW_HOME;
       else process.env.SPANORY_OPENCLAW_HOME = prevHome;
