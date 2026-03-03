@@ -34,8 +34,8 @@
 - [x] `rg -n \"SPANORY_OPENCODE_FLUSH_MODE|turn|session\" README.md docs/README_zh.md`
 
 ## T5 提交与推送
-- [ ] 提交
-- [ ] 推送
+- [x] 提交
+- [x] 推送
 
 验收：
-- [ ] `git status --short`
+- [x] `git status --short`
