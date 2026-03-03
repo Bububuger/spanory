@@ -29,8 +29,11 @@ spanory --help
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>' | base64)"
 ```
+
+`OTEL_EXPORTER_OTLP_HEADERS` 采用 `k=v` 格式（多个 header 用逗号分隔）。  
+Langfuse OTLP 认证应使用 `Authorization=Basic <base64(public_key:secret_key)>`。
 
 可选（保留本地 JSON 结果）：
 
@@ -146,7 +149,7 @@ spanory runtime openclaw plugin doctor
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>' | base64)"
 ```
 
 插件可靠性相关（可选）：
@@ -192,7 +195,7 @@ spanory runtime opencode plugin doctor
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>' | base64)"
 ```
 
 插件可靠性相关（可选）：
@@ -331,8 +334,51 @@ spanory alert eval \
 命令行安装：
 
 ```bash
-npm install -g packages/cli
+npm install -g ./packages/cli
 spanory --help
+```
+
+## 常见排查
+
+### 1) `npm link` 后找不到 `commander`
+
+```bash
+cd /path/to/spanory
+npm install
+npm link -w packages/cli
+spanory --help
+```
+
+### 2) Hook 上报返回 401
+
+先确认环境变量已生效：
+
+```bash
+echo "$OTEL_EXPORTER_OTLP_ENDPOINT"
+echo "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+再确认认证格式为 Basic（不是 Bearer）：
+
+`Authorization=Basic <base64(public_key:secret_key)>`
+
+最后用本地导出验证解析是否正常：
+
+```bash
+spanory runtime claude-code export \
+  --project-id <PROJECT_ID> \
+  --session-id <SESSION_ID> \
+  --export-json /tmp/spanory-export.json
+```
+
+### 3) Hook 已触发但没有数据
+
+- 确认 Hook command 是 `spanory hook`
+- 推荐同时绑定 `Stop` 和 `SessionEnd`
+- 查看本地日志：
+
+```bash
+tail -n 100 "$HOME/.claude/state/spanory-hook.log"
 ```
 
 构建独立可执行文件：

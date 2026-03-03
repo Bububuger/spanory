@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import { loadUserEnv } from './env.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
@@ -65,37 +66,6 @@ function parseHookPayload(raw) {
     };
   } catch {
     throw new Error('hook payload is not valid JSON');
-  }
-}
-
-function parseSimpleDotEnv(raw) {
-  const out = {};
-  for (const line of raw.split('\n')) {
-    const s = line.trim();
-    if (!s || s.startsWith('#')) continue;
-    const idx = s.indexOf('=');
-    if (idx <= 0) continue;
-    const key = s.slice(0, idx).trim();
-    let value = s.slice(idx + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (!key) continue;
-    out[key] = value;
-  }
-  return out;
-}
-
-async function loadUserEnv() {
-  const envPath = path.join(process.env.HOME || '', '.env');
-  try {
-    const raw = await readFile(envPath, 'utf-8');
-    const parsed = parseSimpleDotEnv(raw);
-    for (const [k, v] of Object.entries(parsed)) {
-      if (process.env[k] === undefined) process.env[k] = v;
-    }
-  } catch {
-    // ignore missing ~/.env
   }
 }
 

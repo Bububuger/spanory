@@ -52,6 +52,7 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 
 ```bash
 cd spanory
+npm install
 npm install -g ./packages/cli
 spanory --help
 ```
@@ -60,8 +61,11 @@ spanory --help
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <PUBLIC_KEY>:<SECRET_KEY>"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<PUBLIC_KEY>:<SECRET_KEY>' | base64)"
 ```
+
+`OTEL_EXPORTER_OTLP_HEADERS` expects `k=v` pairs (comma-separated if multiple).  
+For Langfuse OTLP, use `Authorization=Basic <base64(public_key:secret_key)>`.
 
 ### Claude Code — Realtime Hook
 
@@ -129,6 +133,44 @@ spanory alert eval \
 ```
 
 Supports webhook notifications and CI integration with non-zero exit codes on alert.
+
+## Troubleshooting
+
+### 1) `ERR_MODULE_NOT_FOUND` after local linking
+
+```bash
+cd /path/to/spanory
+npm install
+npm link -w packages/cli
+spanory --help
+```
+
+### 2) Hook gets OTLP 401
+
+1. Verify env is loaded:
+```bash
+spanory --help >/dev/null
+echo "$OTEL_EXPORTER_OTLP_ENDPOINT"
+echo "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+2. Verify header format is Basic auth (not Bearer):  
+`Authorization=Basic <base64(public_key:secret_key)>`
+3. Run a dry local export to inspect parsed output:
+```bash
+spanory runtime claude-code export \
+  --project-id <PROJECT_ID> \
+  --session-id <SESSION_ID> \
+  --export-json /tmp/spanory-export.json
+```
+
+### 3) Hook runs but no data
+
+- Ensure Claude Code hook command is exactly `spanory hook`.
+- Prefer binding both `Stop` and `SessionEnd`.
+- Check local hook log:
+```bash
+tail -n 100 "$HOME/.claude/state/spanory-hook.log"
+```
 
 ## Standalone Binary
 
