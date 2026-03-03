@@ -59,6 +59,11 @@ jobs:
             artifact_path: dist/spanory-macos-arm64
             build_command: npm run --workspace @spanory/cli build:bin:macos-arm64
             smoke_command: ./dist/spanory-macos-arm64 --help
+          - os: macos-13
+            artifact_name: spanory-macos-x64
+            artifact_path: dist/spanory-macos-x64
+            build_command: npm run --workspace @spanory/cli build:bin:macos-x64
+            smoke_command: ./dist/spanory-macos-x64 --help
           - os: windows-latest
             artifact_name: spanory-win-x64.exe
             artifact_path: dist/spanory-win-x64.exe

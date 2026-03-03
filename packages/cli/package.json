@@ -13,6 +13,7 @@
     "test:bdd": "vitest run test/bdd",
     "build:bundle": "mkdir -p build && esbuild src/index.js --bundle --platform=node --format=cjs --target=node18 --outfile=build/spanory.cjs",
     "build:bin:macos-arm64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-arm64 --output ../../dist/spanory-macos-arm64",
+    "build:bin:macos-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-x64 --output ../../dist/spanory-macos-x64",
     "build:bin:linux-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-linux-x64 --output ../../dist/spanory-linux-x64",
     "build:bin:win-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-win-x64 --output ../../dist/spanory-win-x64.exe"
   },

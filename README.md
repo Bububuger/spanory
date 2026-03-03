@@ -54,11 +54,11 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 
 Releases page: [https://github.com/Bububuger/spanory/releases](https://github.com/Bububuger/spanory/releases)
 
-macOS (Apple Silicon) / Linux:
+macOS / Linux:
 
 ```bash
 TAG=v0.1.1 # replace with the target release tag
-OS_ARCH=darwin-arm64 # linux-x64 for Linux
+OS_ARCH=darwin-arm64 # darwin-x64 for Intel Mac, linux-x64 for Linux
 curl -fL -o spanory.tar.gz \
   "https://github.com/Bububuger/spanory/releases/download/${TAG}/spanory-${TAG#v}-${OS_ARCH}.tar.gz"
 tar -xzf spanory.tar.gz
@@ -242,6 +242,7 @@ CI runs the same gates via `.github/workflows/ci.yml`.
   - Triggered by tag push: `v*` (for example `v0.2.0`)
   - Verifies quality gates before release
   - Builds release binaries on Linux/macOS/Windows
+  - macOS artifacts include both Apple Silicon (`darwin-arm64`) and Intel (`darwin-x64`)
   - Packages archives (`tar.gz` / `zip`) and `SHA256SUMS.txt`
   - Publishes GitHub Release with downloadable assets
 

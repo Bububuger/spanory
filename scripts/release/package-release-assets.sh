@@ -54,12 +54,14 @@ package_windows() {
 
 package_unix "spanory-linux-x64" "linux-x64"
 package_unix "spanory-macos-arm64" "darwin-arm64"
+package_unix "spanory-macos-x64" "darwin-x64"
 package_windows "spanory-win-x64.exe" "windows-x64"
 
 (
   cd "$OUT_DIR"
   files=(
     "spanory-${VERSION}-darwin-arm64.tar.gz"
+    "spanory-${VERSION}-darwin-x64.tar.gz"
     "spanory-${VERSION}-linux-x64.tar.gz"
     "spanory-${VERSION}-windows-x64.zip"
   )

@@ -335,11 +335,11 @@ spanory alert eval \
 
 Release 页面： [https://github.com/Bububuger/spanory/releases](https://github.com/Bububuger/spanory/releases)
 
-macOS（Apple Silicon）/ Linux：
+macOS / Linux：
 
 ```bash
 TAG=v0.1.1 # 替换为目标版本 tag
-OS_ARCH=darwin-arm64 # Linux 改为 linux-x64
+OS_ARCH=darwin-arm64 # Intel Mac 改为 darwin-x64，Linux 改为 linux-x64
 curl -fL -o spanory.tar.gz \
   "https://github.com/Bububuger/spanory/releases/download/${TAG}/spanory-${TAG#v}-${OS_ARCH}.tar.gz"
 tar -xzf spanory.tar.gz
