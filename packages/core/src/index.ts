@@ -17,6 +17,10 @@ export interface SpanoryEvent {
 export interface HookPayload {
   hookEventName?: string;
   sessionId?: string;
+  threadId?: string;
+  turnId?: string;
+  cwd?: string;
+  event?: string;
   transcriptPath?: string;
 }
 

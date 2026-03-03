@@ -13,6 +13,7 @@ Parity matrix is derived from Langfuse OSS ingestion and attribute constants:
 Runtime parsers (`@spanory/cli`):
 
 - Claude Code (`claude-code`)
+- Codex (`codex`)
 - OpenClaw (`openclaw`)
 - OpenCode (`opencode`, plugin realtime)
 
@@ -79,6 +80,9 @@ This means ingestion compatibility is complete for available data; unavailable f
 ## Runtime Coverage Notes
 
 - `claude-code`: mature baseline used for initial parity implementation.
+- `codex`: transcript parser covers `turn/agent_command/shell_command/mcp/agent_task/tool` and supports
+  notify-driven `hook --last-turn-only` incremental export; proxy hijack path can enrich request/response depth with
+  full-redacted capture metadata.
 - `openclaw`: follows the same event categories and attribute schema as `claude-code`
   (`turn`, `agent_command`, `shell_command`, `mcp`, `agent_task`, `tool`), so Langfuse trace richness is aligned
   for derivable fields.

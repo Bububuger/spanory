@@ -19,6 +19,7 @@ Capability matrix records which runtime can provide which normalized telemetry c
 | Runtime | turnDetection | toolCallAttribution | toolResultCorrelation | modelName | usageDetails | slashCommandExtraction | mcpServerExtraction | realtimeDelivery | deliveryDurability |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `claude-code` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (hook) | ⚠️ (hook-state dedupe only) |
+| `codex` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (hook + notify payload) | ⚠️ (hook-state dedupe + proxy capture spool) |
 | `openclaw` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (plugin + hook) | ✅ (plugin spool/retry) |
 | `opencode` | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ (command events 未覆盖) | ✅ | ✅ (plugin) | ✅ (plugin spool/retry) |
 

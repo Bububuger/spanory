@@ -183,9 +183,18 @@ function extractToolResultText(block, message) {
 
 function parseSlashCommand(text) {
   const m = text.match(/<command-name>\s*\/([^<\s]+)\s*<\/command-name>/i);
-  if (!m) return null;
-  const argsMatch = text.match(/<command-args>([\s\S]*?)<\/command-args>/i);
-  return { name: m[1].trim(), args: argsMatch ? argsMatch[1].trim() : '' };
+  if (m) {
+    const argsMatch = text.match(/<command-args>([\s\S]*?)<\/command-args>/i);
+    return { name: m[1].trim(), args: argsMatch ? argsMatch[1].trim() : '' };
+  }
+
+  // fallback for plain slash commands like "/compact please summarize"
+  const plain = String(text ?? '').trim().match(/^\/([a-zA-Z0-9._:-]+)(?:\s+([\s\S]*))?$/);
+  if (!plain) return null;
+  return {
+    name: plain[1].trim(),
+    args: plain[2] ? plain[2].trim() : '',
+  };
 }
 
 function isMcpToolName(name) {
