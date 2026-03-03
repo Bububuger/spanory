@@ -28,7 +28,9 @@ spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 
 `setup apply` 会自动执行：
 - Claude Code：写入/更新 `Stop` + `SessionEnd` 的 `spanory hook --last-turn-only`
-- Codex：写入 `~/.codex/bin/spanory-codex-notify.sh` 并更新 `~/.codex/config.toml` 的 `notify = [...]`
+- Codex：写入 `~/.codex/bin/spanory-codex-notify.sh`，并将 `~/.codex/config.toml` 的 `notify` 更新为绝对路径（如 `notify = ["/Users/<you>/.codex/bin/spanory-codex-notify.sh"]`）
+
+注意：Codex 的 `notify` 建议必须写绝对路径；部分执行路径下 `~` 不会自动展开。
 - OpenClaw：安装并启用 Spanory plugin（当 PATH 中可用 `openclaw`）
 - OpenCode：安装 plugin loader 到 `~/.config/opencode/plugin`
 

@@ -138,7 +138,9 @@ spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 What `setup apply` does:
 
 - Claude Code: writes/updates `Stop` + `SessionEnd` hook command to `spanory hook --last-turn-only`
-- Codex: writes `~/.codex/bin/spanory-codex-notify.sh` and updates `~/.codex/config.toml` `notify = [...]`
+- Codex: writes `~/.codex/bin/spanory-codex-notify.sh` and updates `~/.codex/config.toml` `notify = ["/absolute/path/to/spanory-codex-notify.sh"]`
+
+Note: Codex `notify` should use an absolute path. `~` may not be expanded in some exec paths.
 - OpenClaw: installs/enables Spanory plugin (when `openclaw` is available in PATH)
 - OpenCode: installs Spanory plugin loader into `~/.config/opencode/plugin`
 

@@ -59,7 +59,10 @@ describe('BDD setup command', () => {
     const codexConfigRaw = readFileSync(codexConfig, 'utf-8');
     const notifyMatches = codexConfigRaw.match(/^notify\s*=.*$/gm) ?? [];
     expect(notifyMatches).toHaveLength(1);
-    expect(notifyMatches[0]).toContain('spanory-codex-notify.sh');
+    const escapedScriptPath = codexScript
+      .replaceAll('\\', '\\\\')
+      .replaceAll('"', '\\"');
+    expect(notifyMatches[0]).toBe(`notify = ["${escapedScriptPath}"]`);
 
     const codexScriptRaw = readFileSync(codexScript, 'utf-8');
     expect(codexScriptRaw).toContain('runtime codex hook');

@@ -733,13 +733,19 @@ async function applyClaudeSetup({ homeRoot, spanoryBin, dryRun }) {
 }
 
 function upsertCodexNotifyConfig(configText, notifyScriptRef) {
-  const notifyLine = `notify = ["${notifyScriptRef}"]`;
+  const notifyLine = `notify = ["${escapeTomlBasicString(notifyScriptRef)}"]`;
   if (/^notify\s*=.*$/m.test(configText)) {
     return configText.replace(/^notify\s*=.*$/m, notifyLine);
   }
   const withNewline = configText.trimEnd();
   if (!withNewline) return `${notifyLine}\n`;
   return `${withNewline}\n\n${notifyLine}\n`;
+}
+
+function escapeTomlBasicString(value) {
+  return String(value)
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"');
 }
 
 function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile }) {
@@ -763,7 +769,7 @@ async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
   const scriptPath = path.join(binDir, 'spanory-codex-notify.sh');
   const logFile = path.join(codexHome, 'state', 'spanory-codex-hook.log');
   const configPath = path.join(codexHome, 'config.toml');
-  const notifyScriptRef = '~/.codex/bin/spanory-codex-notify.sh';
+  const notifyScriptRef = scriptPath;
 
   const scriptContent = codexNotifyScriptContent({
     spanoryBin,
