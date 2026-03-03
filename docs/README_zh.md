@@ -12,7 +12,7 @@
 
 ## 简介
 
-Spanory 是一个跨运行时的 AI Agent 可观测性工具包，将 Claude Code、OpenClaw、OpenCode 等 AI 编程 Agent 的会话数据解析为统一事件模型，通过 OpenTelemetry 协议上报到 Langfuse 等后端。
+Spanory 是一个跨运行时的 AI Agent 可观测性工具包，将 Claude Code、Codex、OpenClaw、OpenCode 等 AI 编程 Agent 的会话数据解析为统一事件模型，通过 OpenTelemetry 协议上报到 Langfuse 等后端。
 
 支持实时 Hook 上报（零 cron）和离线补数（backfill），内置聚合报表和规则告警。
 
@@ -211,6 +211,64 @@ export SPANORY_OPENCODE_RETRY_MAX="6"
 spanory runtime opencode plugin doctor
 ```
 
+## Codex 接入（解析主链路 + 代理劫持）
+
+### 1) 会话解析（export/backfill）
+
+Codex transcript 默认目录：
+
+- `~/.codex/sessions/YYYY/MM/DD/<session-id>.jsonl`
+
+导出单个会话：
+
+```bash
+spanory runtime codex export \
+  --session-id <SESSION_ID> \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+批量回跑：
+
+```bash
+spanory runtime codex backfill \
+  --since 2026-03-01T00:00:00Z \
+  --limit 50 \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+### 2) notify 增量导出（turn 级）
+
+```bash
+echo '{"event":"agent-turn-complete","thread_id":"<SESSION_ID>","turn_id":"<TURN_ID>","cwd":"<PROJECT_CWD>"}' | \
+spanory runtime codex hook --last-turn-only
+```
+
+说明：
+
+- `thread_id` 作为 `sessionId`
+- `turn_id` 用于精确筛选增量 turn
+- `cwd` 用于派生默认 `projectId`（`basename + short_hash`）
+
+### 3) 代理劫持采集（full_redacted）
+
+启动本地 OpenAI-compatible 代理：
+
+```bash
+spanory runtime codex proxy \
+  --listen 127.0.0.1:8787 \
+  --upstream https://api.openai.com
+```
+
+将 Codex 模型流量导向代理：
+
+```bash
+export OPENAI_BASE_URL="http://127.0.0.1:8787"
+```
+
+采集内容为全量 request/response，落盘前进行强脱敏（如 `authorization/cookie/api_key/token/password`）。
+
 ## OpenClaw 补数链路（export/backfill）
 
 OpenClaw transcript 默认支持两种目录：
@@ -257,6 +315,7 @@ spanory runtime openclaw backfill \
 
 - 日常使用：OpenClaw 使用 plugin 自动实时上报（零 cron）。
 - 日常使用：OpenCode 使用 plugin 自动实时上报。
+- Codex 使用 session 解析链路 + `hook --last-turn-only` 做近实时增量；需要模型包体深度时启用 `runtime codex proxy`。
 - Claude Code 使用 `spanory hook` 实时上报。
 - 缺失补数：使用 `export` 或 `backfill` 离线回跑。
 - 先 `--dry-run`，确认范围后再正式发送。

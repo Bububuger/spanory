@@ -18,7 +18,7 @@ AI coding agents like **Claude Code**, **OpenClaw**, and **OpenCode** generate r
 
 ## Features
 
-- **One CLI, Multiple Runtimes** — Unified tracing for Claude Code, OpenClaw, OpenCode, and more to come (Codex)
+- **One CLI, Multiple Runtimes** — Unified tracing for Claude Code, Codex, OpenClaw, OpenCode
 - **OTel-Native Transport** — OTLP HTTP export compatible with Langfuse, with extensible backend adapters
 - **Realtime + Offline** — Hook-based live ingestion and CLI-driven session replay/backfill
 - **Report & Alert** — Built-in aggregation views (session, MCP, tool, cache, turn-diff) and rule-based alerting with webhook + CI support
@@ -92,6 +92,46 @@ spanory runtime openclaw plugin doctor
 ```bash
 spanory runtime opencode plugin install
 spanory runtime opencode plugin doctor
+```
+
+### Codex — Session Parse + Notify Hook
+
+Codex runtime supports `export/backfill/hook` based on `~/.codex/sessions/**/*.jsonl`.
+
+```bash
+# Export one codex session
+spanory runtime codex export \
+  --session-id <SESSION_ID> \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+
+# Batch backfill codex sessions by mtime
+spanory runtime codex backfill \
+  --since 2026-03-01T00:00:00Z \
+  --limit 50 \
+  --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  --headers "$OTEL_EXPORTER_OTLP_HEADERS"
+```
+
+Codex notify payload can be consumed for near realtime turn-level export:
+
+```bash
+echo '{"event":"agent-turn-complete","thread_id":"<SESSION_ID>","turn_id":"<TURN_ID>","cwd":"<PROJECT_CWD>"}' | \
+spanory runtime codex hook --last-turn-only
+```
+
+### Codex — Proxy Hijack Capture (Full Redacted)
+
+Use an OpenAI-compatible local proxy to capture full request/response bodies with strong redaction.
+
+```bash
+# Start proxy
+spanory runtime codex proxy \
+  --listen 127.0.0.1:8787 \
+  --upstream https://api.openai.com
+
+# Route Codex traffic to proxy
+export OPENAI_BASE_URL="http://127.0.0.1:8787"
 ```
 
 ### Offline Backfill
@@ -207,7 +247,7 @@ CI runs the same gates via `.github/workflows/ci.yml`.
 
 ## Roadmap
 
-- [ ] Codex runtime adapter
+- [x] Codex runtime adapter + proxy capture
 - [ ] LangSmith backend adapter
 - [ ] Langfuse-friendly naming/timeline conventions
 - [ ] Local UI for viewing session summaries and reports

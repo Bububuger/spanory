@@ -1,21 +1,26 @@
-# Spanory 计划：need_fix 问题修复与 README 可走通性增强（2026-03-03）
+# Spanory 计划：Codex Runtime 双轨接入（2026-03-03）
 
 ## Goal
-修复 `need_fix.md` 提到的高优先级问题，确保用户按 README 能走通主流程；若环境差异导致失败，提供可执行排查建议。
+实现 Codex runtime 的可观测接入：
+1) 基于 `~/.codex/sessions` 的语义解析链路（export/backfill/hook notify）
+2) 基于代理劫持的请求/响应采集链路（全量采集 + 强脱敏 + 本地落盘）
+并确保字段丰富度与现有 runtime（claude/openclaw/opencode）基本一致。
 
 ## Scope
 - In scope:
-  - `packages/cli/src/index.js`：复用 env 加载模块。
-  - `packages/cli/src/env.js`（新增）：增强 `~/.env` 解析与加载。
-  - `packages/cli/test/unit/env.spec.js`（新增）：覆盖 env 解析/加载回归。
-  - `README.md`：修正 Langfuse 认证示例、补充排查步骤。
-  - `docs/README_zh.md`：同步修正认证示例与排查建议。
+  - `packages/cli/src/runtime/codex/adapter.js`（新增）
+  - `packages/cli/src/runtime/codex/proxy.js`（新增）
+  - `packages/cli/src/index.js`（注册 codex runtime + proxy 命令 + notify hook 解析）
+  - `packages/cli/src/runtime/shared/capabilities.js`（新增 codex 能力）
+  - `packages/core/src/index.ts`（补充 HookPayload 字段）
+  - `packages/cli/test/unit/*`、`packages/cli/test/bdd/*`、`packages/cli/test/fixtures/codex/*`
+  - `docs/runtime-capability-matrix.md`、`README.md`、`docs/README_zh.md`
 - Out of scope:
-  - 新增 doctor 命令
-  - 抓包链路改造
+  - 替换 Codex 原生 OTel
+  - 远端存储与可视化 UI
 
 ## Acceptance
-- `.env` 支持 `export KEY=...` 格式并保持向后兼容。
-- README 与中文文档中的 OTLP Header 示例正确（Basic Auth）。
-- 文档包含最小可执行排查路径（401/env/hook 三类）。
-- `npm run check`、`npm test`、`npm run test:bdd` 全通过。
+- `runtime codex export/backfill/hook` 可运行并产出包含 `turn/tool/mcp/shell/agent_task/usage/model` 的 JSON。
+- `runtime codex hook` 支持 notify payload（`thread_id/turn_id/cwd`）并可按 turn 增量导出。
+- `runtime codex proxy` 能转发请求，落盘前完成强脱敏，异常时不阻塞转发。
+- 新增单测与 BDD 覆盖关键场景；`npm run check`、`npm test`、`npm run test:bdd` 通过。

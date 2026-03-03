@@ -1,0 +1,20 @@
+{"timestamp":"2026-03-03T14:00:00.000Z","type":"session_meta","payload":{"id":"session-a","timestamp":"2026-03-03T14:00:00.000Z","cwd":"/Users/me/workspace/demo","cli_version":"0.107.0-alpha.5","model_provider":"openai"}}
+{"timestamp":"2026-03-03T14:00:00.100Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-codex-1"}}
+{"timestamp":"2026-03-03T14:00:00.120Z","type":"event_msg","payload":{"type":"user_message","message":"/compact please summarize\n"}}
+{"timestamp":"2026-03-03T14:00:00.130Z","type":"turn_context","payload":{"turn_id":"turn-codex-1","cwd":"/Users/me/workspace/demo","model":"gpt-5.3-codex"}}
+{"timestamp":"2026-03-03T14:00:00.200Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"pwd\"}","call_id":"call-1"}}
+{"timestamp":"2026-03-03T14:00:00.210Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-1","output":"Exit code: 0\nOutput:\n/Users/me/workspace/demo\n"}}
+{"timestamp":"2026-03-03T14:00:00.220Z","type":"response_item","payload":{"type":"function_call","name":"mcp__playwright__browser_navigate","arguments":"{\"url\":\"https://example.com\"}","call_id":"call-2"}}
+{"timestamp":"2026-03-03T14:00:00.230Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-2","output":"{\"ok\":true}"}}
+{"timestamp":"2026-03-03T14:00:00.240Z","type":"response_item","payload":{"type":"function_call","name":"spawn_agent","arguments":"{\"agent_type\":\"worker\"}","call_id":"call-3"}}
+{"timestamp":"2026-03-03T14:00:00.250Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-3","output":"{\"id\":\"agent-1\"}"}}
+{"timestamp":"2026-03-03T14:00:00.260Z","type":"response_item","payload":{"type":"web_search_call","status":"completed","action":{"type":"search","query":"spanory","queries":["spanory"]}}}
+{"timestamp":"2026-03-03T14:00:00.300Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":20,"output_tokens":10,"total_tokens":30},"total_token_usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150}}}}
+{"timestamp":"2026-03-03T14:00:00.400Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-codex-1","last_agent_message":"第一轮完成"}}
+{"timestamp":"2026-03-03T14:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-codex-2"}}
+{"timestamp":"2026-03-03T14:00:01.030Z","type":"event_msg","payload":{"type":"user_message","message":"第二轮问题\n"}}
+{"timestamp":"2026-03-03T14:00:01.040Z","type":"turn_context","payload":{"turn_id":"turn-codex-2","cwd":"/Users/me/workspace/demo","model":"gpt-5.3-codex"}}
+{"timestamp":"2026-03-03T14:00:01.080Z","type":"response_item","payload":{"type":"function_call","name":"write_stdin","arguments":"{\"session_id\":42,\"chars\":\"ls\\n\"}","call_id":"call-4"}}
+{"timestamp":"2026-03-03T14:00:01.090Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-4","output":"README.md\n"}}
+{"timestamp":"2026-03-03T14:00:01.120Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":6,"output_tokens":3,"total_tokens":9},"total_token_usage":{"input_tokens":106,"output_tokens":53,"total_tokens":159}}}}
+{"timestamp":"2026-03-03T14:00:01.200Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-codex-2","last_agent_message":"第二轮完成"}}

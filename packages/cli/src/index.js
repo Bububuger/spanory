@@ -8,6 +8,8 @@ import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
+import { codexAdapter } from './runtime/codex/adapter.js';
+import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { loadUserEnv } from './env.js';
@@ -26,6 +28,7 @@ import {
 
 const runtimeAdapters = {
   'claude-code': claudeCodeAdapter,
+  codex: codexAdapter,
   openclaw: openclawAdapter,
 };
 
@@ -61,7 +64,11 @@ function parseHookPayload(raw) {
     const payload = JSON.parse(raw);
     return {
       hookEventName: payload.hook_event_name ?? payload.hookEventName,
-      sessionId: payload.session_id ?? payload.sessionId,
+      sessionId: payload.session_id ?? payload.sessionId ?? payload.thread_id ?? payload.threadId,
+      threadId: payload.thread_id ?? payload.threadId,
+      turnId: payload.turn_id ?? payload.turnId,
+      cwd: payload.cwd,
+      event: payload.event ?? payload.type ?? payload.event_name ?? payload.eventName,
       transcriptPath: payload.transcript_path ?? payload.transcriptPath,
     };
   } catch {
@@ -137,7 +144,14 @@ function selectLatestTurnEvents(events) {
     }
   }
 
-  if (!latestTurnId) return { turnId: undefined, events: [] };
+  if (!latestTurnId) {
+    const latestTurnByTime = events
+      .filter((event) => event?.category === 'turn' && event?.turnId)
+      .slice()
+      .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())[0];
+    if (!latestTurnByTime?.turnId) return { turnId: undefined, events: [] };
+    latestTurnId = latestTurnByTime.turnId;
+  }
   return {
     turnId: latestTurnId,
     events: events.filter((event) => event.turnId === latestTurnId),
@@ -157,6 +171,9 @@ function sleep(ms) {
 
 function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
   if (explicitRuntimeHome) return explicitRuntimeHome;
+  if (runtimeName === 'codex') {
+    return process.env.SPANORY_CODEX_HOME ?? path.join(process.env.HOME || '', '.codex');
+  }
   if (runtimeName === 'openclaw') {
     return (
       process.env.SPANORY_OPENCLOW_HOME
@@ -249,7 +266,7 @@ async function runHookMode(options) {
   const hookPayload = parseHookPayload(raw);
   const context = adapter.resolveContextFromHook(hookPayload);
   if (!context) {
-    throw new Error('cannot resolve runtime context from hook payload; require session_id and transcript_path');
+    throw new Error('cannot resolve runtime context from hook payload; require session_id (or thread_id)');
   }
 
   const contextWithRuntimeHome = {
@@ -272,9 +289,14 @@ async function runHookMode(options) {
     selectedFingerprint = fullFingerprint;
 
     if (options.lastTurnOnly) {
-      const latest = selectLatestTurnEvents(allEvents);
-      selectedTurnId = latest.turnId;
-      events = latest.events;
+      if (hookPayload.turnId) {
+        selectedTurnId = hookPayload.turnId;
+        events = allEvents.filter((event) => event.turnId === selectedTurnId);
+      } else {
+        const latest = selectLatestTurnEvents(allEvents);
+        selectedTurnId = latest.turnId;
+        events = latest.events;
+      }
       if (!selectedTurnId || events.length === 0) {
         console.log(`skip=no-turn sessionId=${contextWithRuntimeHome.sessionId}`);
         return;
@@ -341,6 +363,31 @@ function sessionIdFromFilename(filename) {
   return filename.endsWith('.jsonl') ? filename.slice(0, -6) : filename;
 }
 
+async function listJsonlFilesRecursively(rootDir) {
+  const out = [];
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    let names = [];
+    try {
+      names = await readdir(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      const fullPath = path.join(dir, name.name);
+      if (name.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
+      if (name.isFile() && name.name.endsWith('.jsonl')) {
+        out.push(fullPath);
+      }
+    }
+  }
+  return out;
+}
+
 async function listCandidateSessions(runtimeName, projectId, options) {
   if (options.sessionIds) {
     return options.sessionIds
@@ -348,6 +395,33 @@ async function listCandidateSessions(runtimeName, projectId, options) {
       .map((s) => s.trim())
       .filter(Boolean)
       .map((sessionId) => ({ sessionId }));
+  }
+
+  if (runtimeName === 'codex') {
+    const runtimeHome = resolveRuntimeHome(runtimeName, options.runtimeHome);
+    const sessionsRoot = path.join(runtimeHome, 'sessions');
+    const files = await listJsonlFilesRecursively(sessionsRoot);
+    const withStat = await Promise.all(
+      files.map(async (fullPath) => {
+        const fileStat = await stat(fullPath);
+        return {
+          transcriptPath: fullPath,
+          sessionId: sessionIdFromFilename(path.basename(fullPath)),
+          mtimeMs: fileStat.mtimeMs,
+        };
+      }),
+    );
+
+    const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
+    const untilMs = options.until ? new Date(options.until).getTime() : undefined;
+    const filtered = withStat.filter((item) => {
+      if (Number.isFinite(sinceMs) && item.mtimeMs < sinceMs) return false;
+      if (Number.isFinite(untilMs) && item.mtimeMs > untilMs) return false;
+      return true;
+    });
+
+    const sorted = filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return sorted.slice(0, Number(options.limit)).map(({ sessionId, transcriptPath }) => ({ sessionId, transcriptPath }));
   }
 
   let projectDir = path.join(resolveRuntimeProjectRoot(runtimeName, options.runtimeHome), projectId);
@@ -398,6 +472,7 @@ async function listCandidateSessions(runtimeName, projectId, options) {
 }
 
 function runtimeDisplayName(runtimeName) {
+  if (runtimeName === 'codex') return 'Codex';
   if (runtimeName === 'openclaw') return 'OpenClaw';
   if (runtimeName === 'opencode') return 'OpenCode';
   return 'Claude Code';
@@ -418,6 +493,17 @@ function runSystemCommand(command, args, options = {}) {
     stderr: result.stderr ?? '',
     error: result.error ? String(result.error.message ?? result.error) : undefined,
   };
+}
+
+function parseListenAddress(input) {
+  const raw = String(input ?? '127.0.0.1:8787').trim();
+  if (!raw.includes(':')) {
+    return { host: '127.0.0.1', port: Number(raw) };
+  }
+  const idx = raw.lastIndexOf(':');
+  const host = raw.slice(0, idx) || '127.0.0.1';
+  const port = Number(raw.slice(idx + 1));
+  return { host, port };
 }
 
 function resolveOpenclawPluginDir() {
@@ -556,10 +642,17 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
   const hasTranscriptAdapter = Boolean(runtimeAdapters[runtimeName]);
 
   if (hasTranscriptAdapter) {
-    runtimeCmd
+    const exportCmd = runtimeCmd
       .command('export')
-      .description(`Export one ${displayName} session as OTLP spans`)
-      .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
+      .description(`Export one ${displayName} session as OTLP spans`);
+
+    if (runtimeName !== 'codex') {
+      exportCmd.requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`);
+    } else {
+      exportCmd.option('--project-id <id>', 'Project id override (optional; defaults to cwd-derived id)');
+    }
+
+    exportCmd
       .requiredOption('--session-id <id>', `${displayName} session id (jsonl filename without extension)`)
       .option('--transcript-path <path>', 'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl')
       .option('--runtime-home <path>', 'Override runtime home directory')
@@ -575,7 +668,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
       .action(async (options) => {
         const adapter = getRuntimeAdapter(runtimeName);
         const context = {
-          projectId: options.projectId,
+          projectId: options.projectId ?? 'codex',
           sessionId: options.sessionId,
           ...(options.transcriptPath ? { transcriptPath: options.transcriptPath } : {}),
           ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
@@ -616,10 +709,15 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
         exportJsonDir: options.exportJsonDir,
       }));
 
-    runtimeCmd
+    const backfillCmd = runtimeCmd
       .command('backfill')
-      .description(`Batch export historical ${displayName} sessions for one project`)
-      .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
+      .description(`Batch export historical ${displayName} sessions for one project`);
+    if (runtimeName !== 'codex') {
+      backfillCmd.requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`);
+    } else {
+      backfillCmd.option('--project-id <id>', 'Project id override (optional; defaults to cwd-derived id)');
+    }
+    backfillCmd
       .option('--runtime-home <path>', 'Override runtime home directory')
       .option('--session-ids <csv>', 'Comma-separated session ids; if set, since/until/limit are ignored')
       .option('--since <iso>', 'Only include sessions with transcript file mtime >= this ISO timestamp')
@@ -640,7 +738,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
         const endpoint = resolveEndpoint(options.endpoint);
         const headers = resolveHeaders(options.headers);
 
-        const candidates = await listCandidateSessions(runtimeName, options.projectId, options);
+        const candidates = await listCandidateSessions(runtimeName, options.projectId ?? 'codex', options);
         if (!candidates.length) {
           console.log('backfill=empty selected=0');
           return;
@@ -650,8 +748,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
 
         for (const candidate of candidates) {
           const context = {
-            projectId: options.projectId,
+            projectId: options.projectId ?? 'codex',
             sessionId: candidate.sessionId,
+            ...(candidate.transcriptPath ? { transcriptPath: candidate.transcriptPath } : {}),
             ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
           };
           if (options.dryRun) {
@@ -671,6 +770,42 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
             exportJsonPath,
           });
         }
+      });
+  }
+
+  if (runtimeName === 'codex') {
+    runtimeCmd
+      .command('proxy')
+      .description('Run OpenAI-compatible proxy capture for Codex traffic with full redaction')
+      .option('--listen <host:port>', 'Listen address (default: 127.0.0.1:8787)', '127.0.0.1:8787')
+      .option('--upstream <url>', 'Upstream OpenAI-compatible base URL')
+      .option('--spool-dir <path>', 'Capture spool directory')
+      .option('--max-body-bytes <n>', 'Maximum bytes to keep per redacted body', '131072')
+      .action(async (options) => {
+        const { host, port } = parseListenAddress(options.listen);
+        if (!Number.isFinite(port) || port <= 0) {
+          throw new Error(`invalid --listen port: ${options.listen}`);
+        }
+        const proxy = createCodexProxyServer({
+          upstreamBaseUrl: options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL,
+          spoolDir: options.spoolDir
+            ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR
+            ?? path.join(resolveRuntimeStateRoot('codex'), 'spanory', 'proxy-spool'),
+          maxBodyBytes: Number(options.maxBodyBytes),
+          logger: console,
+        });
+        await proxy.start({ host, port });
+        console.log(`proxy=listening url=${proxy.url()} upstream=${options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com'}`);
+        await new Promise((resolve) => {
+          const stop = async () => {
+            process.off('SIGINT', stop);
+            process.off('SIGTERM', stop);
+            await proxy.stop();
+            resolve();
+          };
+          process.on('SIGINT', stop);
+          process.on('SIGTERM', stop);
+        });
       });
   }
 
@@ -818,7 +953,7 @@ program
   .version('0.1.1');
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
-for (const runtimeName of ['claude-code', 'openclaw', 'opencode']) {
+for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
   registerRuntimeCommands(runtime, runtimeName);
 }
 

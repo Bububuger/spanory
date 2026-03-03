@@ -27,4 +27,13 @@ export const RUNTIME_CAPABILITIES = {
     slashCommandExtraction: true,
     mcpServerExtraction: true,
   },
+  codex: {
+    turnDetection: true,
+    toolCallAttribution: true,
+    toolResultCorrelation: true,
+    modelName: true,
+    usageDetails: true,
+    slashCommandExtraction: true,
+    mcpServerExtraction: true,
+  },
 };

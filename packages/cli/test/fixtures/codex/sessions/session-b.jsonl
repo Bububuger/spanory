@@ -1,0 +1,4 @@
+{"timestamp":"2026-03-03T15:00:00.000Z","type":"session_meta","payload":{"id":"session-b","timestamp":"2026-03-03T15:00:00.000Z","cwd":"/Users/me/workspace/another-demo","cli_version":"0.107.0-alpha.5","model_provider":"openai"}}
+{"timestamp":"2026-03-03T15:00:00.100Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-codex-b-1"}}
+{"timestamp":"2026-03-03T15:00:00.120Z","type":"event_msg","payload":{"type":"user_message","message":"session-b question\n"}}
+{"timestamp":"2026-03-03T15:00:00.200Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-codex-b-1","last_agent_message":"session-b done"}}
