@@ -39,11 +39,13 @@ describe('opencode plugin runtime', () => {
     const prevHome = process.env.SPANORY_OPENCODE_HOME;
     const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
     const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushMode = process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
     process.env.SPANORY_OPENCODE_HOME = tempRoot;
     process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
     delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
     try {
       const fixtures = {
@@ -72,6 +74,149 @@ describe('opencode plugin runtime', () => {
       else process.env.SPANORY_OPENCODE_SPOOL_DIR = prevSpool;
       if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
       else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushMode === undefined) delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+      else process.env.SPANORY_OPENCODE_FLUSH_MODE = prevFlushMode;
+    }
+  });
+
+  it('contract: flushes session.completed and writes status without endpoint', async () => {
+    const prevHome = process.env.SPANORY_OPENCODE_HOME;
+    const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
+    const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushMode = process.env.SPANORY_OPENCODE_FLUSH_MODE;
+
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
+    process.env.SPANORY_OPENCODE_HOME = tempRoot;
+    process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+
+    try {
+      const fixtures = {
+        sessionInfo: await loadFixture('session-info.json'),
+        sessionMessages: await loadFixture('session-messages.json'),
+      };
+
+      const runtime = createOpencodeSpanoryPluginRuntime({
+        logger: { warn: () => {} },
+        client: mockClient(fixtures),
+      });
+
+      await runtime.onEvent({
+        type: 'session.completed',
+        properties: { sessionID: 'session-op-1' },
+      });
+      await runtime.onGatewayStop();
+
+      const statusPath = path.join(tempRoot, 'state', 'spanory', 'plugin-status.json');
+      const status = JSON.parse(await readFile(statusPath, 'utf-8'));
+      expect(status.pluginId).toBe('spanory-opencode-plugin');
+      expect(status.lastSessionId).toBe('session-op-1');
+      expect(status.lastSuccessAt).toBeTruthy();
+    } finally {
+      if (prevHome === undefined) delete process.env.SPANORY_OPENCODE_HOME;
+      else process.env.SPANORY_OPENCODE_HOME = prevHome;
+      if (prevSpool === undefined) delete process.env.SPANORY_OPENCODE_SPOOL_DIR;
+      else process.env.SPANORY_OPENCODE_SPOOL_DIR = prevSpool;
+      if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushMode === undefined) delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+      else process.env.SPANORY_OPENCODE_FLUSH_MODE = prevFlushMode;
+    }
+  });
+
+  it('contract: flushes turn.completed by default turn mode', async () => {
+    const prevHome = process.env.SPANORY_OPENCODE_HOME;
+    const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
+    const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushMode = process.env.SPANORY_OPENCODE_FLUSH_MODE;
+
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
+    process.env.SPANORY_OPENCODE_HOME = tempRoot;
+    process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+
+    try {
+      const fixtures = {
+        sessionInfo: await loadFixture('session-info.json'),
+        sessionMessages: await loadFixture('session-messages.json'),
+      };
+
+      const runtime = createOpencodeSpanoryPluginRuntime({
+        logger: { warn: () => {} },
+        client: mockClient(fixtures),
+      });
+
+      await runtime.onEvent({
+        type: 'turn.completed',
+        properties: { sessionID: 'session-op-1' },
+      });
+      await runtime.onGatewayStop();
+
+      const statusPath = path.join(tempRoot, 'state', 'spanory', 'plugin-status.json');
+      const status = JSON.parse(await readFile(statusPath, 'utf-8'));
+      expect(status.lastSuccessAt).toBeTruthy();
+      expect(status.lastTriggerEvent).toBe('turn.completed');
+      expect(status.flushMode).toBe('turn');
+    } finally {
+      if (prevHome === undefined) delete process.env.SPANORY_OPENCODE_HOME;
+      else process.env.SPANORY_OPENCODE_HOME = prevHome;
+      if (prevSpool === undefined) delete process.env.SPANORY_OPENCODE_SPOOL_DIR;
+      else process.env.SPANORY_OPENCODE_SPOOL_DIR = prevSpool;
+      if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushMode === undefined) delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+      else process.env.SPANORY_OPENCODE_FLUSH_MODE = prevFlushMode;
+    }
+  });
+
+  it('config: session mode defers turn event flush until gateway stop', async () => {
+    const prevHome = process.env.SPANORY_OPENCODE_HOME;
+    const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
+    const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushMode = process.env.SPANORY_OPENCODE_FLUSH_MODE;
+
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
+    process.env.SPANORY_OPENCODE_HOME = tempRoot;
+    process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    process.env.SPANORY_OPENCODE_FLUSH_MODE = 'session';
+
+    try {
+      const fixtures = {
+        sessionInfo: await loadFixture('session-info.json'),
+        sessionMessages: await loadFixture('session-messages.json'),
+      };
+
+      const runtime = createOpencodeSpanoryPluginRuntime({
+        logger: { warn: () => {} },
+        client: mockClient(fixtures),
+      });
+
+      await runtime.onEvent({
+        type: 'turn.completed',
+        properties: { sessionID: 'session-op-1' },
+      });
+
+      const statusPath = path.join(tempRoot, 'state', 'spanory', 'plugin-status.json');
+      await expect(readFile(statusPath, 'utf-8')).rejects.toThrow();
+
+      await runtime.onGatewayStop();
+
+      const status = JSON.parse(await readFile(statusPath, 'utf-8'));
+      expect(status.lastSuccessAt).toBeTruthy();
+      expect(status.lastTriggerEvent).toBe('gateway.stop');
+      expect(status.flushMode).toBe('session');
+    } finally {
+      if (prevHome === undefined) delete process.env.SPANORY_OPENCODE_HOME;
+      else process.env.SPANORY_OPENCODE_HOME = prevHome;
+      if (prevSpool === undefined) delete process.env.SPANORY_OPENCODE_SPOOL_DIR;
+      else process.env.SPANORY_OPENCODE_SPOOL_DIR = prevSpool;
+      if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushMode === undefined) delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+      else process.env.SPANORY_OPENCODE_FLUSH_MODE = prevFlushMode;
     }
   });
 
@@ -80,12 +225,14 @@ describe('opencode plugin runtime', () => {
     const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
     const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
     const prevRetry = process.env.SPANORY_OPENCODE_RETRY_MAX;
+    const prevFlushMode = process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
     process.env.SPANORY_OPENCODE_HOME = tempRoot;
     process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://127.0.0.1:4318/v1/traces';
     process.env.SPANORY_OPENCODE_RETRY_MAX = '1';
+    delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
     try {
       const fixtures = {
@@ -127,6 +274,8 @@ describe('opencode plugin runtime', () => {
       else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
       if (prevRetry === undefined) delete process.env.SPANORY_OPENCODE_RETRY_MAX;
       else process.env.SPANORY_OPENCODE_RETRY_MAX = prevRetry;
+      if (prevFlushMode === undefined) delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+      else process.env.SPANORY_OPENCODE_FLUSH_MODE = prevFlushMode;
     }
   });
 
@@ -134,11 +283,13 @@ describe('opencode plugin runtime', () => {
     const prevHome = process.env.SPANORY_OPENCODE_HOME;
     const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
     const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushMode = process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
     process.env.SPANORY_OPENCODE_HOME = tempRoot;
     process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://127.0.0.1:4318/v1/traces';
+    delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
     try {
       const sessionMessages = await loadFixture('session-messages.json');
@@ -190,6 +341,8 @@ describe('opencode plugin runtime', () => {
       else process.env.SPANORY_OPENCODE_SPOOL_DIR = prevSpool;
       if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
       else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushMode === undefined) delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
+      else process.env.SPANORY_OPENCODE_FLUSH_MODE = prevFlushMode;
     }
   });
 });

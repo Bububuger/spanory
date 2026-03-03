@@ -1,18 +1,20 @@
-# Spanory 计划：修复 Codex notify 脚本仅支持参数 payload 问题（2026-03-04）
+# Spanory 计划：修复 OpenCode 插件不触发上报并默认每轮触发（2026-03-04）
 
 ## Goal
-让 `setup apply` 生成的 Codex notify 脚本同时支持 `$1` 与 `stdin` payload，避免新对话事件未上报。
+提升 OpenCode 插件事件兼容性，默认按每轮事件触发上报；并提供参数切换为 session 触发模式。
 
 ## Scope
 - In scope:
-  - `packages/cli/src/index.js`：更新 `codexNotifyScriptContent`。
-  - `packages/cli/test/bdd/setup.integration.spec.js`：补充脚本内容断言。
+  - `packages/opencode-plugin/src/index.js`：扩展 flush 触发条件、默认 turn 模式、`onGatewayStop` 会话兜底 flush。
+  - `packages/cli/test/unit/opencode.plugin.runtime.spec.js`：新增 turn 触发与模式参数测试。
+  - `README.md` / `docs/README_zh.md`：补充 `SPANORY_OPENCODE_FLUSH_MODE` 说明。
   - `plan.md` / `todo.md`：阶段记录。
 - Out of scope:
-  - 改动 Codex runtime 解析器。
-  - 修改非 Codex runtime 行为。
+  - 新增 opencode transcript 离线 adapter。
+  - 调整 OTLP payload schema。
 
 ## Acceptance
-- 生成脚本包含 stdin fallback 逻辑。
-- payload 为空时写入 skip 日志而非静默退出。
-- BDD 通过：`npm run --workspace @spanory/cli test -- test/bdd/setup.integration.spec.js`。
+- 默认模式下 turn 完成事件可触发 flush。
+- 参数 `SPANORY_OPENCODE_FLUSH_MODE=session` 可切换为 session 模式。
+- gateway stop 时至少尝试 flush 已观测 session。
+- `npm run --workspace @spanory/cli test -- test/unit/opencode.plugin.runtime.spec.js` 通过。

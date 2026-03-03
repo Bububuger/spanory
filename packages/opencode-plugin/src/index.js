@@ -8,6 +8,29 @@ import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as send
 import { normalizeTranscriptMessages, pickUsage } from '../../cli/src/runtime/shared/normalize.js';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
+const DEFAULT_FLUSH_MODE = 'turn';
+const SESSION_FLUSH_EVENTS = new Set([
+  'session.idle',
+  'session.deleted',
+  'session.completed',
+  'session.complete',
+  'session.ended',
+  'session.end',
+  'session.closed',
+  'session.close',
+]);
+const TURN_FLUSH_EVENTS = new Set([
+  'turn.completed',
+  'turn.complete',
+  'turn.ended',
+  'turn.end',
+  'message.completed',
+  'message.complete',
+  'response.completed',
+  'response.complete',
+  'assistant.completed',
+  'assistant.complete',
+]);
 
 function toNumber(value) {
   const n = Number(value);
@@ -245,11 +268,43 @@ function unwrapData(response) {
   return response;
 }
 
+function resolveFlushMode() {
+  const raw = String(process.env.SPANORY_OPENCODE_FLUSH_MODE ?? DEFAULT_FLUSH_MODE).trim().toLowerCase();
+  if (raw === 'session' || raw === 'turn') return raw;
+  return DEFAULT_FLUSH_MODE;
+}
+
+function extractSessionId(event) {
+  return event?.properties?.sessionID
+    ?? event?.properties?.sessionId
+    ?? event?.sessionID
+    ?? event?.sessionId
+    ?? undefined;
+}
+
+function normalizeEventType(type) {
+  return String(type ?? '').trim().toLowerCase();
+}
+
+function looksLikeTurnDoneEvent(type) {
+  return /(?:^|\.)(turn|message|response|assistant)(?:\.|_)?(completed|complete|done|ended|end|finished|finish|stopped|stop)$/.test(type);
+}
+
+function shouldFlushForEvent(type, flushMode) {
+  if (!type) return false;
+  if (SESSION_FLUSH_EVENTS.has(type)) return true;
+  if (flushMode === 'session') return false;
+  if (TURN_FLUSH_EVENTS.has(type)) return true;
+  return looksLikeTurnDoneEvent(type);
+}
+
 export function createOpencodeSpanoryPluginRuntime(options) {
   const logger = options?.logger;
   const client = options?.client;
   const sendOtlpHttp = options?.sendOtlpHttp ?? sendOtlpHttpDefault;
+  const flushMode = resolveFlushMode();
   const fingerprints = new Map();
+  const observedSessionIds = new Set();
 
   if (!client?.session?.get || !client?.session?.messages) {
     throw new Error('opencode plugin runtime requires client.session.get and client.session.messages');
@@ -284,7 +339,7 @@ export function createOpencodeSpanoryPluginRuntime(options) {
 
   let pipeline = Promise.resolve();
 
-  function submit(events, sessionId, fingerprint) {
+  function submit(events, sessionId, fingerprint, triggerType) {
     pipeline = pipeline.then(async () => {
       const mapped = langfuseBackendAdapter.mapEvents(events);
       const payload = compileOtlpSpans(mapped, buildResource());
@@ -298,9 +353,11 @@ export function createOpencodeSpanoryPluginRuntime(options) {
           pluginId: PLUGIN_ID,
           lastSessionId: sessionId,
           lastFingerprint: fingerprint,
+          lastTriggerEvent: triggerType,
           lastSuccessAt: nowIso(),
           events: events.length,
           endpointConfigured: !result.skipped,
+          flushMode,
         });
       } catch (err) {
         await enqueueSpool({
@@ -333,7 +390,7 @@ export function createOpencodeSpanoryPluginRuntime(options) {
     });
   }
 
-  async function flushSession(sessionId) {
+  async function flushSession(sessionId, triggerType) {
     if (!sessionId) return;
     const events = await collectCanonicalEvents(sessionId);
     if (!events.length) return;
@@ -344,24 +401,38 @@ export function createOpencodeSpanoryPluginRuntime(options) {
         pluginId: PLUGIN_ID,
         lastSessionId: sessionId,
         lastFingerprint: fingerprint,
+        lastTriggerEvent: triggerType,
         lastSkippedAt: nowIso(),
         reason: 'fingerprint_unchanged',
+        flushMode,
       });
       return;
     }
 
     fingerprints.set(sessionId, fingerprint);
-    submit(events, sessionId, fingerprint);
+    submit(events, sessionId, fingerprint, triggerType);
   }
 
   async function onEvent(event) {
-    const type = event?.type;
-    if (type === 'session.idle' || type === 'session.deleted') {
-      await flushSession(event?.properties?.sessionID);
+    const type = normalizeEventType(event?.type);
+    const sessionId = extractSessionId(event);
+    if (sessionId) observedSessionIds.add(sessionId);
+
+    if (shouldFlushForEvent(type, flushMode)) {
+      await flushSession(sessionId, type);
     }
   }
 
   async function onGatewayStop() {
+    for (const sessionId of observedSessionIds) {
+      if (fingerprints.has(sessionId)) continue;
+      try {
+        await flushSession(sessionId, 'gateway.stop');
+      } catch (err) {
+        logger?.warn?.(`[${PLUGIN_ID}] gateway-stop flush session error: ${String(err)}`);
+      }
+    }
+
     await pipeline;
     try {
       await flushSpool();

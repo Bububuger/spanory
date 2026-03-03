@@ -251,6 +251,12 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<LANGFUSE_
 ```bash
 export SPANORY_OPENCODE_SPOOL_DIR="$HOME/.config/opencode/state/spanory/spool"
 export SPANORY_OPENCODE_RETRY_MAX="6"
+
+# 触发模式：默认按每轮完成事件实时 flush（推荐）
+export SPANORY_OPENCODE_FLUSH_MODE="turn"
+
+# 可选：仅在会话终态事件 flush
+# export SPANORY_OPENCODE_FLUSH_MODE="session"
 ```
 
 ### 3) Plugin 运行状态检查

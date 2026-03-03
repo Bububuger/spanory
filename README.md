@@ -203,6 +203,16 @@ spanory runtime opencode plugin install
 spanory runtime opencode plugin doctor
 ```
 
+Trigger mode (recommended realtime by turn):
+
+```bash
+# default: flush on turn/message completion events (realtime)
+export SPANORY_OPENCODE_FLUSH_MODE="turn"
+
+# optional: only flush on session lifecycle end events
+# export SPANORY_OPENCODE_FLUSH_MODE="session"
+```
+
 ### Codex — Session Parse + Notify Hook
 
 Codex runtime supports `export/backfill/hook` based on `~/.codex/sessions/**/*.jsonl`.
