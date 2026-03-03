@@ -20,6 +20,7 @@ Capability matrix records which runtime can provide which normalized telemetry c
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `claude-code` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (hook) | ⚠️ (hook-state dedupe only) |
 | `openclaw` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (plugin + hook) | ✅ (plugin spool/retry) |
+| `opencode` | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ (command events 未覆盖) | ✅ | ✅ (plugin) | ✅ (plugin spool/retry) |
 
 ## Policy
 

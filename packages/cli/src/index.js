@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 import { Command } from 'commander';
 
@@ -29,6 +30,7 @@ const backendAdapters = {
 };
 
 const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
+const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 
 function getResource() {
   return {
@@ -175,6 +177,9 @@ function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
       ?? process.env.SPANORY_OPENCLAW_HOME
       ?? path.join(process.env.HOME || '', '.openclaw')
     );
+  }
+  if (runtimeName === 'opencode') {
+    return process.env.SPANORY_OPENCODE_HOME ?? path.join(process.env.HOME || '', '.config', 'opencode');
   }
   return path.join(process.env.HOME || '', '.claude');
 }
@@ -386,6 +391,7 @@ async function listCandidateSessions(runtimeName, projectId, options) {
 
 function runtimeDisplayName(runtimeName) {
   if (runtimeName === 'openclaw') return 'OpenClaw';
+  if (runtimeName === 'opencode') return 'OpenCode';
   return 'Claude Code';
 }
 
@@ -411,6 +417,21 @@ function resolveOpenclawPluginDir() {
     return process.env.SPANORY_OPENCLAW_PLUGIN_DIR;
   }
   return path.resolve(process.cwd(), 'packages/openclaw-plugin');
+}
+
+function resolveOpencodePluginDir() {
+  if (process.env.SPANORY_OPENCODE_PLUGIN_DIR) {
+    return process.env.SPANORY_OPENCODE_PLUGIN_DIR;
+  }
+  return path.resolve(process.cwd(), 'packages/opencode-plugin');
+}
+
+function resolveOpencodePluginInstallDir(runtimeHome) {
+  return path.join(resolveRuntimeHome('opencode', runtimeHome), 'plugin');
+}
+
+function opencodePluginLoaderPath(runtimeHome) {
+  return path.join(resolveOpencodePluginInstallDir(runtimeHome), `${OPENCODE_SPANORY_PLUGIN_ID}.js`);
 }
 
 function parsePluginEnabledFromInfoOutput(output) {
@@ -477,126 +498,173 @@ async function runOpenclawPluginDoctor(runtimeHome) {
   return { ok, checks };
 }
 
+async function runOpencodePluginDoctor(runtimeHome) {
+  const checks = [];
+
+  const loaderFile = opencodePluginLoaderPath(runtimeHome);
+  try {
+    await stat(loaderFile);
+    checks.push({ id: 'plugin_installed', ok: true, detail: loaderFile });
+  } catch {
+    checks.push({ id: 'plugin_installed', ok: false, detail: `plugin loader missing: ${loaderFile}` });
+  }
+
+  checks.push({
+    id: 'otlp_endpoint',
+    ok: Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT),
+    detail: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      ? process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      : 'OTEL_EXPORTER_OTLP_ENDPOINT is unset',
+  });
+
+  const spoolDir = process.env.SPANORY_OPENCODE_SPOOL_DIR
+    ?? path.join(resolveRuntimeStateRoot('opencode', runtimeHome), 'spanory', 'spool');
+  try {
+    await mkdir(spoolDir, { recursive: true });
+    checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
+  } catch (err) {
+    checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
+  }
+
+  const statusFile = path.join(resolveRuntimeStateRoot('opencode', runtimeHome), 'spanory', 'plugin-status.json');
+  try {
+    const raw = await readFile(statusFile, 'utf-8');
+    checks.push({ id: 'last_send_status', ok: true, detail: raw.slice(0, 500) });
+  } catch {
+    checks.push({
+      id: 'last_send_status',
+      ok: true,
+      detail: `status file not generated yet: ${statusFile}`,
+    });
+  }
+
+  const ok = checks.every((item) => item.ok);
+  return { ok, checks };
+}
+
 function registerRuntimeCommands(runtimeRoot, runtimeName) {
   const runtimeCmd = runtimeRoot.command(runtimeName).description(runtimeDescription(runtimeName));
   const displayName = runtimeDisplayName(runtimeName);
+  const hasTranscriptAdapter = Boolean(runtimeAdapters[runtimeName]);
 
-  runtimeCmd
-    .command('export')
-    .description(`Export one ${displayName} session as OTLP spans`)
-    .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
-    .requiredOption('--session-id <id>', `${displayName} session id (jsonl filename without extension)`)
-    .option('--transcript-path <path>', 'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl')
-    .option('--runtime-home <path>', 'Override runtime home directory')
-    .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-    .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-    .option('--export-json <path>', 'Write parsed events and OTLP payload to a local JSON file')
-    .addHelpText(
-      'after',
-      '\nExamples:\n'
-        + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n`
-        + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
-    )
-    .action(async (options) => {
-      const adapter = getRuntimeAdapter(runtimeName);
-      const context = {
-        projectId: options.projectId,
-        sessionId: options.sessionId,
-        ...(options.transcriptPath ? { transcriptPath: options.transcriptPath } : {}),
-        ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
-      };
-      const events = await adapter.collectEvents(context);
-      await emitSession({
-        runtimeName: adapter.runtimeName,
-        context,
-        events,
-        endpoint: resolveEndpoint(options.endpoint),
-        headers: resolveHeaders(options.headers),
-        exportJsonPath: options.exportJson,
-      });
-    });
-
-  runtimeCmd
-    .command('hook')
-    .description(`Read ${displayName} hook payload from stdin and export the matched session`)
-    .option('--runtime-home <path>', 'Override runtime home directory')
-    .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-    .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-    .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-    .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
-    .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
-    .addHelpText(
-      'after',
-      '\nExamples:\n'
-        + `  echo "{...}" | spanory runtime ${runtimeName} hook\n`
-        + `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${resolveRuntimeExportDir(runtimeName)}\n`,
-    )
-    .action(async (options) => runHookMode({
-      runtimeName,
-      runtimeHome: options.runtimeHome,
-      endpoint: options.endpoint,
-      headers: options.headers,
-      lastTurnOnly: options.lastTurnOnly,
-      force: options.force,
-      exportJsonDir: options.exportJsonDir,
-    }));
-
-  runtimeCmd
-    .command('backfill')
-    .description(`Batch export historical ${displayName} sessions for one project`)
-    .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
-    .option('--runtime-home <path>', 'Override runtime home directory')
-    .option('--session-ids <csv>', 'Comma-separated session ids; if set, since/until/limit are ignored')
-    .option('--since <iso>', 'Only include sessions with transcript file mtime >= this ISO timestamp')
-    .option('--until <iso>', 'Only include sessions with transcript file mtime <= this ISO timestamp')
-    .option('--limit <n>', 'Max number of sessions when auto-selecting by mtime', '50')
-    .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-    .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-    .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per session into this directory')
-    .option('--dry-run', 'Print selected sessions without sending OTLP', false)
-    .addHelpText(
-      'after',
-      '\nExamples:\n'
-        + `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n`
-        + `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
-    )
-    .action(async (options) => {
-      const adapter = getRuntimeAdapter(runtimeName);
-      const endpoint = resolveEndpoint(options.endpoint);
-      const headers = resolveHeaders(options.headers);
-
-      const candidates = await listCandidateSessions(runtimeName, options.projectId, options);
-      if (!candidates.length) {
-        console.log('backfill=empty selected=0');
-        return;
-      }
-
-      console.log(`backfill=selected count=${candidates.length}`);
-
-      for (const candidate of candidates) {
+  if (hasTranscriptAdapter) {
+    runtimeCmd
+      .command('export')
+      .description(`Export one ${displayName} session as OTLP spans`)
+      .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
+      .requiredOption('--session-id <id>', `${displayName} session id (jsonl filename without extension)`)
+      .option('--transcript-path <path>', 'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+      .option('--export-json <path>', 'Write parsed events and OTLP payload to a local JSON file')
+      .addHelpText(
+        'after',
+        '\nExamples:\n'
+          + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n`
+          + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
+      )
+      .action(async (options) => {
+        const adapter = getRuntimeAdapter(runtimeName);
         const context = {
           projectId: options.projectId,
-          sessionId: candidate.sessionId,
+          sessionId: options.sessionId,
+          ...(options.transcriptPath ? { transcriptPath: options.transcriptPath } : {}),
           ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
         };
-        if (options.dryRun) {
-          console.log(`dry-run sessionId=${candidate.sessionId}`);
-          continue;
-        }
-
         const events = await adapter.collectEvents(context);
-        const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
-
         await emitSession({
           runtimeName: adapter.runtimeName,
           context,
           events,
-          endpoint,
-          headers,
-          exportJsonPath,
+          endpoint: resolveEndpoint(options.endpoint),
+          headers: resolveHeaders(options.headers),
+          exportJsonPath: options.exportJson,
         });
-      }
-    });
+      });
+
+    runtimeCmd
+      .command('hook')
+      .description(`Read ${displayName} hook payload from stdin and export the matched session`)
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+      .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
+      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+      .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
+      .addHelpText(
+        'after',
+        '\nExamples:\n'
+          + `  echo "{...}" | spanory runtime ${runtimeName} hook\n`
+          + `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${resolveRuntimeExportDir(runtimeName)}\n`,
+      )
+      .action(async (options) => runHookMode({
+        runtimeName,
+        runtimeHome: options.runtimeHome,
+        endpoint: options.endpoint,
+        headers: options.headers,
+        lastTurnOnly: options.lastTurnOnly,
+        force: options.force,
+        exportJsonDir: options.exportJsonDir,
+      }));
+
+    runtimeCmd
+      .command('backfill')
+      .description(`Batch export historical ${displayName} sessions for one project`)
+      .requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`)
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .option('--session-ids <csv>', 'Comma-separated session ids; if set, since/until/limit are ignored')
+      .option('--since <iso>', 'Only include sessions with transcript file mtime >= this ISO timestamp')
+      .option('--until <iso>', 'Only include sessions with transcript file mtime <= this ISO timestamp')
+      .option('--limit <n>', 'Max number of sessions when auto-selecting by mtime', '50')
+      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+      .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per session into this directory')
+      .option('--dry-run', 'Print selected sessions without sending OTLP', false)
+      .addHelpText(
+        'after',
+        '\nExamples:\n'
+          + `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n`
+          + `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
+      )
+      .action(async (options) => {
+        const adapter = getRuntimeAdapter(runtimeName);
+        const endpoint = resolveEndpoint(options.endpoint);
+        const headers = resolveHeaders(options.headers);
+
+        const candidates = await listCandidateSessions(runtimeName, options.projectId, options);
+        if (!candidates.length) {
+          console.log('backfill=empty selected=0');
+          return;
+        }
+
+        console.log(`backfill=selected count=${candidates.length}`);
+
+        for (const candidate of candidates) {
+          const context = {
+            projectId: options.projectId,
+            sessionId: candidate.sessionId,
+            ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
+          };
+          if (options.dryRun) {
+            console.log(`dry-run sessionId=${candidate.sessionId}`);
+            continue;
+          }
+
+          const events = await adapter.collectEvents(context);
+          const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
+
+          await emitSession({
+            runtimeName: adapter.runtimeName,
+            context,
+            events,
+            endpoint,
+            headers,
+            exportJsonPath,
+          });
+        }
+      });
+  }
 
   if (runtimeName === 'openclaw') {
     const plugin = runtimeCmd
@@ -683,6 +751,54 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
         if (!report.ok) process.exitCode = 2;
       });
   }
+
+  if (runtimeName === 'opencode') {
+    const plugin = runtimeCmd
+      .command('plugin')
+      .description('Manage Spanory OpenCode plugin runtime integration');
+
+    plugin
+      .command('install')
+      .description('Install Spanory OpenCode plugin loader into ~/.config/opencode/plugin')
+      .option('--plugin-dir <path>', 'Plugin directory path (default: packages/opencode-plugin)')
+      .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+      .action(async (options) => {
+        const pluginDir = path.resolve(options.pluginDir ?? resolveOpencodePluginDir());
+        const pluginEntry = path.join(pluginDir, 'src', 'index.js');
+        await stat(pluginEntry);
+
+        const installDir = resolveOpencodePluginInstallDir(options.runtimeHome);
+        const loaderFile = opencodePluginLoaderPath(options.runtimeHome);
+        await mkdir(installDir, { recursive: true });
+
+        const importUrl = pathToFileURL(pluginEntry).href;
+        const loader = `import plugin from ${JSON.stringify(importUrl)};\n`
+          + 'export const SpanoryOpencodePlugin = plugin;\n'
+          + 'export default SpanoryOpencodePlugin;\n';
+        await writeFile(loaderFile, loader, 'utf-8');
+        console.log(`installed=${loaderFile}`);
+      });
+
+    plugin
+      .command('uninstall')
+      .description('Remove Spanory OpenCode plugin loader')
+      .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+      .action(async (options) => {
+        const loaderFile = opencodePluginLoaderPath(options.runtimeHome);
+        await rm(loaderFile, { force: true });
+        console.log(`removed=${loaderFile}`);
+      });
+
+    plugin
+      .command('doctor')
+      .description('Run local diagnostic checks for Spanory OpenCode plugin')
+      .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+      .action(async (options) => {
+        const report = await runOpencodePluginDoctor(options.runtimeHome);
+        console.log(JSON.stringify(report, null, 2));
+        if (!report.ok) process.exitCode = 2;
+      });
+  }
 }
 
 const program = new Command();
@@ -694,7 +810,7 @@ program
   .version('0.1.1');
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
-for (const runtimeName of Object.keys(runtimeAdapters)) {
+for (const runtimeName of ['claude-code', 'openclaw', 'opencode']) {
   registerRuntimeCommands(runtime, runtimeName);
 }
 

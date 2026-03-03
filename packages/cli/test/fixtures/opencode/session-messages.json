@@ -1,0 +1,85 @@
+[
+  {
+    "info": {
+      "id": "msg-u-1",
+      "sessionID": "session-op-1",
+      "role": "user",
+      "time": {
+        "created": 1700000000000
+      },
+      "agent": "main",
+      "model": {
+        "providerID": "anthropic",
+        "modelID": "claude-sonnet-4"
+      }
+    },
+    "parts": [
+      {
+        "id": "part-u-1",
+        "sessionID": "session-op-1",
+        "messageID": "msg-u-1",
+        "type": "text",
+        "text": "请执行 ls"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg-a-1",
+      "sessionID": "session-op-1",
+      "role": "assistant",
+      "time": {
+        "created": 1700000001000,
+        "completed": 1700000002000
+      },
+      "parentID": "msg-u-1",
+      "modelID": "claude-sonnet-4",
+      "providerID": "anthropic",
+      "mode": "chat",
+      "path": {
+        "cwd": "/tmp/opencode-project",
+        "root": "/tmp/opencode-project"
+      },
+      "cost": 0,
+      "tokens": {
+        "input": 12,
+        "output": 8,
+        "reasoning": 0,
+        "cache": {
+          "read": 2,
+          "write": 1
+        }
+      }
+    },
+    "parts": [
+      {
+        "id": "part-a-t-1",
+        "sessionID": "session-op-1",
+        "messageID": "msg-a-1",
+        "type": "text",
+        "text": "我来执行这个命令。"
+      },
+      {
+        "id": "part-a-tool-1",
+        "sessionID": "session-op-1",
+        "messageID": "msg-a-1",
+        "type": "tool",
+        "callID": "tool-call-1",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "ls"
+          },
+          "output": "file-a\\nfile-b",
+          "title": "bash",
+          "metadata": {},
+          "time": {
+            "start": 1700000001300,
+            "end": 1700000001500
+          }
+        }
+      }
+    ]
+  }
+]

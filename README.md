@@ -8,12 +8,14 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 - Supported runtimes:
   - `claude-code`
   - `openclaw`
+  - `opencode` (plugin realtime)
 - Ingestion target: OTLP HTTP (Langfuse-compatible endpoint)
 - Backend status:
   - `langfuse`: implemented
   - `langsmith`: deferred to next phase
 - Supported use patterns:
   - Realtime ingestion via OpenClaw plugin hooks (no cron)
+  - Realtime ingestion via OpenCode plugin events
   - Realtime ingestion via runtime hook (`SessionEnd` style payload)
   - Manual replay/backfill per session via CLI
 
@@ -49,6 +51,7 @@ Spanory is a cross-runtime observability toolkit for agent systems.
 - `packages/otlp-core`: OTLP compile/send transport core
 - `packages/backend-langfuse`: Langfuse backend adapter
 - `packages/openclaw-plugin`: OpenClaw plugin runtime ingestion path
+- `packages/opencode-plugin`: OpenCode plugin runtime ingestion path
 - `packages/langfuse`: legacy langfuse package (kept for compatibility)
 - `packages/cli`: local parser and export CLI
 - `scripts/hooks`: OS-specific hook wrappers (mac first)
@@ -223,6 +226,54 @@ spanory runtime openclaw plugin doctor
 - spool 可写
 - 最近发送状态文件
 
+## OpenCode 接入（Plugin 主链路）
+
+OpenCode 本阶段使用 plugin realtime 路径，不依赖 cron。
+
+### 1) 安装 Spanory OpenCode Plugin
+
+```bash
+spanory runtime opencode plugin install
+spanory runtime opencode plugin doctor
+```
+
+可选参数：
+
+- `--plugin-dir`：覆盖插件目录（默认 `packages/opencode-plugin`）
+- `--runtime-home`：覆盖 OpenCode home（默认 `~/.config/opencode`）
+
+说明：
+
+- `install` 会写入 loader 文件到 `~/.config/opencode/plugin/spanory-opencode-plugin.js`。
+- OpenCode 会自动加载该目录下插件文件。
+
+### 2) 配置 OTLP 环境变量
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <LANGFUSE_PUBLIC_KEY>:<LANGFUSE_SECRET_KEY>"
+```
+
+插件可靠性相关（可选）：
+
+```bash
+export SPANORY_OPENCODE_SPOOL_DIR="$HOME/.config/opencode/state/spanory/spool"
+export SPANORY_OPENCODE_RETRY_MAX="6"
+```
+
+### 3) Plugin 运行状态检查
+
+```bash
+spanory runtime opencode plugin doctor
+```
+
+`doctor` 会检查：
+
+- 插件安装状态
+- OTLP endpoint 配置
+- spool 可写
+- 最近发送状态文件
+
 ## OpenClaw 补数链路（export/backfill）
 
 OpenClaw transcript 默认支持两种目录：
@@ -268,6 +319,7 @@ spanory runtime openclaw backfill \
 ## 推荐使用方式
 
 - 日常使用：OpenClaw 使用 plugin 自动实时上报（零 cron）。
+- 日常使用：OpenCode 使用 plugin 自动实时上报。
 - Claude Code 使用 `spanory hook` 实时上报。
 - 缺失补数：使用 `export` 或 `backfill` 离线回跑。
 - 先 `--dry-run`，确认范围后再正式发送。
@@ -387,5 +439,5 @@ CI executes the same gates in `.github/workflows/ci.yml`.
 
 ## Next
 
-- Add Codex/OpenCode adapters with the same runtime abstraction
+- Add Codex adapter with the same runtime abstraction
 - Stabilize Langfuse-friendly naming/timeline conventions
