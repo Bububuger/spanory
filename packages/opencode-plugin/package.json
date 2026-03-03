@@ -1,0 +1,12 @@
+{
+  "name": "@spanory/spanory-opencode-plugin",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "check": "node -e \"console.log('opencode-plugin:ok')\"",
+    "build": "node -e \"console.log('opencode-plugin:build:noop')\"",
+    "test": "node -e \"console.log('opencode-plugin:test:noop')\""
+  }
+}

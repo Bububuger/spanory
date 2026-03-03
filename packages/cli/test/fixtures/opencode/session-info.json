@@ -1,0 +1,11 @@
+{
+  "id": "session-op-1",
+  "projectID": "opencode-project-test",
+  "directory": "/tmp/opencode-project",
+  "title": "Spanory OpenCode Session",
+  "version": "0.4.12",
+  "time": {
+    "created": 1700000000000,
+    "updated": 1700000002000
+  }
+}

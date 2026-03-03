@@ -1,131 +1,90 @@
-# Spanory 计划：可观测增强（解析增强 + 抓包设计）(2026-03-03)
+# OpenCode Plugin 接入计划（Plugin-First）
 
-## 摘要
-本阶段目标是：在不破坏现有主链路（transcript/hook/plugin）的前提下，提升可观测深度与可分析能力。  
-策略分两条线：
-1. 先落地可直接基于现有解析模式实现的增强（turn diff、主/子 Agent 启发式、统计增强）。
-2. 同步产出多 runtime 抓包能力的决策完备设计（默认关闭、可选开启），为下一阶段实现提供直接施工蓝图。
+## Goal
+通过 **OpenCode Plugin** 实现 Spanory 的实时采集与上报，打通：
 
-## 目标与成功标准
+`OpenCode Plugin events/SDK -> Canonical Events -> backend-langfuse -> otlp-core`
 
-### 目标
-- 增强现有 `SpanoryEvent` 的属性语义密度，支持更细粒度排障与分析。
-- 扩展 CLI report/alert 能力，覆盖 cache、tool/skill 频次、turn 变化强度。
-- 产出抓包链路设计（Claude Code + OpenClaw）与接口契约，不在本阶段实现抓包代码。
+并保持与现有 `openclaw plugin` 的可观测语义一致（turn/tool/mcp/usage/model）。
 
-### 成功标准
-- report 新增视图可用：`cache`、`tool`、`turn-diff`。
-- alert 支持新增 session 指标，旧规则无回归。
-- OTLP/export JSON 可看到新增属性。
-- 抓包设计文档达到“下一阶段无需再拍板”的决策完备度。
-- 回归门禁全部通过：`check`/`test`/`test:bdd`（必要时 `build:bin`）。
+## Scope
+- In scope:
+  - 完成 `packages/opencode-plugin` 运行时实现（非骨架）
+  - 新增 `spanory runtime opencode plugin install|uninstall|doctor`
+  - 实现 plugin 路径的 spool/retry/status（最小耐久）
+  - 补齐 unit + BDD + 文档（README/capability/parity）
+- Out of scope:
+  - `runtime opencode export/hook/backfill`（本阶段不做）
+  - LangSmith backend
+  - 非 plugin 的实时链路
 
-## 范围
+## Constraints
+- 不假设 OpenCode 私有 API；仅基于官方 plugin 事件与 SDK。
+- 以最小可用闭环优先，避免先做大规模抽象重构。
+- 所有任务需在对应验收通过后才标记 done。
 
-### In Scope
-- `packages/cli/src/runtime/shared/normalize.js`
-- `packages/cli/src/report/aggregate.js`
-- `packages/cli/src/alert/evaluate.js`
-- `packages/cli/src/index.js`（report 子命令接线）
-- `packages/core/src/index.ts`（capture 相关类型定义）
-- 文档：`README.md`、`CHANGELOG.md`、`docs/plans/2026-03-03-capture-multi-runtime-design.md`
-- 测试：unit + bdd
+## Architecture（推荐）
+- 方案采用“先接入、后抽象”：
+  - P1：先复用 `openclaw-plugin` 已验证模式，快速落地 `opencode-plugin`。
+  - P2：稳定后再抽离 shared runtime queue（如有必要）。
+- 插件主触发点：`session.idle`（主 flush）、`session.deleted`（兜底 flush）、`gateway stop`（flush spool）。
+- 事件来源：优先使用 OpenCode plugin SDK 拉取会话/消息；必要时结合事件 payload。
+- 语义映射：尽量复用 `packages/cli/src/runtime/shared/normalize.js`，减少 runtime 语义漂移。
 
-### Out of Scope
-- 真正的 fetch/proxy/shell hook 抓包实现
-- 默认开启抓包
-- 新 runtime（如 Codex）抓包适配实现
+## Tasks
 
-## 公共接口与类型变更（已定）
+### T0 基线与契约校准
+- 明确 OpenCode plugin 事件/SDK 的最小可用集合，沉淀 fixture。
+- 输出 OpenCode -> canonical 字段映射表（turn/tool/mcp/usage/model）。
+- 验收：映射表与 fixture 可被单测消费。
 
-### 1) 事件属性新增（保持 `SpanoryEvent` 结构不变）
-新增可选 `attributes`：
-- `agentic.turn.input.hash`
-- `agentic.turn.input.prev_hash`
-- `agentic.turn.diff.char_delta`
-- `agentic.turn.diff.line_delta`
-- `agentic.turn.diff.similarity`
-- `agentic.turn.diff.changed`
-- `agentic.actor.role`（`main|unknown`）
-- `agentic.actor.role_confidence`
-- `agentic.subagent.calls`
-- `gen_ai.usage.details.cache_hit_rate`
+### T1 实现 `packages/opencode-plugin` 运行时
+- 完成插件入口、hook 注册、会话归一化、OTLP 上报。
+- 生成 plugin status 文件（最近成功/失败、事件数、错误摘要）。
+- 验收：无 endpoint 时不报错，状态文件正确写入。
 
-### 2) CLI 命令新增
-- `spanory report cache --input-json <path>`
-- `spanory report tool --input-json <path>`
-- `spanory report turn-diff --input-json <path>`
+### T2 实现耐久能力（spool/retry/flush）
+- 发送失败写 spool；重试成功后清理 spool。
+- 指数退避与最大重试次数可配置（env）。
+- 验收：失败后落盘、恢复后可自动补发。
 
-### 3) Alert 指标扩展（session scope）
-新增支持：
-- `cache.read`
-- `cache.creation`
-- `cache.hit_rate`
-- `subagent.calls`
-- `diff.char_delta.max`
+### T3 CLI 插件管理命令（opencode）
+- 新增 `runtime opencode plugin install|uninstall|doctor`。
+- `doctor` 产出结构化 JSON：installed/configured/endpoint/spool/status。
+- 验收：缺失前置条件时非 0 退出并给出可操作 detail。
 
-### 4) Capture 设计类型（仅定义）
-在 `packages/core/src/index.ts` 增加：
-- `CaptureAdapter`
-- `CaptureRecord`
-- `CaptureRedactionPolicy`
+### T4 测试矩阵
+- 单测：plugin runtime 映射、状态写入、spool/retry。
+- BDD：`plugin doctor` 失败/成功路径。
+- 回归：不破坏 `openclaw` 既有测试。
 
-## 实施方案（决策完备）
+### T5 文档与能力矩阵
+- README 增加 OpenCode plugin 安装、启用、诊断与环境变量说明。
+- 更新 `docs/runtime-capability-matrix.md`、`docs/langfuse-parity.md`。
+- 明确 OpenCode 在 `realtimeDelivery/deliveryDurability` 的状态。
 
-### 阶段 0：流程准备（强制）
-- 归档现有 `plan.md`/`todo.md` 到 `docs/plans/archive/`（带时间戳）。
-- 新建本阶段 `plan.md` 与 `todo.md`。
-- todo 项必须一一映射本计划任务，且每项有验收命令。
+### T6 质量门与收尾
+- 执行最小到全量质量门并记录结果。
+- 输出接入结果与已知风险。
 
-### 阶段 1：解析增强（normalize）
-- 在 turn 级计算输入 hash 与相邻 turn diff 摘要。
-- 写入 actor/subagent 启发式字段：
-  - 默认 `agentic.actor.role=main`
-  - `agent_task` 数量写入 `agentic.subagent.calls`
-  - 置信度写入 `agentic.actor.role_confidence`
-- 从 usage 衍生 `gen_ai.usage.details.cache_hit_rate`（分母 0 处理为 0）。
+## Acceptance Gates（按任务执行）
+- T1 后：
+  - `npm run --workspace @spanory/cli test -- test/unit/opencode.plugin.runtime.spec.js`
+- T3 后：
+  - `npm run --workspace @spanory/cli test:bdd -- test/bdd/opencode.plugin.integration.spec.js`
+- T4/T5 后：
+  - `npm run --workspace @spanory/cli test`
+  - `npm run --workspace @spanory/cli test:bdd`
+- T6 收尾：
+  - `npm run check`
+  - `npm test`
 
-### 阶段 2：report 扩展
-- 新增 `summarizeCache`、`summarizeTools`、`summarizeTurnDiff`。
-- 在 CLI 注册 `report cache/tool/turn-diff`。
-- 保持现有 `session/mcp/command/agent` 输出契约不变。
+## Risks
+- OpenCode 版本差异导致事件 payload 字段漂移。
+- 本地插件安装路径/配置文件路径在不同系统不一致。
+- 高频 session.idle 下重复上报风险（需指纹去重）。
 
-### 阶段 3：alert 扩展
-- 扩展 session metric resolver，支持新增指标。
-- 规则文件结构不改，旧规则继续可用。
-
-### 阶段 4：抓包设计产出（不实现）
-- 产出 `docs/plans/2026-03-03-capture-multi-runtime-design.md`，包含：
-  - 架构/时序图
-  - `CaptureAdapter` 接口与生命周期
-  - 脱敏与安全边界
-  - 默认关闭开关与回退策略
-  - Claude/OpenClaw 首期接入路径
-  - 失败模式与监控信号
-
-### 阶段 5：文档与变更记录
-- README 增加新 report/alert 用法。
-- CHANGELOG 记录新增能力、兼容性和后续抓包阶段计划。
-
-## 测试策略
-
-### Unit
-- normalize：diff/hash/actor/cache_hit_rate 正确性
-- aggregate：cache/tool/turn-diff 聚合正确性
-- alert：新增 metric 告警行为正确性
-
-### BDD
-- report 三个新子命令端到端
-- alert 使用新 metric 的端到端行为
-
-### 回归门禁
-- `npm run check`
-- `npm test`
-- `npm run test:bdd`
-- 必要时 `npm run build:bin`
-
-## 假设与默认值
-- 抓包策略：默认关闭，仅显式启用。
-- 抓包首期 runtime：Claude Code + OpenClaw。
-- 本阶段优先增量兼容，不做破坏性 category/命令改造。
-- 不引入重型新依赖，优先复用现有代码结构与测试框架。
+## Mitigation
+- 用 fixture 固化 payload 版本并在测试锁定。
+- `doctor` 明确检查并输出“实际读取的配置路径”。
+- 增加 session/turn 指纹去重状态文件。
