@@ -54,19 +54,16 @@ jobs:
             artifact_path: dist/spanory-linux-x64
             build_command: npm run --workspace @spanory/cli build:bin:linux-x64
             smoke_command: ./dist/spanory-linux-x64 --help
-            shell: bash
           - os: macos-14
             artifact_name: spanory-macos-arm64
             artifact_path: dist/spanory-macos-arm64
             build_command: npm run --workspace @spanory/cli build:bin:macos-arm64
             smoke_command: ./dist/spanory-macos-arm64 --help
-            shell: bash
           - os: windows-latest
             artifact_name: spanory-win-x64.exe
             artifact_path: dist/spanory-win-x64.exe
             build_command: npm run --workspace @spanory/cli build:bin:win-x64
             smoke_command: .\\dist\\spanory-win-x64.exe --help
-            shell: pwsh
 
     steps:
       - name: Checkout
@@ -82,11 +79,9 @@ jobs:
         run: npm ci
 
       - name: Build Binary
-        shell: ${{ matrix.shell }}
         run: ${{ matrix.build_command }}
 
       - name: Binary Smoke
-        shell: ${{ matrix.shell }}
         run: ${{ matrix.smoke_command }}
 
       - name: Upload Binary Artifact
