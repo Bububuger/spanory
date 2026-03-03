@@ -4,6 +4,8 @@ dist/
 .env
 coverage/
 *.log
+*.png
+.obsidian/
 
 # build artifacts
 dist/
