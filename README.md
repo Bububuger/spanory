@@ -51,7 +51,8 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 ### Install
 
 ```bash
-npm install -g packages/cli
+cd spanory
+npm install -g ./packages/cli
 spanory --help
 ```
 
