@@ -95,7 +95,18 @@ curl -fL -o SHA256SUMS.txt \
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-#### Option B: Install from source checkout
+#### Option B: Install via npm / npx
+
+```bash
+# Run directly (no global install)
+npx @spanory/cli@latest --help
+
+# Global install
+npm i -g @spanory/cli
+spanory --help
+```
+
+#### Option C: Install from source checkout
 
 ```bash
 cd spanory
@@ -252,6 +263,8 @@ CI runs the same gates via `.github/workflows/ci.yml`.
 - CD: `.github/workflows/release.yml`
   - Triggered by tag push: `v*` (for example `v0.2.0`)
   - Verifies quality gates before release
+  - Publishes `@spanory/cli` to npm when `NPM_TOKEN` secret is configured
+  - `NPM_TOKEN` path: `GitHub Settings > Secrets and variables > Actions`
   - Builds release binaries on Linux/macOS/Windows
   - macOS artifacts include both Apple Silicon (`darwin-arm64`) and Intel (`darwin-x64`)
   - Packages archives (`tar.gz` / `zip`) and `SHA256SUMS.txt`

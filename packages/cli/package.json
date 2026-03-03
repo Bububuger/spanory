@@ -1,8 +1,20 @@
 {
   "name": "@spanory/cli",
   "version": "0.1.1",
-  "private": true,
+  "description": "Spanory CLI for cross-runtime agent observability",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bububuger/spanory.git",
+    "directory": "packages/cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src"
+  ],
   "bin": {
     "spanory": "src/index.js"
   },

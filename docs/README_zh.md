@@ -376,9 +376,20 @@ curl -fL -o SHA256SUMS.txt \
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-### 方式 B：从源码安装 CLI
+### 方式 B：通过 npm / npx 使用
 
-命令行安装：
+```bash
+# 直接运行（无需全局安装）
+npx @spanory/cli@latest --help
+
+# 全局安装
+npm i -g @spanory/cli
+spanory --help
+```
+
+维护者发布提示：GitHub Actions 自动发布 npm 需要配置 `NPM_TOKEN`（路径：`Settings > Secrets and variables > Actions`）。
+
+### 方式 C：从源码安装 CLI
 
 ```bash
 cd spanory

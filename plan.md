@@ -1,18 +1,20 @@
-# Spanory 计划：README 与二进制 Release 同步（2026-03-03）
+# Spanory 计划：支持 npm/npx 分发（2026-03-03）
 
 ## Goal
-让 README 与当前发布能力保持一致，明确区分 macOS ARM/Intel 下载包，避免用户按文档操作失败。
+让用户无需 clone 源码即可通过 npm/npx 使用 Spanory CLI，并把发布动作纳入现有 GitHub Release 流水线。
 
 ## Scope
 - In scope:
-  - `README.md`：下载示例、资产清单、验签与架构选择说明更新。
-  - `docs/README_zh.md`：同步中文说明。
-  - `plan.md` / `todo.md`：记录本阶段执行。
+  - `packages/cli/package.json`：开启可发布配置（移除 private，补充 publish 元信息）。
+  - `.github/workflows/release.yml`：新增 npm publish job（基于 tag，使用 `NPM_TOKEN`）。
+  - `README.md` / `docs/README_zh.md`：补充 npm/npx 安装方式与发布前置条件。
+  - `plan.md` / `todo.md`：本阶段计划与执行记录。
 - Out of scope:
-  - 变更发布流水线逻辑。
-  - 变更 CLI 功能。
+  - Homebrew Tap 仓库落地（需要独立仓库）。
+  - npm 包名变更（先沿用当前包名）。
 
 ## Acceptance
-- 中英文 README 均包含四类 Release 资产说明：`darwin-arm64`、`darwin-x64`、`linux-x64`、`windows-x64`。
-- 下载示例不再固定过期版本号，改为版本占位符。
-- 中英文 README 均包含 macOS 架构判断指引。
+- CLI 包不再是 private，具备 npm 发布所需字段。
+- release workflow 在 tag 触发时可执行 npm publish（当 `NPM_TOKEN` 存在）。
+- README（中英文）新增 npm/npx 使用方式和 `NPM_TOKEN` 配置提示。
+- 本地检查命令通过：`npm run check`。
