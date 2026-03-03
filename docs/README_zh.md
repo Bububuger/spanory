@@ -305,6 +305,16 @@ spanory runtime codex hook --last-turn-only
 - `turn_id` 用于精确筛选增量 turn
 - `cwd` 用于派生默认 `projectId`（`basename + short_hash`）
 
+当 Codex `notify` 未触发或偶发漏触发时，可使用 watcher 兜底近实时上报：
+
+```bash
+# 常驻轮询：默认仅处理启动后新增/更新的 session
+spanory runtime codex watch --last-turn-only
+
+# 单次扫描：包含当前已有 session（适合快速验收）
+spanory runtime codex watch --include-existing --once --settle-ms 0
+```
+
 ### 3) 代理劫持采集（full_redacted）
 
 启动本地 OpenAI-compatible 代理：

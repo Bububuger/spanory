@@ -1,20 +1,20 @@
-# Spanory 计划：修复 OpenCode 插件不触发上报并默认每轮触发（2026-03-04）
+# Spanory 计划：增加 Codex watcher 兜底实时上报（2026-03-04）
 
 ## Goal
-提升 OpenCode 插件事件兼容性，默认按每轮事件触发上报；并提供参数切换为 session 触发模式。
+在 Codex notify 未触发时，提供文件变更 watcher 兜底链路，尽可能保证对话轮次实时上报。
 
 ## Scope
 - In scope:
-  - `packages/opencode-plugin/src/index.js`：扩展 flush 触发条件、默认 turn 模式、`onGatewayStop` 会话兜底 flush。
-  - `packages/cli/test/unit/opencode.plugin.runtime.spec.js`：新增 turn 触发与模式参数测试。
-  - `README.md` / `docs/README_zh.md`：补充 `SPANORY_OPENCODE_FLUSH_MODE` 说明。
+  - `packages/cli/src/index.js`：新增 `runtime codex watch` 命令。
+  - `packages/cli/src/index.js`：抽取 hook 处理内核，供 watch 与 stdin hook 复用。
+  - `packages/cli/test/bdd/*.spec.js`：新增 codex watch BDD（`--once`）。
+  - `README.md` / `docs/README_zh.md`：补充 watcher 用法与场景。
   - `plan.md` / `todo.md`：阶段记录。
 - Out of scope:
-  - 新增 opencode transcript 离线 adapter。
-  - 调整 OTLP payload schema。
+  - 改造 Codex 本身 notify 机制。
+  - 增加 daemon/service 管理。
 
 ## Acceptance
-- 默认模式下 turn 完成事件可触发 flush。
-- 参数 `SPANORY_OPENCODE_FLUSH_MODE=session` 可切换为 session 模式。
-- gateway stop 时至少尝试 flush 已观测 session。
-- `npm run --workspace @spanory/cli test -- test/unit/opencode.plugin.runtime.spec.js` 通过。
+- 可执行 `spanory runtime codex watch --once` 扫描并处理更新会话。
+- watcher 复用 `--last-turn-only` 去重逻辑，不重复上报同一 turn。
+- BDD 通过：`npm run --workspace @spanory/cli test -- test/bdd/codex.watch.integration.spec.js`。

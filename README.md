@@ -215,7 +215,7 @@ export SPANORY_OPENCODE_FLUSH_MODE="turn"
 
 ### Codex — Session Parse + Notify Hook
 
-Codex runtime supports `export/backfill/hook` based on `~/.codex/sessions/**/*.jsonl`.
+Codex runtime supports `export/backfill/hook/watch` based on `~/.codex/sessions/**/*.jsonl`.
 
 ```bash
 # Export one codex session
@@ -237,6 +237,16 @@ Codex notify payload can be consumed for near realtime turn-level export:
 ```bash
 echo '{"event":"agent-turn-complete","thread_id":"<SESSION_ID>","turn_id":"<TURN_ID>","cwd":"<PROJECT_CWD>"}' | \
 spanory runtime codex hook --last-turn-only
+```
+
+When Codex `notify` is not firing (or missed intermittently), use watcher fallback for near-realtime polling export:
+
+```bash
+# long-running watcher, only handles newly updated sessions after startup
+spanory runtime codex watch --last-turn-only
+
+# one-shot scan for existing sessions (useful for quick verification)
+spanory runtime codex watch --include-existing --once --settle-ms 0
 ```
 
 ### Codex — Optional Proxy Hijack Capture (Full Redacted)

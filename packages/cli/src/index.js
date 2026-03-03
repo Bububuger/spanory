@@ -41,6 +41,8 @@ const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
+const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
+const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
 
 function getResource() {
   return {
@@ -132,20 +134,19 @@ function selectLatestTurnEvents(events) {
 
   let latestTurnId;
   let latestTurnOrdinal = -1;
+  let hasOrdinal = false;
   for (const event of events) {
     if (!event?.turnId) continue;
     const turnOrdinal = parseTurnOrdinal(event.turnId);
-    if (turnOrdinal === undefined) {
-      if (!latestTurnId) latestTurnId = event.turnId;
-      continue;
-    }
+    if (turnOrdinal === undefined) continue;
+    hasOrdinal = true;
     if (turnOrdinal > latestTurnOrdinal) {
       latestTurnOrdinal = turnOrdinal;
       latestTurnId = event.turnId;
     }
   }
 
-  if (!latestTurnId) {
+  if (!hasOrdinal) {
     const latestTurnByTime = events
       .filter((event) => event?.category === 'turn' && event?.turnId)
       .slice()
@@ -262,19 +263,34 @@ function resolveHeaders(optionValue) {
 
 async function runHookMode(options) {
   const runtimeName = options.runtimeName ?? 'claude-code';
-  const adapter = getRuntimeAdapter(runtimeName);
   const raw = await readStdinText();
   const hookPayload = parseHookPayload(raw);
-  const context = adapter.resolveContextFromHook(hookPayload);
-  if (!context) {
+  const adapter = getRuntimeAdapter(runtimeName);
+  const resolvedContext = adapter.resolveContextFromHook(hookPayload);
+  if (!resolvedContext) {
     throw new Error('cannot resolve runtime context from hook payload; require session_id (or thread_id)');
   }
 
+  await runContextExportMode({
+    runtimeName,
+    context: resolvedContext,
+    runtimeHome: options.runtimeHome,
+    endpoint: options.endpoint,
+    headers: options.headers,
+    exportJsonDir: options.exportJsonDir,
+    force: options.force,
+    lastTurnOnly: options.lastTurnOnly,
+    preferredTurnId: hookPayload.turnId,
+  });
+}
+
+async function runContextExportMode(options) {
+  const runtimeName = options.runtimeName;
+  const adapter = getRuntimeAdapter(runtimeName);
   const contextWithRuntimeHome = {
-    ...context,
+    ...options.context,
     ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
   };
-
   let allEvents = [];
   let fullFingerprint = '';
   let selectedTurnId;
@@ -290,8 +306,8 @@ async function runHookMode(options) {
     selectedFingerprint = fullFingerprint;
 
     if (options.lastTurnOnly) {
-      if (hookPayload.turnId) {
-        selectedTurnId = hookPayload.turnId;
+      if (options.preferredTurnId) {
+        selectedTurnId = options.preferredTurnId;
         events = allEvents.filter((event) => event.turnId === selectedTurnId);
       } else {
         const latest = selectLatestTurnEvents(allEvents);
@@ -358,6 +374,7 @@ async function runHookMode(options) {
     },
     options.runtimeHome,
   );
+  return { status: 'sent', sessionId: contextWithRuntimeHome.sessionId, turnId: selectedTurnId };
 }
 
 function sessionIdFromFilename(filename) {
@@ -389,6 +406,120 @@ async function listJsonlFilesRecursively(rootDir) {
   return out;
 }
 
+function normalizePositiveInt(raw, fallback, label) {
+  const value = raw ?? fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`invalid ${label}: ${value}`);
+  }
+  return Math.floor(parsed);
+}
+
+async function listCodexSessions(runtimeHome, options = {}) {
+  const sessionsRoot = path.join(runtimeHome, 'sessions');
+  const files = await listJsonlFilesRecursively(sessionsRoot);
+  const withStat = await Promise.all(
+    files.map(async (fullPath) => {
+      const fileStat = await stat(fullPath);
+      return {
+        transcriptPath: fullPath,
+        sessionId: sessionIdFromFilename(path.basename(fullPath)),
+        mtimeMs: fileStat.mtimeMs,
+      };
+    }),
+  );
+
+  const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
+  const untilMs = options.until ? new Date(options.until).getTime() : undefined;
+  const filtered = withStat.filter((item) => {
+    if (Number.isFinite(sinceMs) && item.mtimeMs < sinceMs) return false;
+    if (Number.isFinite(untilMs) && item.mtimeMs > untilMs) return false;
+    return true;
+  });
+
+  const sorted = filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  if (!Number.isFinite(options.limit)) return sorted;
+  return sorted.slice(0, Number(options.limit));
+}
+
+async function runCodexWatch(options) {
+  const runtimeName = 'codex';
+  const runtimeHome = resolveRuntimeHome(runtimeName, options.runtimeHome);
+  const pollMs = normalizePositiveInt(options.pollMs, CODEX_WATCH_DEFAULT_POLL_MS, '--poll-ms');
+  const settleMs = normalizePositiveInt(options.settleMs, CODEX_WATCH_DEFAULT_SETTLE_MS, '--settle-ms');
+  const includeExisting = Boolean(options.includeExisting);
+  const processedMtimeByPath = new Map();
+
+  if (!includeExisting) {
+    const baseline = await listCodexSessions(runtimeHome);
+    for (const session of baseline) {
+      processedMtimeByPath.set(session.transcriptPath, session.mtimeMs);
+    }
+    console.log(`watch=baseline files=${baseline.length}`);
+  }
+
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+  };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+
+  try {
+    do {
+      const nowMs = Date.now();
+      const sessions = await listCodexSessions(runtimeHome);
+      let exportedCount = 0;
+      let skippedCount = 0;
+
+      for (const session of sessions) {
+        const prevProcessedMtime = processedMtimeByPath.get(session.transcriptPath);
+        if (prevProcessedMtime !== undefined && session.mtimeMs <= prevProcessedMtime) {
+          continue;
+        }
+        if (nowMs - session.mtimeMs < settleMs) {
+          continue;
+        }
+
+        const context = {
+          projectId: options.projectId ?? 'codex',
+          sessionId: session.sessionId,
+          transcriptPath: session.transcriptPath,
+          runtimeHome,
+        };
+
+        try {
+          const result = await runContextExportMode({
+            runtimeName,
+            context,
+            runtimeHome,
+            endpoint: options.endpoint,
+            headers: options.headers,
+            exportJsonDir: options.exportJsonDir,
+            force: options.force,
+            lastTurnOnly: options.lastTurnOnly,
+          });
+          if (result?.status === 'sent') exportedCount += 1;
+          else skippedCount += 1;
+        } catch (error) {
+          skippedCount += 1;
+          const message = error?.message ? String(error.message).replace(/\s+/g, ' ') : 'unknown-error';
+          console.log(`watch=error sessionId=${session.sessionId} error=${message}`);
+        } finally {
+          processedMtimeByPath.set(session.transcriptPath, session.mtimeMs);
+        }
+      }
+
+      console.log(`watch=scan files=${sessions.length} exported=${exportedCount} skipped=${skippedCount}`);
+      if (options.once) break;
+      if (!stopped) await sleep(pollMs);
+    } while (!stopped);
+  } finally {
+    process.off('SIGINT', stop);
+    process.off('SIGTERM', stop);
+  }
+}
+
 async function listCandidateSessions(runtimeName, projectId, options) {
   if (options.sessionIds) {
     return options.sessionIds
@@ -400,29 +531,8 @@ async function listCandidateSessions(runtimeName, projectId, options) {
 
   if (runtimeName === 'codex') {
     const runtimeHome = resolveRuntimeHome(runtimeName, options.runtimeHome);
-    const sessionsRoot = path.join(runtimeHome, 'sessions');
-    const files = await listJsonlFilesRecursively(sessionsRoot);
-    const withStat = await Promise.all(
-      files.map(async (fullPath) => {
-        const fileStat = await stat(fullPath);
-        return {
-          transcriptPath: fullPath,
-          sessionId: sessionIdFromFilename(path.basename(fullPath)),
-          mtimeMs: fileStat.mtimeMs,
-        };
-      }),
-    );
-
-    const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
-    const untilMs = options.until ? new Date(options.until).getTime() : undefined;
-    const filtered = withStat.filter((item) => {
-      if (Number.isFinite(sinceMs) && item.mtimeMs < sinceMs) return false;
-      if (Number.isFinite(untilMs) && item.mtimeMs > untilMs) return false;
-      return true;
-    });
-
-    const sorted = filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
-    return sorted.slice(0, Number(options.limit)).map(({ sessionId, transcriptPath }) => ({ sessionId, transcriptPath }));
+    const sessions = await listCodexSessions(runtimeHome, options);
+    return sessions.map(({ sessionId, transcriptPath }) => ({ sessionId, transcriptPath }));
   }
 
   let projectDir = path.join(resolveRuntimeProjectRoot(runtimeName, options.runtimeHome), projectId);
@@ -1297,6 +1407,30 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
   }
 
   if (runtimeName === 'codex') {
+    runtimeCmd
+      .command('watch')
+      .description('Poll Codex session transcripts and export newly updated sessions (notify fallback)')
+      .option('--project-id <id>', 'Project id override (optional; defaults to cwd-derived id)')
+      .option('--runtime-home <path>', 'Override runtime home directory')
+      .option('--poll-ms <n>', `Polling interval in milliseconds (default: ${CODEX_WATCH_DEFAULT_POLL_MS})`)
+      .option('--settle-ms <n>', `Minimum file age before parsing (default: ${CODEX_WATCH_DEFAULT_SETTLE_MS})`)
+      .option('--include-existing', 'Also process existing sessions on startup', false)
+      .option('--once', 'Run one scan cycle and exit', false)
+      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
+      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
+      .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per exported session into this directory')
+      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
+      .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
+      .addHelpText(
+        'after',
+        '\nExamples:\n'
+          + '  spanory runtime codex watch\n'
+          + '  spanory runtime codex watch --include-existing --once --settle-ms 0\n',
+      )
+      .action(async (options) => {
+        await runCodexWatch(options);
+      });
+
     runtimeCmd
       .command('proxy')
       .description('Run OpenAI-compatible proxy capture for Codex traffic with full redaction')
