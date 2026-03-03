@@ -1,4 +1,4 @@
-# Spanory TODO：支持 npm/npx 分发（2026-03-03）
+# Spanory TODO：一键 setup 四 runtime + README Agent 自安装提示（2026-03-03）
 
 ## T1 阶段初始化
 - [x] 归档旧 `plan.md` 与 `todo.md`
@@ -6,33 +6,38 @@
 
 验收：
 - [x] `ls -1 docs/plans/archive | tail -n 6`
-- [x] `rg -n "支持 npm/npx 分发|Acceptance" plan.md todo.md`
+- [x] `rg -n "一键 setup 四 runtime|Acceptance" plan.md todo.md`
 
-## T2 CLI 包可发布化
-- [x] `packages/cli/package.json` 去掉 `private: true`
-- [x] 补充 npm 发布元信息（files/publishConfig/repository）
-
-验收：
-- [x] `cat packages/cli/package.json | rg -n "private|publishConfig|files|repository"`
-
-## T3 Release 流程增加 npm publish
-- [x] `release.yml` 增加 npm publish job
-- [x] job 仅在 tag + `NPM_TOKEN` 存在时执行
+## T2 CLI 增加 setup detect/apply/doctor
+- [x] 在 `packages/cli/src/index.js` 增加 setup 命令组
+- [x] 实现 Claude/Codex 幂等配置写入
+- [x] 复用 OpenClaw/OpenCode plugin install/doctor
 
 验收：
-- [x] `rg -n "publish-npm|npm publish|NPM_TOKEN|registry-url" .github/workflows/release.yml`
+- [x] `node packages/cli/src/index.js setup --help`
+- [x] `node packages/cli/src/index.js setup apply --help`
+- [x] `node packages/cli/src/index.js setup doctor --help`
 
-## T4 文档同步
-- [x] README 新增 npm/npx 安装方式
-- [x] 中文 README 同步新增 npm/npx 安装方式
+## T3 测试覆盖
+- [x] 新增 setup BDD 用例（至少覆盖 claude+codex 幂等）
+- [x] 通过测试
 
 验收：
-- [x] `rg -n "npx @spanory/cli|npm i -g @spanory/cli|NPM_TOKEN|brew" README.md docs/README_zh.md`
+- [x] `npm run --workspace @spanory/cli test -- test/bdd/setup.integration.spec.js`
 
-## T5 回归与提交
+## T4 文档更新
+- [x] 更新 `README.md` 增加 Agent 自安装提示
+- [x] 更新 `docs/README_zh.md` 同步说明
+
+验收：
+- [x] `rg -n "setup apply|setup doctor|copy to your agent|复制给 Agent" README.md docs/README_zh.md`
+
+## T5 全量回归与提交
 - [x] `npm run check`
-- [ ] 提交改动
+- [x] `npm test`
+- [x] `npm run test:bdd`
+- [ ] 提交并推送
 
 验收：
-- [x] 命令 0 退出
+- [x] 三个命令均 0 退出
 - [ ] `git status` clean（提交后）

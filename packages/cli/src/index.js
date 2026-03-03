@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -38,6 +38,7 @@ const backendAdapters = {
 
 const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
 const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
+const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
 
@@ -636,6 +637,518 @@ async function runOpencodePluginDoctor(runtimeHome) {
   return { ok, checks };
 }
 
+function setupHomeRoot(homeOption) {
+  if (homeOption) return path.resolve(homeOption);
+  return process.env.HOME || '';
+}
+
+function parseSetupRuntimes(csv) {
+  const selected = (csv ?? DEFAULT_SETUP_RUNTIMES.join(','))
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const allowed = new Set(DEFAULT_SETUP_RUNTIMES);
+  for (const runtimeName of selected) {
+    if (!allowed.has(runtimeName)) {
+      throw new Error(`unsupported runtime in --runtimes: ${runtimeName}`);
+    }
+  }
+  return selected;
+}
+
+function backupSuffix() {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+async function backupIfExists(filePath) {
+  try {
+    await stat(filePath);
+  } catch {
+    return null;
+  }
+  const backupPath = `${filePath}.bak.${backupSuffix()}`;
+  await copyFile(filePath, backupPath);
+  return backupPath;
+}
+
+function isSpanoryHookCommand(command) {
+  const text = String(command ?? '');
+  return /\bspanory\b/.test(text) && /\bhook\b/.test(text);
+}
+
+function ensureClaudeHookEvent(settings, eventName, command) {
+  if (!settings.hooks || typeof settings.hooks !== 'object' || Array.isArray(settings.hooks)) {
+    settings.hooks = {};
+  }
+  if (!Array.isArray(settings.hooks[eventName]) || settings.hooks[eventName].length === 0) {
+    settings.hooks[eventName] = [{ hooks: [] }];
+  }
+  if (!settings.hooks[eventName][0] || typeof settings.hooks[eventName][0] !== 'object') {
+    settings.hooks[eventName][0] = { hooks: [] };
+  }
+  if (!Array.isArray(settings.hooks[eventName][0].hooks)) {
+    settings.hooks[eventName][0].hooks = [];
+  }
+
+  const hooks = settings.hooks[eventName][0].hooks.filter(
+    (hook) => !(hook && typeof hook === 'object' && isSpanoryHookCommand(hook.command)),
+  );
+  hooks.unshift({ type: 'command', command });
+  settings.hooks[eventName][0].hooks = hooks;
+}
+
+async function applyClaudeSetup({ homeRoot, spanoryBin, dryRun }) {
+  const settingsPath = path.join(homeRoot, '.claude', 'settings.json');
+  let settings = {};
+  try {
+    settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw new Error(`failed to parse Claude settings: ${error.message ?? String(error)}`);
+    }
+  }
+
+  const before = JSON.stringify(settings);
+  const hookCommand = `${spanoryBin} hook --last-turn-only`;
+  ensureClaudeHookEvent(settings, 'Stop', hookCommand);
+  ensureClaudeHookEvent(settings, 'SessionEnd', hookCommand);
+  const after = JSON.stringify(settings);
+  const changed = before !== after;
+
+  let backup = null;
+  if (changed && !dryRun) {
+    await mkdir(path.dirname(settingsPath), { recursive: true });
+    backup = await backupIfExists(settingsPath);
+    await writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  }
+
+  return {
+    runtime: 'claude-code',
+    ok: true,
+    changed,
+    dryRun,
+    settingsPath,
+    backup,
+  };
+}
+
+function upsertCodexNotifyConfig(configText, notifyScriptRef) {
+  const notifyLine = `notify = ["${notifyScriptRef}"]`;
+  if (/^notify\s*=.*$/m.test(configText)) {
+    return configText.replace(/^notify\s*=.*$/m, notifyLine);
+  }
+  const withNewline = configText.trimEnd();
+  if (!withNewline) return `${notifyLine}\n`;
+  return `${withNewline}\n\n${notifyLine}\n`;
+}
+
+function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile }) {
+  return '#!/usr/bin/env bash\n'
+    + 'set -euo pipefail\n'
+    + 'payload="${1:-}"\n'
+    + 'if [[ -z "$payload" ]]; then\n'
+    + '  exit 0\n'
+    + 'fi\n'
+    + `echo "$payload" | "${spanoryBin}" runtime codex hook \\\n`
+    + '  --last-turn-only \\\n'
+    + `  --runtime-home "${codexHome}" \\\n`
+    + `  --export-json-dir "${exportDir}" \\\n`
+    + `  >> "${logFile}" 2>&1 || true\n`;
+}
+
+async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
+  const codexHome = path.join(homeRoot, '.codex');
+  const binDir = path.join(codexHome, 'bin');
+  const stateDir = path.join(codexHome, 'state', 'spanory');
+  const scriptPath = path.join(binDir, 'spanory-codex-notify.sh');
+  const logFile = path.join(codexHome, 'state', 'spanory-codex-hook.log');
+  const configPath = path.join(codexHome, 'config.toml');
+  const notifyScriptRef = '~/.codex/bin/spanory-codex-notify.sh';
+
+  const scriptContent = codexNotifyScriptContent({
+    spanoryBin,
+    codexHome,
+    exportDir: stateDir,
+    logFile,
+  });
+
+  let currentConfig = '';
+  try {
+    currentConfig = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const nextConfig = upsertCodexNotifyConfig(currentConfig, notifyScriptRef);
+  const configChanged = currentConfig !== nextConfig;
+
+  let currentScript = '';
+  try {
+    currentScript = await readFile(scriptPath, 'utf-8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const scriptChanged = currentScript !== scriptContent;
+  const changed = configChanged || scriptChanged;
+
+  let configBackup = null;
+  if (changed && !dryRun) {
+    await mkdir(binDir, { recursive: true });
+    await mkdir(stateDir, { recursive: true });
+
+    if (configChanged) {
+      configBackup = await backupIfExists(configPath);
+      await writeFile(configPath, nextConfig, 'utf-8');
+    }
+    if (scriptChanged) {
+      await writeFile(scriptPath, scriptContent, 'utf-8');
+      await chmod(scriptPath, 0o755);
+    }
+  }
+
+  return {
+    runtime: 'codex',
+    ok: true,
+    changed,
+    dryRun,
+    configPath,
+    scriptPath,
+    configBackup,
+  };
+}
+
+function commandExists(command) {
+  const result = runSystemCommand('which', [command], { env: process.env });
+  return result.code === 0;
+}
+
+function openclawRuntimeHomeForSetup(homeRoot, explicitRuntimeHome) {
+  return explicitRuntimeHome || path.join(homeRoot, '.openclaw');
+}
+
+function opencodeRuntimeHomeForSetup(homeRoot, explicitRuntimeHome) {
+  return explicitRuntimeHome || path.join(homeRoot, '.config', 'opencode');
+}
+
+function installOpenclawPlugin(runtimeHome) {
+  const pluginDir = path.resolve(resolveOpenclawPluginDir());
+  const installResult = runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
+    env: {
+      ...process.env,
+      OPENCLAW_STATE_DIR: runtimeHome,
+    },
+  });
+  if (installResult.code !== 0) {
+    throw new Error(installResult.stderr || installResult.error || 'openclaw plugins install failed');
+  }
+  const enableResult = runSystemCommand('openclaw', ['plugins', 'enable', OPENCLAW_SPANORY_PLUGIN_ID], {
+    env: {
+      ...process.env,
+      OPENCLAW_STATE_DIR: runtimeHome,
+    },
+  });
+  if (enableResult.code !== 0) {
+    throw new Error(enableResult.stderr || enableResult.error || 'openclaw plugins enable failed');
+  }
+  return {
+    installStdout: installResult.stdout.trim(),
+    enableStdout: enableResult.stdout.trim(),
+  };
+}
+
+async function installOpencodePlugin(runtimeHome) {
+  const pluginDir = path.resolve(resolveOpencodePluginDir());
+  const pluginEntry = path.join(pluginDir, 'src', 'index.js');
+  await stat(pluginEntry);
+
+  const installDir = resolveOpencodePluginInstallDir(runtimeHome);
+  const loaderFile = opencodePluginLoaderPath(runtimeHome);
+  await mkdir(installDir, { recursive: true });
+
+  const importUrl = pathToFileURL(pluginEntry).href;
+  const loader = `import plugin from ${JSON.stringify(importUrl)};\n`
+    + 'export const SpanoryOpencodePlugin = plugin;\n'
+    + 'export default SpanoryOpencodePlugin;\n';
+  await writeFile(loaderFile, loader, 'utf-8');
+  return { loaderFile };
+}
+
+async function runSetupDetect(options) {
+  const homeRoot = setupHomeRoot(options.home);
+  const report = {
+    homeRoot,
+    runtimes: [],
+  };
+
+  const claudeSettingsPath = path.join(homeRoot, '.claude', 'settings.json');
+  let claudeHooks = { stop: false, sessionEnd: false };
+  try {
+    const parsed = JSON.parse(await readFile(claudeSettingsPath, 'utf-8'));
+    const hooks = parsed?.hooks ?? {};
+    const stopHooks = hooks?.Stop?.[0]?.hooks ?? [];
+    const endHooks = hooks?.SessionEnd?.[0]?.hooks ?? [];
+    claudeHooks = {
+      stop: Array.isArray(stopHooks) && stopHooks.some((h) => isSpanoryHookCommand(h?.command)),
+      sessionEnd: Array.isArray(endHooks) && endHooks.some((h) => isSpanoryHookCommand(h?.command)),
+    };
+  } catch {
+    // keep defaults
+  }
+  report.runtimes.push({
+    runtime: 'claude-code',
+    available: commandExists('claude'),
+    configured: claudeHooks.stop && claudeHooks.sessionEnd,
+    details: {
+      settingsPath: claudeSettingsPath,
+      stopHookConfigured: claudeHooks.stop,
+      sessionEndHookConfigured: claudeHooks.sessionEnd,
+    },
+  });
+
+  const codexConfigPath = path.join(homeRoot, '.codex', 'config.toml');
+  const codexScriptPath = path.join(homeRoot, '.codex', 'bin', 'spanory-codex-notify.sh');
+  let codexNotifyConfigured = false;
+  try {
+    const config = await readFile(codexConfigPath, 'utf-8');
+    codexNotifyConfigured = /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(config);
+  } catch {
+    // keep false
+  }
+  let codexScriptPresent = true;
+  try {
+    await stat(codexScriptPath);
+  } catch {
+    codexScriptPresent = false;
+  }
+  report.runtimes.push({
+    runtime: 'codex',
+    available: commandExists('codex'),
+    configured: codexNotifyConfigured && codexScriptPresent,
+    details: {
+      configPath: codexConfigPath,
+      scriptPath: codexScriptPath,
+      notifyConfigured: codexNotifyConfigured,
+      scriptPresent: codexScriptPresent,
+    },
+  });
+
+  report.runtimes.push({
+    runtime: 'openclaw',
+    available: commandExists('openclaw'),
+    configured: undefined,
+    details: {
+      runtimeHome: openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome),
+    },
+  });
+  report.runtimes.push({
+    runtime: 'opencode',
+    available: commandExists('opencode'),
+    configured: undefined,
+    details: {
+      runtimeHome: opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome),
+    },
+  });
+
+  return report;
+}
+
+async function runSetupDoctor(options) {
+  const homeRoot = setupHomeRoot(options.home);
+  const selected = parseSetupRuntimes(options.runtimes);
+  const checks = [];
+
+  if (selected.includes('claude-code')) {
+    const settingsPath = path.join(homeRoot, '.claude', 'settings.json');
+    let stopHookConfigured = false;
+    let sessionEndHookConfigured = false;
+    try {
+      const parsed = JSON.parse(await readFile(settingsPath, 'utf-8'));
+      const stopHooks = parsed?.hooks?.Stop?.[0]?.hooks ?? [];
+      const endHooks = parsed?.hooks?.SessionEnd?.[0]?.hooks ?? [];
+      stopHookConfigured = Array.isArray(stopHooks) && stopHooks.some((h) => isSpanoryHookCommand(h?.command));
+      sessionEndHookConfigured = Array.isArray(endHooks) && endHooks.some((h) => isSpanoryHookCommand(h?.command));
+    } catch {
+      // keep defaults
+    }
+    checks.push({
+      id: 'claude_hook_stop',
+      runtime: 'claude-code',
+      ok: stopHookConfigured,
+      detail: settingsPath,
+    });
+    checks.push({
+      id: 'claude_hook_session_end',
+      runtime: 'claude-code',
+      ok: sessionEndHookConfigured,
+      detail: settingsPath,
+    });
+  }
+
+  if (selected.includes('codex')) {
+    const configPath = path.join(homeRoot, '.codex', 'config.toml');
+    const scriptPath = path.join(homeRoot, '.codex', 'bin', 'spanory-codex-notify.sh');
+    let notifyConfigured = false;
+    try {
+      const config = await readFile(configPath, 'utf-8');
+      notifyConfigured = /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(config);
+    } catch {
+      // keep default false
+    }
+    let scriptPresent = false;
+    try {
+      await stat(scriptPath);
+      scriptPresent = true;
+    } catch {
+      // keep default false
+    }
+    checks.push({
+      id: 'codex_notify_configured',
+      runtime: 'codex',
+      ok: notifyConfigured,
+      detail: configPath,
+    });
+    checks.push({
+      id: 'codex_notify_script',
+      runtime: 'codex',
+      ok: scriptPresent,
+      detail: scriptPath,
+    });
+  }
+
+  if (selected.includes('openclaw')) {
+    const openclawHome = openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome);
+    if (commandExists('openclaw')) {
+      const report = await runOpenclawPluginDoctor(openclawHome);
+      for (const check of report.checks) {
+        checks.push({
+          ...check,
+          runtime: 'openclaw',
+        });
+      }
+    } else {
+      checks.push({
+        id: 'openclaw_binary',
+        runtime: 'openclaw',
+        ok: false,
+        detail: 'openclaw command not found in PATH',
+      });
+    }
+  }
+
+  if (selected.includes('opencode')) {
+    const opencodeHome = opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome);
+    const report = await runOpencodePluginDoctor(opencodeHome);
+    for (const check of report.checks) {
+      checks.push({
+        ...check,
+        runtime: 'opencode',
+      });
+    }
+  }
+
+  return {
+    ok: checks.every((check) => check.ok),
+    checks,
+  };
+}
+
+async function runSetupApply(options) {
+  const homeRoot = setupHomeRoot(options.home);
+  const selected = parseSetupRuntimes(options.runtimes);
+  const spanoryBin = options.spanoryBin ?? 'spanory';
+  const dryRun = Boolean(options.dryRun);
+  const codexMode = options.codexMode ?? 'notify';
+  const results = [];
+
+  if (selected.includes('claude-code')) {
+    try {
+      const result = await applyClaudeSetup({ homeRoot, spanoryBin, dryRun });
+      results.push(result);
+    } catch (error) {
+      results.push({
+        runtime: 'claude-code',
+        ok: false,
+        error: String(error?.message ?? error),
+      });
+    }
+  }
+
+  if (selected.includes('codex')) {
+    if (codexMode !== 'notify') {
+      results.push({
+        runtime: 'codex',
+        ok: true,
+        skipped: true,
+        detail: `codex mode "${codexMode}" skips notify setup`,
+      });
+    } else {
+      try {
+        const result = await applyCodexSetup({ homeRoot, spanoryBin, dryRun });
+        results.push(result);
+      } catch (error) {
+        results.push({
+          runtime: 'codex',
+          ok: false,
+          error: String(error?.message ?? error),
+        });
+      }
+    }
+  }
+
+  if (selected.includes('openclaw')) {
+    if (!commandExists('openclaw')) {
+      results.push({
+        runtime: 'openclaw',
+        ok: true,
+        skipped: true,
+        detail: 'openclaw command not found in PATH',
+      });
+    } else {
+      const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome);
+      try {
+        if (!dryRun) installOpenclawPlugin(runtimeHome);
+        const doctor = await runOpenclawPluginDoctor(runtimeHome);
+        results.push({
+          runtime: 'openclaw',
+          ok: doctor.ok,
+          dryRun,
+          doctor,
+        });
+      } catch (error) {
+        results.push({
+          runtime: 'openclaw',
+          ok: false,
+          error: String(error?.message ?? error),
+        });
+      }
+    }
+  }
+
+  if (selected.includes('opencode')) {
+    const runtimeHome = opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome);
+    try {
+      if (!dryRun) await installOpencodePlugin(runtimeHome);
+      const doctor = await runOpencodePluginDoctor(runtimeHome);
+      results.push({
+        runtime: 'opencode',
+        ok: doctor.ok,
+        dryRun,
+        doctor,
+      });
+    } catch (error) {
+      results.push({
+        runtime: 'opencode',
+        ok: false,
+        error: String(error?.message ?? error),
+      });
+    }
+  }
+
+  return {
+    ok: results.every((item) => item.ok),
+    results,
+  };
+}
+
 function registerRuntimeCommands(runtimeRoot, runtimeName) {
   const runtimeCmd = runtimeRoot.command(runtimeName).description(runtimeDescription(runtimeName));
   const displayName = runtimeDisplayName(runtimeName);
@@ -1094,6 +1607,56 @@ program
         ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR
         ?? resolveRuntimeExportDir(runtimeName, options.runtimeHome),
     });
+  });
+
+const setup = program.command('setup').description('One-command local runtime integration setup and diagnostics');
+
+setup
+  .command('detect')
+  .description('Detect local runtime availability and setup status')
+  .option('--home <path>', 'Home directory root override (default: $HOME)')
+  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home for reporting')
+  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home for reporting')
+  .action(async (options) => {
+    const report = await runSetupDetect(options);
+    console.log(JSON.stringify(report, null, 2));
+  });
+
+setup
+  .command('apply')
+  .description('Apply idempotent local setup for selected runtimes')
+  .option(
+    '--runtimes <csv>',
+    `Comma-separated runtimes (default: ${DEFAULT_SETUP_RUNTIMES.join(',')})`,
+    DEFAULT_SETUP_RUNTIMES.join(','),
+  )
+  .option('--home <path>', 'Home directory root override (default: $HOME)')
+  .option('--spanory-bin <path>', 'Spanory binary/command to write into runtime configs', 'spanory')
+  .option('--codex-mode <mode>', 'Codex setup mode: notify | proxy (default: notify)', 'notify')
+  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
+  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+  .option('--dry-run', 'Only print planned changes without writing files', false)
+  .action(async (options) => {
+    const report = await runSetupApply(options);
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.ok) process.exitCode = 2;
+  });
+
+setup
+  .command('doctor')
+  .description('Run setup diagnostics for selected runtimes')
+  .option(
+    '--runtimes <csv>',
+    `Comma-separated runtimes (default: ${DEFAULT_SETUP_RUNTIMES.join(',')})`,
+    DEFAULT_SETUP_RUNTIMES.join(','),
+  )
+  .option('--home <path>', 'Home directory root override (default: $HOME)')
+  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
+  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+  .action(async (options) => {
+    const report = await runSetupDoctor(options);
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.ok) process.exitCode = 2;
   });
 
 loadUserEnv()

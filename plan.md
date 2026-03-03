@@ -1,20 +1,27 @@
-# Spanory 计划：支持 npm/npx 分发（2026-03-03）
+# Spanory 计划：一键 setup 四 runtime + README Agent 自安装提示（2026-03-03）
 
 ## Goal
-让用户无需 clone 源码即可通过 npm/npx 使用 Spanory CLI，并把发布动作纳入现有 GitHub Release 流水线。
+将 Claude Code / Codex / OpenClaw / OpenCode 的本地集成配置收敛到 Spanory CLI 内置命令，降低手工配置成本；并在 README 增加可直接复制给 Agent 的安装提示。
 
 ## Scope
 - In scope:
-  - `packages/cli/package.json`：开启可发布配置（移除 private，补充 publish 元信息）。
-  - `.github/workflows/release.yml`：新增 npm publish job（基于 tag，使用 `NPM_TOKEN`）。
-  - `README.md` / `docs/README_zh.md`：补充 npm/npx 安装方式与发布前置条件。
-  - `plan.md` / `todo.md`：本阶段计划与执行记录。
+  - `packages/cli/src/index.js`：新增 `setup detect/apply/doctor` 命令。
+  - `packages/cli/test/bdd/*.spec.js`：新增 setup 命令 BDD 覆盖。
+  - `README.md`：新增 Agent 可复制的一键安装/配置指令。
+  - `docs/README_zh.md`：同步中文说明。
+  - `plan.md` / `todo.md`：本阶段执行记录。
 - Out of scope:
-  - Homebrew Tap 仓库落地（需要独立仓库）。
-  - npm 包名变更（先沿用当前包名）。
+  - 自动修改 Codex/Claude 的复杂高级策略配置（仅处理 Spanory 相关最小集）。
+  - 远程发布流程改造。
 
 ## Acceptance
-- CLI 包不再是 private，具备 npm 发布所需字段。
-- release workflow 在 tag 触发时可执行 npm publish（当 `NPM_TOKEN` 存在）。
-- README（中英文）新增 npm/npx 使用方式和 `NPM_TOKEN` 配置提示。
-- 本地检查命令通过：`npm run check`。
+- CLI 支持：
+  - `spanory setup detect`
+  - `spanory setup apply`
+  - `spanory setup doctor`
+- `setup apply` 能幂等配置：
+  - Claude `Stop/SessionEnd` hook
+  - Codex `notify` + `~/.codex/bin/spanory-codex-notify.sh`
+  - OpenClaw/OpenCode plugin 安装链路
+- README（中英文）包含可复制给 Agent 的“自安装/自配置”命令块。
+- 回归通过：`npm run check`、`npm test`、`npm run test:bdd`。

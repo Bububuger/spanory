@@ -125,85 +125,54 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<PUBLIC_KE
 `OTEL_EXPORTER_OTLP_HEADERS` expects `k=v` pairs (comma-separated if multiple).  
 For Langfuse OTLP, use `Authorization=Basic <base64(public_key:secret_key)>`.
 
-### Local Setup (4 runtimes, Codex non-proxy by default)
+### Local Setup (Recommended: one command for 4 runtimes)
 
-Build latest local binary from current code:
-
-```bash
-cd spanory
-npm install
-npm run build:bin
-mkdir -p ~/.local/bin
-cp dist/spanory-macos-arm64 ~/.local/bin/spanory
-chmod +x ~/.local/bin/spanory
-~/.local/bin/spanory --help
-```
-
-Configure Claude Code hooks (`Stop` + `SessionEnd`) to call Spanory:
-
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "~/.local/bin/spanory hook --last-turn-only" }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          { "type": "command", "command": "~/.local/bin/spanory hook --last-turn-only" }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Install/enable OpenClaw plugin and verify:
+`setup apply` is idempotent and configures all supported runtimes (Codex defaults to non-proxy notify mode):
 
 ```bash
-~/.local/bin/spanory runtime openclaw plugin install --runtime-home ~/.openclaw
-~/.local/bin/spanory runtime openclaw plugin enable --runtime-home ~/.openclaw
-~/.local/bin/spanory runtime openclaw plugin doctor --runtime-home ~/.openclaw
+spanory setup detect
+spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
-Install OpenCode plugin and verify:
+What `setup apply` does:
+
+- Claude Code: writes/updates `Stop` + `SessionEnd` hook command to `spanory hook --last-turn-only`
+- Codex: writes `~/.codex/bin/spanory-codex-notify.sh` and updates `~/.codex/config.toml` `notify = [...]`
+- OpenClaw: installs/enables Spanory plugin (when `openclaw` is available in PATH)
+- OpenCode: installs Spanory plugin loader into `~/.config/opencode/plugin`
+
+Dry-run example:
 
 ```bash
-~/.local/bin/spanory runtime opencode plugin install --runtime-home ~/.config/opencode
-~/.local/bin/spanory runtime opencode plugin doctor --runtime-home ~/.config/opencode
+spanory setup apply \
+  --runtimes claude-code,codex,openclaw,opencode \
+  --codex-mode notify \
+  --dry-run
 ```
 
-Configure Codex notify hook (non-proxy path):
+### Copy To Your Agent (Self-install)
 
-```bash
-mkdir -p ~/.codex/bin ~/.codex/state/spanory
-cat > ~/.codex/bin/spanory-codex-notify.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-payload="${1:-}"
-if [[ -z "$payload" ]]; then
-  exit 0
-fi
-echo "$payload" | ~/.local/bin/spanory runtime codex hook \
-  --last-turn-only \
-  --runtime-home ~/.codex \
-  --export-json-dir ~/.codex/state/spanory \
-  >> ~/.codex/state/spanory-codex-hook.log 2>&1 || true
-EOF
-chmod +x ~/.codex/bin/spanory-codex-notify.sh
+Paste this block to your coding agent in this repo, and let it finish setup automatically:
+
+```text
+Install and configure Spanory on this machine with one-command setup.
+Requirements:
+- Keep Codex in notify mode (no proxy hijack).
+- Configure all runtimes: claude-code,codex,openclaw,opencode.
+- Verify and report any failed checks.
+
+Run:
+1) npm install
+2) npm install -g ./packages/cli
+3) spanory setup detect
+4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+5) spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+
+Output:
+- setup detect/apply/doctor JSON results
+- final pass/fail summary and next-step troubleshooting for failed checks
 ```
-
-Add this to `~/.codex/config.toml`:
-
-```toml
-notify = ["~/.codex/bin/spanory-codex-notify.sh"]
-```
-
-This notify payload is triggered by Codex events such as `agent-turn-complete`/`session_end`, and Spanory consumes it via `runtime codex hook` without proxy hijack.
 
 ### Claude Code — Realtime Hook
 

@@ -16,6 +16,52 @@ Spanory 是一个跨运行时的 AI Agent 可观测性工具包，将 Claude Cod
 
 支持实时 Hook 上报（零 cron）和离线补数（backfill），内置聚合报表和规则告警。
 
+## 推荐：一键 setup（四 runtime）
+
+优先使用内置 setup 命令完成本地接入（默认 Codex 走 notify，非代理模式）：
+
+```bash
+spanory setup detect
+spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+```
+
+`setup apply` 会自动执行：
+- Claude Code：写入/更新 `Stop` + `SessionEnd` 的 `spanory hook --last-turn-only`
+- Codex：写入 `~/.codex/bin/spanory-codex-notify.sh` 并更新 `~/.codex/config.toml` 的 `notify = [...]`
+- OpenClaw：安装并启用 Spanory plugin（当 PATH 中可用 `openclaw`）
+- OpenCode：安装 plugin loader 到 `~/.config/opencode/plugin`
+
+只看变更不落盘：
+
+```bash
+spanory setup apply \
+  --runtimes claude-code,codex,openclaw,opencode \
+  --codex-mode notify \
+  --dry-run
+```
+
+## 复制给 Agent 执行（让 Agent 自己安装）
+
+把下面这段原样发给你的 Agent：
+
+```text
+请在当前仓库完成 Spanory 本机安装与四 runtime 接入。
+要求：
+- Codex 使用 notify 模式，不启用 proxy 劫持。
+- 接入 claude-code,codex,openclaw,opencode 四个 runtime。
+- 执行后输出 detect/apply/doctor 的 JSON 结果，并给出最终通过/失败总结。
+
+执行步骤：
+1) npm install
+2) npm install -g ./packages/cli
+3) spanory setup detect
+4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+5) spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+
+如果有失败项，请附上可直接执行的排查命令。
+```
+
 ## Claude Code 接入（Hook 实时上报）
 
 ### 1) 安装 `spanory` 命令
