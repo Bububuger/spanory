@@ -125,6 +125,86 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<PUBLIC_KE
 `OTEL_EXPORTER_OTLP_HEADERS` expects `k=v` pairs (comma-separated if multiple).  
 For Langfuse OTLP, use `Authorization=Basic <base64(public_key:secret_key)>`.
 
+### Local Setup (4 runtimes, Codex non-proxy by default)
+
+Build latest local binary from current code:
+
+```bash
+cd spanory
+npm install
+npm run build:bin
+mkdir -p ~/.local/bin
+cp dist/spanory-macos-arm64 ~/.local/bin/spanory
+chmod +x ~/.local/bin/spanory
+~/.local/bin/spanory --help
+```
+
+Configure Claude Code hooks (`Stop` + `SessionEnd`) to call Spanory:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "~/.local/bin/spanory hook --last-turn-only" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "~/.local/bin/spanory hook --last-turn-only" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Install/enable OpenClaw plugin and verify:
+
+```bash
+~/.local/bin/spanory runtime openclaw plugin install --runtime-home ~/.openclaw
+~/.local/bin/spanory runtime openclaw plugin enable --runtime-home ~/.openclaw
+~/.local/bin/spanory runtime openclaw plugin doctor --runtime-home ~/.openclaw
+```
+
+Install OpenCode plugin and verify:
+
+```bash
+~/.local/bin/spanory runtime opencode plugin install --runtime-home ~/.config/opencode
+~/.local/bin/spanory runtime opencode plugin doctor --runtime-home ~/.config/opencode
+```
+
+Configure Codex notify hook (non-proxy path):
+
+```bash
+mkdir -p ~/.codex/bin ~/.codex/state/spanory
+cat > ~/.codex/bin/spanory-codex-notify.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+payload="${1:-}"
+if [[ -z "$payload" ]]; then
+  exit 0
+fi
+echo "$payload" | ~/.local/bin/spanory runtime codex hook \
+  --last-turn-only \
+  --runtime-home ~/.codex \
+  --export-json-dir ~/.codex/state/spanory \
+  >> ~/.codex/state/spanory-codex-hook.log 2>&1 || true
+EOF
+chmod +x ~/.codex/bin/spanory-codex-notify.sh
+```
+
+Add this to `~/.codex/config.toml`:
+
+```toml
+notify = ["~/.codex/bin/spanory-codex-notify.sh"]
+```
+
+This notify payload is triggered by Codex events such as `agent-turn-complete`/`session_end`, and Spanory consumes it via `runtime codex hook` without proxy hijack.
+
 ### Claude Code — Realtime Hook
 
 Set hook command in Claude Code config for `SessionEnd` and/or `Stop` events:
@@ -178,7 +258,7 @@ echo '{"event":"agent-turn-complete","thread_id":"<SESSION_ID>","turn_id":"<TURN
 spanory runtime codex hook --last-turn-only
 ```
 
-### Codex — Proxy Hijack Capture (Full Redacted)
+### Codex — Optional Proxy Hijack Capture (Full Redacted)
 
 Use an OpenAI-compatible local proxy to capture full request/response bodies with strong redaction.
 
