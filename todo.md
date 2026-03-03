@@ -23,8 +23,8 @@
 - [x] `npm run --workspace @spanory/cli test -- test/bdd/setup.integration.spec.js`
 
 ## T4 提交与推送
-- [ ] 提交
-- [ ] 推送
+- [x] 提交
+- [x] 推送
 
 验收：
-- [ ] `git status --short`
+- [x] `git status --short`
