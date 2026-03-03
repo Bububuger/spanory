@@ -12,6 +12,7 @@
     "build": "npm run --workspaces build",
     "test": "npm run --workspaces test",
     "test:bdd": "npm run --workspace @spanory/cli test:bdd",
-    "build:bin": "bash scripts/release/build-binaries.sh"
+    "build:bin": "bash scripts/release/build-binaries.sh",
+    "package:release-assets": "bash scripts/release/package-release-assets.sh"
   }
 }

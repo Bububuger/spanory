@@ -50,6 +50,42 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 
 ### Install
 
+#### Option A: Download prebuilt binary from GitHub Releases
+
+Releases page: [https://github.com/Bububuger/spanory/releases](https://github.com/Bububuger/spanory/releases)
+
+macOS (Apple Silicon) / Linux:
+
+```bash
+TAG=v0.1.1 # replace with the target release tag
+OS_ARCH=darwin-arm64 # linux-x64 for Linux
+curl -fL -o spanory.tar.gz \
+  "https://github.com/Bububuger/spanory/releases/download/${TAG}/spanory-${TAG#v}-${OS_ARCH}.tar.gz"
+tar -xzf spanory.tar.gz
+chmod +x spanory
+sudo mv spanory /usr/local/bin/spanory
+spanory --help
+```
+
+Windows (PowerShell):
+
+```powershell
+$Tag = "v0.1.1" # replace with the target release tag
+Invoke-WebRequest -Uri "https://github.com/Bububuger/spanory/releases/download/$Tag/spanory-$($Tag.TrimStart('v'))-windows-x64.zip" -OutFile "spanory.zip"
+Expand-Archive -Path "spanory.zip" -DestinationPath ".\\spanory-bin" -Force
+.\\spanory-bin\\spanory.exe --help
+```
+
+Optional integrity check:
+
+```bash
+curl -fL -o SHA256SUMS.txt \
+  "https://github.com/Bububuger/spanory/releases/download/${TAG}/SHA256SUMS.txt"
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+#### Option B: Install from source checkout
+
 ```bash
 cd spanory
 npm install
@@ -172,7 +208,7 @@ spanory runtime claude-code export \
 tail -n 100 "$HOME/.claude/state/spanory-hook.log"
 ```
 
-## Standalone Binary
+## Build Binary From Source
 
 ```bash
 npm run build:bin
@@ -180,6 +216,9 @@ npm run build:bin
 
 # Build all platforms
 bash scripts/release/build-binaries.sh all
+
+# Package release archives locally
+npm run package:release-assets -- v0.1.1
 ```
 
 ## Development
@@ -203,7 +242,8 @@ CI runs the same gates via `.github/workflows/ci.yml`.
   - Triggered by tag push: `v*` (for example `v0.2.0`)
   - Verifies quality gates before release
   - Builds release binaries on Linux/macOS/Windows
-  - Publishes GitHub Release with attached binaries
+  - Packages archives (`tar.gz` / `zip`) and `SHA256SUMS.txt`
+  - Publishes GitHub Release with downloadable assets
 
 ## Roadmap
 

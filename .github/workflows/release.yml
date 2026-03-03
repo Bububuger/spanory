@@ -102,6 +102,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -109,12 +112,15 @@ jobs:
           merge-multiple: true
           path: dist
 
+      - name: Package Release Assets
+        run: bash scripts/release/package-release-assets.sh "${{ github.ref_name }}"
+
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            dist/spanory-linux-x64
-            dist/spanory-macos-arm64
-            dist/spanory-win-x64.exe
+            dist/release/spanory-*.tar.gz
+            dist/release/spanory-*.zip
+            dist/release/SHA256SUMS.txt

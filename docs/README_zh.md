@@ -331,9 +331,47 @@ spanory alert eval \
 
 ## 安装与构建
 
+### 方式 A：从 GitHub Releases 下载二进制（无需 clone）
+
+Release 页面： [https://github.com/Bububuger/spanory/releases](https://github.com/Bububuger/spanory/releases)
+
+macOS（Apple Silicon）/ Linux：
+
+```bash
+TAG=v0.1.1 # 替换为目标版本 tag
+OS_ARCH=darwin-arm64 # Linux 改为 linux-x64
+curl -fL -o spanory.tar.gz \
+  "https://github.com/Bububuger/spanory/releases/download/${TAG}/spanory-${TAG#v}-${OS_ARCH}.tar.gz"
+tar -xzf spanory.tar.gz
+chmod +x spanory
+sudo mv spanory /usr/local/bin/spanory
+spanory --help
+```
+
+Windows（PowerShell）：
+
+```powershell
+$Tag = "v0.1.1" # 替换为目标版本 tag
+Invoke-WebRequest -Uri "https://github.com/Bububuger/spanory/releases/download/$Tag/spanory-$($Tag.TrimStart('v'))-windows-x64.zip" -OutFile "spanory.zip"
+Expand-Archive -Path "spanory.zip" -DestinationPath ".\\spanory-bin" -Force
+.\\spanory-bin\\spanory.exe --help
+```
+
+可选：校验下载完整性
+
+```bash
+curl -fL -o SHA256SUMS.txt \
+  "https://github.com/Bububuger/spanory/releases/download/${TAG}/SHA256SUMS.txt"
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+### 方式 B：从源码安装 CLI
+
 命令行安装：
 
 ```bash
+cd spanory
+npm install
 npm install -g ./packages/cli
 spanory --help
 ```
@@ -392,6 +430,12 @@ npm run build:bin
 
 ```bash
 bash scripts/release/build-binaries.sh all
+```
+
+按版本打包 Release 附件（`tar.gz/zip + SHA256SUMS`）：
+
+```bash
+npm run package:release-assets -- v0.1.1
 ```
 
 ## 开发
