@@ -24,6 +24,16 @@ function mockClient(fixtures) {
   };
 }
 
+function readOtlpAttr(span, key) {
+  const found = (span?.attributes ?? []).find((item) => item?.key === key);
+  if (!found?.value || typeof found.value !== 'object') return undefined;
+  return found.value.stringValue
+    ?? found.value.doubleValue
+    ?? found.value.boolValue
+    ?? found.value.intValue
+    ?? undefined;
+}
+
 describe('opencode plugin runtime', () => {
   it('contract: flushes session.idle and writes status without endpoint', async () => {
     const prevHome = process.env.SPANORY_OPENCODE_HOME;
@@ -117,6 +127,69 @@ describe('opencode plugin runtime', () => {
       else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
       if (prevRetry === undefined) delete process.env.SPANORY_OPENCODE_RETRY_MAX;
       else process.env.SPANORY_OPENCODE_RETRY_MAX = prevRetry;
+    }
+  });
+
+  it('reports reasoning as separate span and keeps turn output final-only', async () => {
+    const prevHome = process.env.SPANORY_OPENCODE_HOME;
+    const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
+    const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-opencode-plugin-'));
+    process.env.SPANORY_OPENCODE_HOME = tempRoot;
+    process.env.SPANORY_OPENCODE_SPOOL_DIR = path.join(tempRoot, 'state', 'spanory', 'spool');
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://127.0.0.1:4318/v1/traces';
+
+    try {
+      const sessionMessages = await loadFixture('session-messages.json');
+      sessionMessages[1].parts.unshift({
+        id: 'part-a-reasoning-1',
+        sessionID: 'session-op-1',
+        messageID: 'msg-a-1',
+        type: 'reasoning',
+        text: '先分析命令是否安全，再执行。',
+        time: {
+          start: 1700000001100,
+          end: 1700000001150,
+        },
+      });
+
+      const fixtures = {
+        idleEvent: await loadFixture('session-idle-event.json'),
+        sessionInfo: await loadFixture('session-info.json'),
+        sessionMessages,
+      };
+
+      const sent = [];
+      const runtime = createOpencodeSpanoryPluginRuntime({
+        logger: { warn: () => {} },
+        client: mockClient(fixtures),
+        sendOtlpHttp: async (_endpoint, payload) => {
+          sent.push(payload);
+        },
+      });
+
+      await runtime.onEvent(fixtures.idleEvent);
+      await runtime.onGatewayStop();
+
+      expect(sent.length).toBe(1);
+      const spans = sent[0]?.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
+
+      const turnSpan = spans.find((span) => readOtlpAttr(span, 'agentic.event.category') === 'turn');
+      const reasoningSpan = spans.find((span) => readOtlpAttr(span, 'agentic.event.category') === 'reasoning');
+      expect(turnSpan).toBeTruthy();
+      expect(reasoningSpan).toBeTruthy();
+      expect(readOtlpAttr(turnSpan, 'langfuse.observation.output')).toBe('我来执行这个命令。');
+      expect(readOtlpAttr(turnSpan, 'langfuse.observation.output')).not.toContain('先分析命令是否安全');
+      expect(readOtlpAttr(reasoningSpan, 'langfuse.observation.output')).toBe('先分析命令是否安全，再执行。');
+      expect(readOtlpAttr(reasoningSpan, 'langfuse.observation.type')).toBe('span');
+    } finally {
+      if (prevHome === undefined) delete process.env.SPANORY_OPENCODE_HOME;
+      else process.env.SPANORY_OPENCODE_HOME = prevHome;
+      if (prevSpool === undefined) delete process.env.SPANORY_OPENCODE_SPOOL_DIR;
+      else process.env.SPANORY_OPENCODE_SPOOL_DIR = prevSpool;
+      if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
     }
   });
 });

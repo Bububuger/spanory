@@ -99,4 +99,47 @@ describe('normalizeTranscriptMessages', () => {
     expect(turn.attributes['agentic.actor.role_confidence']).toBe(0.6);
     expect(turn.attributes['agentic.subagent.calls']).toBe(0);
   });
+
+  it('separates reasoning from final assistant output', () => {
+    const messages = [
+      {
+        role: 'user',
+        isMeta: false,
+        content: '请回答',
+        timestamp: new Date('2026-03-03T02:00:00.000Z'),
+      },
+      {
+        role: 'assistant',
+        isMeta: false,
+        content: [
+          {
+            type: 'reasoning',
+            text: '先分析问题，再给结论。',
+            timestamp: new Date('2026-03-03T02:00:00.500Z'),
+          },
+          { type: 'text', text: '这是最终回复。' },
+        ],
+        model: 'opencode/big-pickle',
+        usage: { input_tokens: 5, output_tokens: 4, total_tokens: 9 },
+        timestamp: new Date('2026-03-03T02:00:01.000Z'),
+      },
+    ];
+
+    const events = normalizeTranscriptMessages({
+      runtime: 'opencode',
+      projectId: 'p-op',
+      sessionId: 's-op',
+      messages,
+    });
+
+    const turn = events.find((e) => e.category === 'turn');
+    const reasoning = events.find((e) => e.category === 'reasoning');
+    expect(turn).toBeTruthy();
+    expect(reasoning).toBeTruthy();
+    expect(turn.output).toBe('这是最终回复。');
+    expect(turn.output).not.toContain('先分析问题');
+    expect(reasoning.output).toBe('先分析问题，再给结论。');
+    expect(reasoning.startedAt).toBe('2026-03-03T02:00:00.500Z');
+    expect(reasoning.attributes['langfuse.observation.type']).toBe('span');
+  });
 });

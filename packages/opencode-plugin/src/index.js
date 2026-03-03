@@ -89,6 +89,14 @@ function parseTimestamp(msLike) {
   return new Date();
 }
 
+function partTime(part, fallbackMs) {
+  const partEnd = part?.time?.end;
+  const partStart = part?.time?.start;
+  const stateEnd = part?.state?.time?.end;
+  const stateStart = part?.state?.time?.start;
+  return parseTimestamp(partEnd ?? partStart ?? stateEnd ?? stateStart ?? fallbackMs);
+}
+
 function normalizeToolName(name) {
   const n = String(name ?? '');
   const lower = n.toLowerCase();
@@ -109,7 +117,7 @@ function parseUsageFromAssistantInfo(info) {
 
 function normalizePartText(part) {
   if (!part || typeof part !== 'object') return '';
-  if (part.type === 'text' || part.type === 'reasoning') return String(part.text ?? '');
+  if (part.type === 'text') return String(part.text ?? '');
   return '';
 }
 
@@ -152,8 +160,16 @@ function normalizeMessages({ sessionInfo, sessionMessages }) {
 
     const content = [];
     for (const part of parts) {
-      if (part?.type === 'text' || part?.type === 'reasoning') {
+      if (part?.type === 'text') {
         content.push({ type: 'text', text: String(part.text ?? '') });
+        continue;
+      }
+      if (part?.type === 'reasoning') {
+        content.push({
+          type: 'reasoning',
+          text: String(part.text ?? ''),
+          timestamp: partTime(part, baseTimeMs),
+        });
         continue;
       }
       if (part?.type === 'tool') {
