@@ -97,6 +97,17 @@ function extractToolResults(content) {
   return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_result');
 }
 
+function extractReasoningBlocks(content) {
+  if (!Array.isArray(content)) return [];
+  return content.filter((block) => block && typeof block === 'object' && block.type === 'reasoning');
+}
+
+function isoFromUnknownTimestamp(value, fallback) {
+  const candidate = value instanceof Date ? value : new Date(value ?? '');
+  if (!Number.isNaN(candidate.getTime())) return candidate.toISOString();
+  return fallback.toISOString();
+}
+
 function isToolResultOnlyContent(content) {
   return Array.isArray(content)
     && content.length > 0
@@ -328,6 +339,32 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
   }
 
   for (const assistant of assistants) {
+    const reasoningBlocks = extractReasoningBlocks(assistant.content);
+    for (const reasoning of reasoningBlocks) {
+      const reasoningText = String(reasoning?.text ?? '').trim();
+      if (!reasoningText) continue;
+      const reasoningAt = isoFromUnknownTimestamp(reasoning?.timestamp, assistant.timestamp);
+      events.push({
+        runtime,
+        projectId,
+        sessionId,
+        turnId,
+        category: 'reasoning',
+        name: 'Assistant Reasoning',
+        startedAt: reasoningAt,
+        endedAt: reasoningAt,
+        input: '',
+        output: reasoningText,
+        attributes: {
+          'agentic.event.category': 'reasoning',
+          'langfuse.observation.type': 'span',
+          ...runtimeAttrs,
+          'gen_ai.operation.name': 'invoke_agent',
+          ...modelAttributes(assistant.model),
+        },
+      });
+    }
+
     const toolUses = extractToolUses(assistant.content);
     for (const tu of toolUses) {
       const toolName = String(tu.name ?? '');
