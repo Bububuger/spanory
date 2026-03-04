@@ -85,6 +85,7 @@ function createTurn(turnId, startedAt) {
     turnId,
     startedAt,
     endedAt: startedAt,
+    completed: false,
     userInput: '',
     lastAgentMessage: '',
     model: undefined,
@@ -301,6 +302,7 @@ async function readCodexSession(transcriptPath) {
         if (payload.last_agent_message) {
           turn.lastAgentMessage = String(payload.last_agent_message);
         }
+        turn.completed = true;
         turn.endedAt = isoAt;
         finalizeCurrentTurn(entry.timestamp);
         continue;
@@ -421,6 +423,20 @@ function attachCwdAttribute(events, cwd) {
   }));
 }
 
+function attachTurnCompletionAttribute(events, turns) {
+  const completionByTurnId = new Map(turns.map((turn) => [turn.turnId, Boolean(turn.completed)]));
+  return events.map((event) => {
+    if (event.category !== 'turn') return event;
+    return {
+      ...event,
+      attributes: {
+        ...(event.attributes ?? {}),
+        'agentic.turn.completed': completionByTurnId.get(event.turnId) ?? false,
+      },
+    };
+  });
+}
+
 function resolveRuntimeHome(context) {
   return context.runtimeHome ?? process.env.SPANORY_CODEX_HOME ?? path.join(process.env.HOME || '', '.codex');
 }
@@ -455,7 +471,7 @@ export const codexAdapter = {
       messages,
     });
     const withRawTurnIds = remapTurnIds(normalized, parsed.turns);
-    return attachCwdAttribute(withRawTurnIds, parsed.cwd);
+    const withCompletion = attachTurnCompletionAttribute(withRawTurnIds, parsed.turns);
+    return attachCwdAttribute(withCompletion, parsed.cwd);
   },
 };
-

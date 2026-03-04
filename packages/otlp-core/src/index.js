@@ -39,6 +39,36 @@ function observationTypeForCategory(category) {
   }
 }
 
+function observationIdentity(event, idx) {
+  const turnId = String(event.turnId ?? '');
+  const attrs = event.attributes ?? {};
+  const toolCallId = attrs['gen_ai.tool.call.id'];
+  const mcpRequestId = attrs['mcp.request.id'];
+
+  if (event.category === 'turn' && turnId) {
+    return `turn:${turnId}`;
+  }
+
+  if ((event.category === 'shell_command' || event.category === 'tool' || event.category === 'agent_task') && toolCallId) {
+    return `${event.category}:${turnId}:${toolCallId}`;
+  }
+
+  if (event.category === 'mcp' && (mcpRequestId || toolCallId)) {
+    return `mcp:${turnId}:${mcpRequestId ?? toolCallId}`;
+  }
+
+  if (event.category === 'agent_command' && turnId) {
+    return `agent_command:${turnId}:${event.name}`;
+  }
+
+  if (event.category === 'reasoning' && turnId) {
+    const outputDigest = stableHexId(['reasoning', event.output ?? ''], 12);
+    return `reasoning:${turnId}:${event.startedAt}:${outputDigest}`;
+  }
+
+  return `event:${turnId}:${event.category}:${event.name}:${event.startedAt ?? ''}:${idx}`;
+}
+
 export function buildResource(input = {}) {
   return {
     serviceName: input.serviceName ?? process.env.SPANORY_SERVICE_NAME ?? 'spanory',
@@ -72,6 +102,7 @@ export function compileOtlpSpans(events, resource) {
   const rootByTurn = new Map();
   const spans = [];
   const spanIdSet = new Set();
+  const identityCountByEvent = new Map();
 
   for (const event of events) {
     const turnKey = event.turnId || `${event.sessionId}:root`;
@@ -121,24 +152,21 @@ export function compileOtlpSpans(events, resource) {
     const traceId = traceByTurn.get(turnKey);
     const traceContext = traceContextByTurn.get(turnKey);
 
+    const identity = observationIdentity(event, idx);
+    const occurrence = (identityCountByEvent.get(identity) ?? 0) + 1;
+    identityCountByEvent.set(identity, occurrence);
+
     const eventStableKey = [
       'span',
       event.runtime,
       event.projectId,
       event.sessionId,
-      event.turnId ?? '',
-      event.category,
-      event.name,
-      event.startedAt,
-      event.endedAt ?? '',
-      event.attributes?.['gen_ai.tool.call.id'] ?? event.attributes?.['mcp.request.id'] ?? '',
-      event.input ?? '',
-      event.output ?? '',
-      idx,
+      identity,
+      occurrence,
     ];
     let spanId = stableHexId(eventStableKey, 16);
     if (spanIdSet.has(spanId)) {
-      spanId = stableHexId([...eventStableKey, 'collision'], 16);
+      spanId = stableHexId([...eventStableKey, 'collision', idx], 16);
     }
     spanIdSet.add(spanId);
 
