@@ -12,6 +12,12 @@
     "build": "npm run --workspaces build",
     "test": "npm run --workspaces test",
     "test:bdd": "npm run --workspace @spanory/spanory test:bdd",
+    "telemetry:extract": "node scripts/telemetry/extract-spanory-fields.mjs",
+    "telemetry:sync-otel-semconv": "node scripts/telemetry/sync-otel-semconv.mjs",
+    "telemetry:diff": "node scripts/telemetry/diff-fields.mjs",
+    "telemetry:validate-mapping": "node scripts/telemetry/validate-mapping.mjs",
+    "telemetry:report": "node scripts/telemetry/report.mjs",
+    "telemetry:check": "node scripts/telemetry/check.mjs",
     "build:bin": "bash scripts/release/build-binaries.sh",
     "package:release-assets": "bash scripts/release/package-release-assets.sh"
   },

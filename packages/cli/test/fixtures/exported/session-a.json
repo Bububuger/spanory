@@ -179,7 +179,7 @@
               }
             },
             {
-              "key": "deployment.environment",
+              "key": "deployment.environment.name",
               "value": {
                 "stringValue": "development"
               }

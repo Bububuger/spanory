@@ -1,0 +1,38 @@
+{
+  "spec_version": "1.0.0",
+  "runtimes": {
+    "claude-code": {
+      "shared_normalize": true,
+      "plugin_only": false,
+      "sources": ["packages/cli/src/runtime/claude/adapter.ts", "packages/cli/src/runtime/shared/normalize.ts"],
+      "field_overrides": []
+    },
+    "openclaw": {
+      "shared_normalize": true,
+      "plugin_only": false,
+      "sources": ["packages/cli/src/runtime/openclaw/adapter.ts", "packages/cli/src/runtime/shared/normalize.ts"],
+      "field_overrides": []
+    },
+    "codex": {
+      "shared_normalize": true,
+      "plugin_only": false,
+      "sources": ["packages/cli/src/runtime/codex/adapter.ts", "packages/cli/src/runtime/shared/normalize.ts"],
+      "field_overrides": [
+        {
+          "field": "agentic.project.cwd",
+          "emit_when": "session_meta.cwd present"
+        },
+        {
+          "field": "agentic.turn.completed",
+          "emit_when": "turn completion status available"
+        }
+      ]
+    },
+    "opencode": {
+      "shared_normalize": true,
+      "plugin_only": true,
+      "sources": ["packages/opencode-plugin/src/index.ts", "packages/cli/src/runtime/shared/normalize.ts"],
+      "field_overrides": []
+    }
+  }
+}

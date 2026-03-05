@@ -23,12 +23,14 @@
 ## 测试基线命令（强制）
 ```bash
 npm run check
+npm run telemetry:check
 npm test
 npm run test:bdd
 ```
 
 ## 门禁规则
-- PR/合并前，三条命令必须全通过。
+- PR/合并前，基线命令必须全通过。
+- PR/合并前，`telemetry:check` 必须通过并产出字段对账报告。
 - 任一失败即阻断，不允许“先合并后修”。
 - 如需临时豁免，必须在变更说明中记录原因与补测计划。
 - 任意任务类型（新功能/bug fix/重构）都必须评估并维护金标测试，不得只在重构时执行。

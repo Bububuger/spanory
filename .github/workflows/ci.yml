@@ -33,6 +33,9 @@ jobs:
       - name: Check
         run: npm run check
 
+      - name: Telemetry Gate
+        run: npm run telemetry:check
+
       - name: Build
         run: npm run build
 

@@ -37,11 +37,16 @@ describe('otlp compiler', () => {
     const payload2 = compileOtlp(events, resource);
     const spans = payload.resourceSpans[0].scopeSpans[0].spans;
     const spans2 = payload2.resourceSpans[0].scopeSpans[0].spans;
+    const resourceAttrs = Object.fromEntries(
+      payload.resourceSpans[0].resource.attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]),
+    );
     expect(spans).toHaveLength(2);
     expect(spans[1].parentSpanId).toBe(spans[0].spanId);
     expect(spans[0].traceId).toBe(spans2[0].traceId);
     expect(spans[0].spanId).toBe(spans2[0].spanId);
     expect(spans[1].spanId).toBe(spans2[1].spanId);
+    expect(resourceAttrs['deployment.environment.name']).toBe('test');
+    expect(resourceAttrs['deployment.environment']).toBeUndefined();
 
     const attrs = Object.fromEntries(spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
     expect(attrs['langfuse.trace.name']).toBeTruthy();
