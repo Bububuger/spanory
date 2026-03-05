@@ -1,36 +1,31 @@
-# Spanory Plan：移除废弃 workspace 并全仓清扫 (2026-03-05)
+# CI Dist 依赖缺失修复 Plan (2026-03-05)
 
 ## Goal
-移除未使用的 `packages/langfuse`，并完成一次工程级一致性扫描，确保工作目录与构建链路保持干净、可验证。
+修复 CI `Unit Tests` 阶段因找不到 `../../otlp-core/dist/index.js` / `../../backend-langfuse/dist/index.js` 导致的失败，恢复主线流水线稳定通过。
+
+## Root Cause (已验证)
+- `packages/cli/src/otlp.ts`、`packages/openclaw-plugin/src/index.ts`、`packages/opencode-plugin/src/index.ts` 依赖 sibling package 的 `dist` 产物。
+- CI 当前执行顺序是 `npm ci -> npm run check -> npm test`，在 `npm test` 前未构建 workspace `dist`。
+- 本地之所以偶发不复现，是因为本机已有历史 `dist` 文件。
 
 ## Scope
-- 删除：`packages/langfuse`
-- 更新：`package-lock.json`
-- 更新：`plan.md` / `todo.md`（含归档）
-- 扫描：workspace 引用、入口路径、构建/测试链路
-
-## Non-Goals
-- 不改变运行时语义，不新增功能。
-- 不修改历史归档文档（`docs/plans/archive/*`）。
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+- `plan.md` / `todo.md`
 
 ## Tasks
-### T1 删除废弃包
-- 删除 `packages/langfuse` 目录。
-- 确认仓库内无运行链路依赖该包。
+### T1 在 CI 主流程补构建前置
+- 在 `ci.yml` 的 `quality-gates` job 中，`Check` 后增加 `Build`（`npm run build`）。
+- 保持原有 `Unit Tests` / `BDD Tests` 顺序不变。
 
-### T2 锁文件与依赖图清理
-- 重新生成 `package-lock.json`，移除 `@spanory/langfuse` 相关条目。
-- 保证 npm workspace 解析正常。
+### T2 在 Release 验证流程补构建前置
+- 在 `release.yml` 的 `verify` job 中，`Check` 后增加 `Build`（`npm run build`）。
+- 保持 release 其他行为不变。
 
-### T3 全仓一致性扫描
-- 扫描无效入口/引用（含 `src/index.js` 残留、已删包路径）。
-- 校验 release/build 脚本仍可执行。
-
-### T4 验收
-- 执行全量门禁并记录结果。
+### T3 回归验证
+- 本地执行与 CI 等价顺序：`npm run check && npm run build && npm test`。
+- 提交并推送后观察最新 CI run。
 
 ## Acceptance
-1. `packages/langfuse` 不再存在且无残留代码依赖。
-2. `package-lock.json` 无 `@spanory/langfuse` / `packages/langfuse` 条目。
-3. `npm run check && npm test && npm run test:bdd` 全通过。
-4. 工作区无意外脏改动（仅本次清理相关改动）。
+1. 本地 `npm run check && npm run build && npm test` 通过。
+2. 推送后最新 CI run 不再出现 `Cannot find module ../../*-core/dist/index.js` 类错误。
