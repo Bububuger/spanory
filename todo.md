@@ -5,4 +5,4 @@
 - [x] T2 修改 `.github/workflows/release.yml`：`Check` 后增加 `Build`
 - [x] T2 验收：`rg -n "name: Build|run: npm run build" .github/workflows/release.yml`
 - [x] T3 本地回归：`npm run check && npm run build && npm test`
-- [ ] T4 提交推送并观察 CI
+- [x] T4 提交推送并观察 CI
