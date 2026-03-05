@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { claudeCodeAdapter } from '../../src/runtime/claude/adapter.js';
+import { claudeCodeAdapter } from '../../src/runtime/claude/adapter.ts';
 
 describe('claudeCodeAdapter', () => {
   it('parses transcript into categorized events with usage attributes', async () => {

@@ -4,10 +4,10 @@ import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
-import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
-import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '../../otlp-core/src/index.js';
-import { loadUserEnv } from '../../cli/src/env.js';
-import { normalizeTranscriptMessages, pickUsage } from '../../cli/src/runtime/shared/normalize.js';
+import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
+import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '../../otlp-core/dist/index.js';
+import { loadUserEnv } from '../../cli/dist/env.js';
+import { normalizeTranscriptMessages, pickUsage } from '../../cli/dist/runtime/shared/normalize.js';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_FLUSH_MODE = 'turn';

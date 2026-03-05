@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createOpencodeSpanoryPluginRuntime } from '../../../opencode-plugin/src/index.js';
+import { createOpencodeSpanoryPluginRuntime } from '../../../opencode-plugin/src/index.ts';
 
 async function loadFixture(name) {
   const fixturePath = path.resolve('test/fixtures/opencode', name);

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { codexAdapter } from '../../src/runtime/codex/adapter.js';
+import { codexAdapter } from '../../src/runtime/codex/adapter.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

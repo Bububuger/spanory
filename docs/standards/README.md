@@ -8,6 +8,7 @@
 - [测试基线与门禁规范](./test-baseline-spec.md)
 - [Runtime 验收矩阵（发布前强制）](./runtime-validation-matrix.md)
 - [缺陷回归台账](./regression-cases.md)
+- [变更背景记录台账](./change-context-log.md)
 - [Agent 上手与交接规范](./agent-onboarding.md)
 
 ## 使用建议

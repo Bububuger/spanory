@@ -122,6 +122,9 @@ jobs:
         if: env.NPM_TOKEN != ''
         run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @spanory/cli
 
+      - name: Build Before Publish
+        run: npm run build
+
       - name: Publish CLI To npm
         if: env.NPM_TOKEN != ''
         run: npm publish --workspace @spanory/cli --access public

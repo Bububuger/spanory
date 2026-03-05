@@ -4,7 +4,7 @@ import {
   compileOtlpSpans,
   parseOtlpHeaders,
   sendOtlpHttp,
-} from '../../otlp-core/src/index.js';
+} from '../../otlp-core/dist/index.js';
 
 export { buildResource };
 
@@ -19,4 +19,3 @@ export function compileOtlp(events, resource) {
 export async function sendOtlp(endpoint, payload, headers = {}) {
   await sendOtlpHttp(endpoint, payload, headers);
 }
-

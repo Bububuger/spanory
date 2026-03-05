@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateRules } from '../../src/alert/evaluate.js';
+import { evaluateRules } from '../../src/alert/evaluate.ts';
 
 const sessions = [
   {

@@ -12,6 +12,7 @@
 
 - Use conventional commit style where possible (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
 - Include test evidence in PR description.
+- For medium/large changes (multi-file, refactor, build/release path updates), add a record in `docs/standards/change-context-log.md`.
 - PRs should explain:
   - What changed
   - Why it changed

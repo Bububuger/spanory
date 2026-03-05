@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createOpenclawSpanoryPluginRuntime } from '../../../openclaw-plugin/src/index.js';
+import { createOpenclawSpanoryPluginRuntime } from '../../../openclaw-plugin/src/index.ts';
 
 describe('openclaw plugin runtime', () => {
   it('flushes per turn without waiting for session_end and writes success status', async () => {

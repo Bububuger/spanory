@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { loadUserEnv, parseSimpleDotEnv } from '../../src/env.js';
+import { loadUserEnv, parseSimpleDotEnv } from '../../src/env.ts';
 
 describe('env helpers', () => {
   it('parses plain and export-prefixed .env lines', () => {
@@ -62,4 +62,3 @@ KEY_WITH_COMMENT=value # trailing comment
     }
   });
 });
-

@@ -4,7 +4,7 @@ import os from 'node:os';
 
 import { describe, expect, it } from 'vitest';
 
-import { codexAdapter } from '../../src/runtime/codex/adapter.js';
+import { codexAdapter } from '../../src/runtime/codex/adapter.ts';
 
 describe('codexAdapter', () => {
   it('parses codex session into rich categories with usage/model/runtime attrs', async () => {

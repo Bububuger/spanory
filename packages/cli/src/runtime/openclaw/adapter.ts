@@ -173,11 +173,16 @@ async function readOpenclawTranscript(transcriptPath) {
         content: normalizeContent(entry),
         model: normalizeModel(entry),
         usage: normalizeUsage(entry),
-        runtimeVersion: entry?.version ?? entry?.app_version ?? entry?.appVersion,
         messageId: normalizeMessageId(entry),
         toolUseResult: normalizeToolUseResult(entry),
         sourceToolUseId: normalizeSourceToolUseId(entry),
-        runtimeVersion: entry?.runtimeVersion ?? entry?.runtime_version ?? runtimeVersion,
+        runtimeVersion:
+          entry?.runtimeVersion
+          ?? entry?.runtime_version
+          ?? entry?.version
+          ?? entry?.app_version
+          ?? entry?.appVersion
+          ?? runtimeVersion,
         timestamp: parseTimestamp(entry),
       });
     } catch {

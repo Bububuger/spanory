@@ -8,7 +8,7 @@ import {
   summarizeSessions,
   summarizeTools,
   summarizeTurnDiff,
-} from '../../src/report/aggregate.js';
+} from '../../src/report/aggregate.ts';
 
 function buildSession() {
   return {
