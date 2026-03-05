@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
-const entry = path.resolve('src/index.js');
+const entry = path.resolve('dist/index.js');
 
 describe('BDD setup command', () => {
   it('Given fake home, When setup apply runs for claude+codex twice, Then config is idempotent and doctor passes', () => {

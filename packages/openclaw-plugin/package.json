@@ -3,16 +3,16 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
-  "main": "index.js",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "openclaw": {
     "extensions": [
-      "./index.js"
+      "./dist/index.js"
     ]
   },
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
     "test": "node -e \"console.log('openclaw-plugin:test:noop')\""
   }
 }

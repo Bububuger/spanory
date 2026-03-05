@@ -119,6 +119,9 @@ jobs:
       - name: Sync CLI Version With Tag
         run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @spanory/cli
 
+      - name: Build Before Publish
+        run: npm run build
+
       - name: Publish CLI To npm
         run: npm publish --workspace @spanory/cli --access public
         env:

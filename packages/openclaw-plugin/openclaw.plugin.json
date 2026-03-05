@@ -3,7 +3,7 @@
   "name": "Spanory OpenClaw Observability",
   "description": "Emit Langfuse-compatible OTLP traces from OpenClaw plugin hooks without cron.",
   "version": "0.1.1",
-  "main": "./src/index.js",
+  "main": "./dist/index.js",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

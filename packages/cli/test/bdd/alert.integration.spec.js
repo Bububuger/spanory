@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const entry = path.resolve('src/index.js');
+const entry = path.resolve('dist/index.js');
 const cleanEnv = {
   ...process.env,
   OTEL_EXPORTER_OTLP_ENDPOINT: '',

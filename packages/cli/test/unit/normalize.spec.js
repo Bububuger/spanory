@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeTranscriptMessages } from '../../src/runtime/shared/normalize.js';
+import { normalizeTranscriptMessages } from '../../src/runtime/shared/normalize.ts';
 
 describe('normalizeTranscriptMessages', () => {
   it('adds turn hash/diff/actor/subagent/cache attributes', () => {

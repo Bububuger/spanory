@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toLangfuseEvents } from '../../../backend-langfuse/src/index.js';
+import { toLangfuseEvents } from '../../../backend-langfuse/src/index.ts';
 
 describe('langfuse backend adapter', () => {
   it('fills missing observation/category attrs without changing event shape', () => {

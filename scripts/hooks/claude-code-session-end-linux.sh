@@ -20,7 +20,7 @@ if [[ -z "$PAYLOAD" ]]; then
   exit 0
 fi
 
-printf '%s\n' "$PAYLOAD" | node "$REPO_ROOT/packages/cli/src/index.js" runtime claude-code hook \
+printf '%s\n' "$PAYLOAD" | node "$REPO_ROOT/packages/cli/dist/index.js" runtime claude-code hook \
   --endpoint "${SPANORY_OTLP_ENDPOINT:-${OTEL_EXPORTER_OTLP_ENDPOINT:-}}" \
   --headers "${SPANORY_OTLP_HEADERS:-${OTEL_EXPORTER_OTLP_HEADERS:-}}" \
   --export-json-dir "${SPANORY_HOOK_EXPORT_JSON_DIR:-$HOME/.claude/state/spanory-json}" \

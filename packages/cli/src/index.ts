@@ -14,7 +14,7 @@ import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { loadUserEnv } from './env.js';
-import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
+import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
   summarizeCache,

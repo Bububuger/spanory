@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
-const entry = path.resolve('src/index.js');
+const entry = path.resolve('dist/index.js');
 
 describe('BDD openclaw plugin management', () => {
   it('doctor reports structured checks and non-zero exit when plugin prerequisites are missing', () => {

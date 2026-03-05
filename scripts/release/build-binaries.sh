@@ -13,6 +13,9 @@ build_host() {
     Darwin-arm64)
       npm run --workspace @spanory/cli build:bin:macos-arm64
       ;;
+    Darwin-x86_64)
+      npm run --workspace @spanory/cli build:bin:macos-x64
+      ;;
     Linux-x86_64)
       npm run --workspace @spanory/cli build:bin:linux-x64
       ;;
@@ -25,6 +28,7 @@ build_host() {
 
 build_all() {
   npm run --workspace @spanory/cli build:bin:macos-arm64
+  npm run --workspace @spanory/cli build:bin:macos-x64
   npm run --workspace @spanory/cli build:bin:linux-x64
   npm run --workspace @spanory/cli build:bin:win-x64
 }

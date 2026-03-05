@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compileOtlp, parseHeaders } from '../../src/otlp.js';
+import { compileOtlp, parseHeaders } from '../../src/otlp.ts';
 
 describe('otlp compiler', () => {
   it('creates parent-child spans and langfuse parity attrs', () => {

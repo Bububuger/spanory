@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createCodexProxyServer } from '../../src/runtime/codex/proxy.js';
+import { createCodexProxyServer } from '../../src/runtime/codex/proxy.ts';
 
 async function startUpstreamServer(handler) {
   const server = createServer(handler);

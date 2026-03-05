@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
-import { langfuseBackendAdapter } from '../../backend-langfuse/src/index.js';
-import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/src/index.js';
+import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
+import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/dist/index.js';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
 const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;

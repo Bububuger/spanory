@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { openclawAdapter } from '../../src/runtime/openclaw/adapter.js';
+import { openclawAdapter } from '../../src/runtime/openclaw/adapter.ts';
 
 describe('openclawAdapter', () => {
   it('parses transcript into rich events with usage and tool categories', async () => {
