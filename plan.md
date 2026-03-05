@@ -1,31 +1,22 @@
-# BDD TS 化与 Plugin 入口收敛 Plan (2026-03-06)
+# Plan (2026-03-06) — docs 脏文件归并整理
 
-## Goal
-清理两类不一致：
-1) `packages/cli/test/bdd` 目录中大量 `.js` 测试文件；
-2) `packages/openclaw-plugin` 与 `packages/opencode-plugin` 根目录同时存在 `index.js` 与 `src/index.ts`。
+## 背景
+`docs/` 主目录结构基本清晰，但仍存在散落归档与归档目录混放，影响可维护性与检索效率。
 
-## Scope
-- `packages/cli/test/bdd/*.spec.js -> *.spec.ts`（文件重命名）
-- 删除：
-  - `packages/openclaw-plugin/index.js`
-  - `packages/opencode-plugin/index.js`
-- `plan.md` / `todo.md`
+## 目标
+- 清理 `docs/` 根目录散落的历史归档文件。
+- 统一归档语义：`plan` 只在 `docs/plans/archive`，`todo` 只在 `docs/todos/archive`。
+- 不丢失历史内容，不做破坏性删除。
 
-## Tasks
-### T1 BDD 文件扩展名迁移
-- 将全部 `*.spec.js` 重命名为 `*.spec.ts`。
-- 不改测试逻辑与断言，仅做后缀迁移。
+## 执行项
+1. 迁移 `docs/plan.archive.*` -> `docs/plans/archive/plan-*.md`。
+2. 迁移 `docs/todo.archive.*` -> `docs/todos/archive/todo-*.md`。
+3. 迁移 `docs/plans/archive/todo-*.md` -> `docs/todos/archive/`，同名文件先比对：
+   - 内容一致：删除来源重复项
+   - 内容不一致：保留并加后缀，避免覆盖
+4. 验证 `docs/` 根目录不再有上述散落归档文件，且 `docs/plans/archive` 不再含 `todo-*`。
 
-### T2 Plugin 入口收敛
-- 删除 plugin 根目录桥接 `index.js`。
-- 保持 `src/index.ts -> dist/index.js` 作为唯一实现链路（`package.json.main` 已指向 `dist/index.js`）。
-
-### T3 回归验证
-- 执行 `npm run --workspace @spanory/cli test:bdd`。
-- 验证 BDD 全量可通过，且没有残留 `bdd/*.spec.js`。
-
-## Acceptance
-1. `rg --files packages/cli/test/bdd | rg '\\.spec\\.js$'` 无输出。
-2. `test:bdd` 通过。
-3. 两个 plugin 目录不再含根 `index.js`。
+## 验收标准
+- `find docs -maxdepth 1 -type f | rg 'plan\.archive|todo\.archive'` 无结果。
+- `find docs/plans/archive -type f | rg '/todo-'` 无结果。
+- `find docs/todos/archive -type f | rg '/todo-'` 有结果且历史数量不减少。

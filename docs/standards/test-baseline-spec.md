@@ -50,7 +50,7 @@ npm run test:bdd
   - 当功能行为变化影响输出语义时，必须在同一提交中更新对应金标。
 - 刷新流程（仅在确认是“有意变更”时）：
 ```bash
-npm run --workspace @spanory/cli test:golden:update
+npm run --workspace @spanory/spanory test:golden:update
 ```
 - 刷新后必须同时提交：
   - 变更原因（为什么输出应变化）

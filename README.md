@@ -44,7 +44,7 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 | `@spanory/backend-langfuse` | Langfuse backend adapter |
 | `@spanory/openclaw-plugin` | OpenClaw plugin for realtime ingestion |
 | `@spanory/opencode-plugin` | OpenCode plugin for realtime ingestion |
-| `@spanory/cli` | Local parser, export CLI, hook handler |
+| `@spanory/spanory` | Local parser, export CLI, hook handler |
 
 ## Project Workflow (Team Style)
 
@@ -111,10 +111,10 @@ shasum -a 256 -c SHA256SUMS.txt
 
 ```bash
 # Run directly (no global install)
-npx @spanory/cli@latest --help
+npx @spanory/spanory@latest --help
 
 # Global install
-npm i -g @spanory/cli
+npm i -g @spanory/spanory
 spanory --help
 ```
 
@@ -404,7 +404,7 @@ CI runs the same gates via `.github/workflows/ci.yml`.
 - CD: `.github/workflows/release.yml`
   - Triggered by tag push: `v*` (for example `v0.2.0`)
   - Verifies quality gates before release
-  - Publishes `@spanory/cli` to npm when `NPM_TOKEN` secret is configured
+  - Publishes `@spanory/spanory` to npm when `NPM_TOKEN` secret is configured
   - `NPM_TOKEN` path: `GitHub Settings > Secrets and variables > Actions`
   - Builds release binaries on Linux/macOS/Windows
   - macOS artifacts include both Apple Silicon (`darwin-arm64`) and Intel (`darwin-x64`)

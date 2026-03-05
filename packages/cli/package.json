@@ -1,5 +1,5 @@
 {
-  "name": "@spanory/cli",
+  "name": "@spanory/spanory",
   "version": "0.1.1",
   "description": "Spanory CLI for cross-runtime agent observability",
   "license": "MIT",

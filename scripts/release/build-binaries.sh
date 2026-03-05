@@ -11,13 +11,13 @@ TARGET="${1:-host}"
 build_host() {
   case "$(uname -s)-$(uname -m)" in
     Darwin-arm64)
-      npm run --workspace @spanory/cli build:bin:macos-arm64
+      npm run --workspace @spanory/spanory build:bin:macos-arm64
       ;;
     Darwin-x86_64)
-      npm run --workspace @spanory/cli build:bin:macos-x64
+      npm run --workspace @spanory/spanory build:bin:macos-x64
       ;;
     Linux-x86_64)
-      npm run --workspace @spanory/cli build:bin:linux-x64
+      npm run --workspace @spanory/spanory build:bin:linux-x64
       ;;
     *)
       echo "Unsupported host platform for host build: $(uname -s)-$(uname -m)" >&2
@@ -27,10 +27,10 @@ build_host() {
 }
 
 build_all() {
-  npm run --workspace @spanory/cli build:bin:macos-arm64
-  npm run --workspace @spanory/cli build:bin:macos-x64
-  npm run --workspace @spanory/cli build:bin:linux-x64
-  npm run --workspace @spanory/cli build:bin:win-x64
+  npm run --workspace @spanory/spanory build:bin:macos-arm64
+  npm run --workspace @spanory/spanory build:bin:macos-x64
+  npm run --workspace @spanory/spanory build:bin:linux-x64
+  npm run --workspace @spanory/spanory build:bin:win-x64
 }
 
 if [[ "$TARGET" == "all" ]]; then

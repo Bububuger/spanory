@@ -10,7 +10,7 @@ Parity matrix is derived from Langfuse OSS ingestion and attribute constants:
 
 ## Scope
 
-Runtime parsers (`@spanory/cli`):
+Runtime parsers (`@spanory/spanory`):
 
 - Claude Code (`claude-code`)
 - Codex (`codex`)

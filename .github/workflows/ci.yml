@@ -61,7 +61,7 @@ jobs:
         run: npm ci
 
       - name: Build Binary
-        run: npm run --workspace @spanory/cli build:bin:linux-x64
+        run: npm run --workspace @spanory/spanory build:bin:linux-x64
 
       - name: Binary Smoke
         run: ./dist/spanory-linux-x64 --help
