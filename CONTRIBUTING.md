@@ -6,6 +6,7 @@
 2. Keep changes small and reviewable. Avoid unrelated refactors.
 3. Run verification locally before commit:
    - `npm run check`
+   - `npm run telemetry:check`
    - `npm test`
 
 ## Commit and Review
@@ -30,12 +31,14 @@
 - Runtime-specific logic must stay behind adapter boundaries.
 - OTLP/Langfuse compatibility changes must include:
   - parity matrix update (`docs/langfuse-parity.md`)
+  - telemetry spec/profile update (`telemetry/*.yaml`) when fields changed
   - tests for any new/changed fields
 
 ## Release Flow
 
 1. Ensure local gates pass:
    - `npm run check`
+   - `npm run telemetry:check`
    - `npm test`
    - `npm run test:bdd`
 2. Create and push a semver tag from `main`:

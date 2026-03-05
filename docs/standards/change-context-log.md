@@ -38,3 +38,10 @@
 - 影响范围：`packages/langfuse`、`package-lock.json`、阶段计划文档。
 - 验证：`test ! -d packages/langfuse`，并确认 `package-lock.json` 无 `@spanory/langfuse|packages/langfuse`；全量门禁通过。
 - 回滚方案：从历史提交恢复 `packages/langfuse` 目录并重新生成 lockfile。
+
+## 2026-03-06 - 遥测字段规范化与 OTel 门禁
+- 背景：runtime/backend/otlp 字段定义分散在代码内，缺少统一字段契约与自动化漂移检测；OTLP resource 仍使用旧键 `deployment.environment`。
+- 决策：新增 `telemetry/*.yaml` 作为字段 source of truth，落地 `extract/sync/diff/validate/report/check` 工具链，CI/release 引入 `telemetry:check` 强门禁；resource 字段切换为 `deployment.environment.name`。
+- 影响范围：`telemetry/*`、`scripts/telemetry/*`、`package.json`、`.github/workflows/{ci,release}.yml`、`packages/otlp-core/src/index.ts`、`docs/standards/*`、`docs/langfuse-parity.md`、测试与 golden fixtures。
+- 验证：`npm run telemetry:extract/diff/validate-mapping/report/check`、`npm run check`、`npm run build`、`npm test`、`npm run test:bdd` 全通过。
+- 回滚方案：回滚本次提交并恢复旧 resource 键；删除 telemetry gate 步骤与 `scripts/telemetry` 新增脚本，恢复原 CI 流程。

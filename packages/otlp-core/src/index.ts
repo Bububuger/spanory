@@ -286,7 +286,7 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
               ? [{ key: 'service.version', value: { stringValue: resource.serviceVersion } }]
               : []),
             ...(resource.environment
-              ? [{ key: 'deployment.environment', value: { stringValue: resource.environment } }]
+              ? [{ key: 'deployment.environment.name', value: { stringValue: resource.environment } }]
               : []),
           ],
         },

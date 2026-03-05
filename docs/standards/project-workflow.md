@@ -20,10 +20,12 @@
 - 先跑最小相关测试，再跑全量门禁。
 - 所有 `存量功能` 和 `新增功能` 都必须维护“同输入同输出”金标测试，不限于重构任务。
 - 每个 bug fix 必须沉淀为长期回归用例，并登记到回归台账。
+- 每次任务结束必须运行 `npm run telemetry:check`，并检查字段增删/弃用对账报告。
 - 发布前必须执行 [Runtime 验收矩阵](./runtime-validation-matrix.md)（覆盖 claude/codex/openclaw/opencode）。
 - 必跑门禁：
 ```bash
 npm run check
+npm run telemetry:check
 npm test
 npm run test:bdd
 ```
@@ -55,6 +57,7 @@ npm run test:bdd
 - 设计文档已更新（如涉及行为/契约变化）。
 - 代码实现与需求一致，无无关改动。
 - 测试与门禁通过（`check/test/test:bdd`）。
+- 遥测字段门禁通过（`telemetry:check`），并有字段变化报告。
 - 受影响功能的金标测试已新增/更新并通过。
 - bug fix 已有可复现回归 case，并完成台账登记（如本次为缺陷修复）。
 - Runtime 验收矩阵已执行并记录证据（尤其是 opencode plugin 路径）。
@@ -68,6 +71,7 @@ npm run test:bdd
 - 文档：
   - `README.md`（用户可见命令/行为变化）
   - `docs/standards/feature-design-spec.md` 对应设计记录
+  - `telemetry/*.yaml`（若涉及字段新增/删除/映射变化）
   - `docs/runtime-capability-matrix.md`（涉及 runtime 能力变化）
   - 相关阶段 `plan.md` / `todo.md`
 - 测试：
@@ -81,6 +85,7 @@ npm run test:bdd
 - 文档：
   - 缺陷原因与修复说明（可放阶段文档或变更记录）
   - `README.md`（若修复影响用户行为）
+  - `telemetry/*.yaml`（若修复涉及字段语义/兼容映射）
 - 测试：
   - 必须新增/更新回归测试（先复现失败，再验证修复）
   - 覆盖最小复现路径与关键边界

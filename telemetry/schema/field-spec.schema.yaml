@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "required": ["spec_version", "fields", "required_field_properties", "deprecated_fields"],
+  "properties": {
+    "spec_version": { "type": "string" },
+    "required_field_properties": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "deprecated_fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "replacement", "policy"],
+        "properties": {
+          "field": { "type": "string" },
+          "replacement": { "type": "string" },
+          "policy": { "type": "string" }
+        }
+      }
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "namespace",
+          "source",
+          "stability",
+          "target_platform",
+          "emit_when",
+          "source_path",
+          "runtime_support",
+          "category_scope",
+          "example_value"
+        ]
+      }
+    }
+  }
+}

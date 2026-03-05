@@ -1,0 +1,1539 @@
+{
+  "spec_version": "1.0.0",
+  "generated_at": "2026-03-06T01:00:00Z",
+  "note": "JSON-compatible YAML. Keep this file parseable by JSON.parse for deterministic CI checks.",
+  "required_field_properties": [
+    "namespace",
+    "source",
+    "stability",
+    "target_platform",
+    "emit_when",
+    "source_path",
+    "runtime_support",
+    "category_scope",
+    "example_value"
+  ],
+  "deprecated_fields": [
+    {
+      "field": "deployment.environment",
+      "replacement": "deployment.environment.name",
+      "since": "otel-semconv-deprecation",
+      "policy": "forbidden",
+      "reason": "OTel resource semantic conventions use deployment.environment.name"
+    }
+  ],
+  "fields": [
+    {
+      "field": "agentic.actor.role",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.actor.role_confidence",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.command.args",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.command.name",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "agentic.event.category",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.input.message_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.input.metadata",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.input.sender",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.mcp.server.name",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "agentic.project.cwd",
+      "namespace": "agentic",
+      "source": "runtime/codex",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "codex runtime session_meta.cwd present",
+      "source_path": [
+        "packages/cli/src/runtime/codex/adapter.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.runtime.name",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "all"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "agentic.runtime.version",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.subagent.calls",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.turn.completed",
+      "namespace": "agentic",
+      "source": "runtime/codex",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "codex runtime turn completion known",
+      "source_path": [
+        "packages/cli/src/runtime/codex/adapter.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.turn.diff.changed",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": false
+    },
+    {
+      "field": "agentic.turn.diff.char_delta",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.turn.diff.line_delta",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.turn.diff.similarity",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.turn.id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "all"
+      ],
+      "example_value": "example-id"
+    },
+    {
+      "field": "agentic.turn.input.hash",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "agentic.turn.input.prev_hash",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "deployment.environment.name",
+      "namespace": "deployment",
+      "source": "otlp-core/resource",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "resource.environment configured",
+      "source_path": [
+        "packages/otlp-core/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "resource"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "gen_ai.operation.name",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "gen_ai.request.model",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "gen_ai.tool.call.id",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-id"
+    },
+    {
+      "field": "gen_ai.tool.name",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "gen_ai.usage.completion_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.details.cache_creation_input_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.details.cache_hit_rate",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "gen_ai.usage.details.cache_read_input_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.input_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.output_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.prompt_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.total_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "input.value",
+      "namespace": "input",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.observation.id",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "event compiled as span",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-id"
+    },
+    {
+      "field": "langfuse.observation.input",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "event compiled as span",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.observation.model.name",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "event compiled as span",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "langfuse.observation.output",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "event compiled as span",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.observation.type",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "event compiled as span",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.observation.usage_details",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "event compiled as span",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.session.id",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "all"
+      ],
+      "example_value": "example-id"
+    },
+    {
+      "field": "langfuse.trace.id",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "turn context resolved",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-id"
+    },
+    {
+      "field": "langfuse.trace.input",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "turn context resolved",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.trace.metadata",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "turn context resolved",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "langfuse.trace.name",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "turn context resolved",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "langfuse.trace.output",
+      "namespace": "langfuse",
+      "source": "backend-langfuse/otlp-core",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "turn context resolved",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "mcp.request.id",
+      "namespace": "mcp",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example-id"
+    },
+    {
+      "field": "output.value",
+      "namespace": "output",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "langfuse"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "process.command_line",
+      "namespace": "process",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "service.name",
+      "namespace": "service",
+      "source": "otlp-core/resource",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "always",
+      "source_path": [
+        "packages/otlp-core/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "resource"
+      ],
+      "example_value": "example-name"
+    },
+    {
+      "field": "service.version",
+      "namespace": "service",
+      "source": "otlp-core/resource",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "resource.serviceVersion configured",
+      "source_path": [
+        "packages/otlp-core/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "resource"
+      ],
+      "example_value": "example"
+    },
+    {
+      "field": "session.id",
+      "namespace": "session",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "derived from event category and context",
+      "source_path": [
+        "packages/otlp-core/src/index.ts",
+        "packages/backend-langfuse/src/index.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "all"
+      ],
+      "example_value": "example-id"
+    }
+  ]
+}

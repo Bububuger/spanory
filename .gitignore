@@ -11,3 +11,7 @@ coverage/
 dist/
 packages/cli/build/
 packages/cli/.tmp/
+
+# telemetry generated artifacts
+telemetry/reports/
+telemetry/spanory-fields.current.yaml

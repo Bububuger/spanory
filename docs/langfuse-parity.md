@@ -35,7 +35,7 @@ transcript/hook context lacks required data.
 |---|---|---|---|---|
 | `service.name` | Yes | Yes | Done | Resource attr |
 | `service.version` | Yes | Yes | Done | Resource attr |
-| `deployment.environment` | Yes | Yes | Done | Resource attr |
+| `deployment.environment.name` | Yes | Yes | Done | Resource attr |
 | `agentic.runtime.name` | Yes (custom) | Yes | Done | Runtime identifier from adapter (e.g. `claude-code`) |
 | `agentic.runtime.version` | Yes (custom) | Yes | Done | Parsed from transcript top-level `version` |
 | `session.id` | Yes | Yes | Done | Added for trace/session linking |

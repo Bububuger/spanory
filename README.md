@@ -51,12 +51,19 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 To keep implementation style and quality consistent across humans and agents, follow the standards workflow first:
 
 - [Project Workflow](docs/standards/project-workflow.md)
+- [Telemetry Field Governance](docs/standards/telemetry-field-governance.md)
 - [Standards Index](docs/standards/README.md)
 
 For new feature or bug fix work, this workflow defines:
 - Required design updates
 - Required test updates
 - Required verification gates before merge
+
+Telemetry field governance gate:
+
+```bash
+npm run telemetry:check
+```
 
 ## Quick Start
 

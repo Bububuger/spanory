@@ -1,0 +1,66 @@
+{
+  "spec_version": "1.0.0",
+  "policy": {
+    "official_first": true,
+    "platform_private_as_projection": true
+  },
+  "platforms": {
+    "langfuse": {
+      "implemented": true,
+      "required_private_fields": [
+        "langfuse.session.id",
+        "langfuse.trace.id",
+        "langfuse.trace.name",
+        "langfuse.trace.metadata",
+        "langfuse.trace.input",
+        "langfuse.trace.output",
+        "langfuse.observation.id",
+        "langfuse.observation.type",
+        "langfuse.observation.input",
+        "langfuse.observation.output",
+        "langfuse.observation.model.name",
+        "langfuse.observation.usage_details",
+        "input.value",
+        "output.value"
+      ],
+      "projection_rules": [
+        {
+          "field": "langfuse.observation.model.name",
+          "mapping_rule": "mirror from gen_ai.request.model when model present",
+          "required": false,
+          "derivable": true,
+          "gap_reason": "absent when transcript has no model"
+        },
+        {
+          "field": "langfuse.observation.usage_details",
+          "mapping_rule": "compose JSON from gen_ai.usage.*",
+          "required": false,
+          "derivable": true,
+          "gap_reason": "absent when usage is unavailable"
+        }
+      ]
+    },
+    "langsmith": {
+      "implemented": false,
+      "template": {
+        "platform": "langsmith",
+        "field": "example.field",
+        "required": false,
+        "derivable": false,
+        "mapping_rule": "TODO",
+        "gap_reason": "not implemented"
+      }
+    },
+    "others": {
+      "implemented": false,
+      "template": {
+        "platform": "others",
+        "field": "example.field",
+        "required": false,
+        "derivable": false,
+        "mapping_rule": "TODO",
+        "gap_reason": "not implemented"
+      }
+    }
+  }
+}
