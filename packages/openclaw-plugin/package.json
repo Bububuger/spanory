@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "main": "index.js",
+  "types": "src/index.ts",
   "openclaw": {
     "extensions": [
       "./index.js"
     ]
   },
   "scripts": {
-    "check": "node -e \"console.log('openclaw-plugin:ok')\"",
-    "build": "node -e \"console.log('openclaw-plugin:build:noop')\"",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('openclaw-plugin:test:noop')\""
   }
 }

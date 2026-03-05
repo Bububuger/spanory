@@ -1,0 +1,348 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "spanory"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.1.0"
+            }
+          },
+          {
+            "key": "deployment.environment",
+            "value": {
+              "stringValue": "test"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "spanory"
+          },
+          "spans": [
+            {
+              "traceId": "16d3c040577bff821ff5d8ecf1c8ba86",
+              "spanId": "ee1a03e8db62d7ea",
+              "name": "Spanory codex - Turn turn-42",
+              "startTimeUnixNano": "1772634230435000000",
+              "endTimeUnixNano": "1772634426324000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "codex"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "16d3c040577bff821ff5d8ecf1c8ba86"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "s-codex"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "s-codex"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "Spanory codex turn-42"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"codex\",\"projectId\":\"p-codex\",\"sessionId\":\"s-codex\",\"turnId\":\"turn-42\"}"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-42"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "run diagnostics"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "done"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "agent"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "ee1a03e8db62d7ea"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "run diagnostics"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "run diagnostics"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "done"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "done"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "16d3c040577bff821ff5d8ecf1c8ba86",
+              "spanId": "2392d055f5f28962",
+              "parentSpanId": "ee1a03e8db62d7ea",
+              "name": "Tool: Bash",
+              "startTimeUnixNano": "1772634230600000000",
+              "endTimeUnixNano": "1772634232100000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "codex"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "16d3c040577bff821ff5d8ecf1c8ba86"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "s-codex"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "s-codex"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "Spanory codex turn-42"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"codex\",\"projectId\":\"p-codex\",\"sessionId\":\"s-codex\",\"turnId\":\"turn-42\"}"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-42"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "call-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "run diagnostics"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "done"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "tool"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "2392d055f5f28962"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "pwd"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "pwd"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "/tmp"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "/tmp"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "16d3c040577bff821ff5d8ecf1c8ba86",
+              "spanId": "9c95e247bf2088e8",
+              "parentSpanId": "ee1a03e8db62d7ea",
+              "name": "Tool: Bash",
+              "startTimeUnixNano": "1772634233000000000",
+              "endTimeUnixNano": "1772634233200000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "codex"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "16d3c040577bff821ff5d8ecf1c8ba86"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "s-codex"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "s-codex"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "Spanory codex turn-42"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"codex\",\"projectId\":\"p-codex\",\"sessionId\":\"s-codex\",\"turnId\":\"turn-42\"}"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-42"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "call-2"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "run diagnostics"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "done"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "tool"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "9c95e247bf2088e8"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "ls"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "ls"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "a\nb"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "a\nb"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

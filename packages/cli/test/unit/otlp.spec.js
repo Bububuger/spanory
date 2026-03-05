@@ -60,6 +60,89 @@ describe('otlp compiler', () => {
     expect(parseHeaders('')).toBeUndefined();
   });
 
+  it('keeps observation ids stable across incremental snapshots of the same turn', () => {
+    const resource = { serviceName: 'spanory', serviceVersion: '0.1.0', environment: 'test' };
+    const snapshotA = [
+      {
+        runtime: 'codex',
+        sessionId: 's-codex',
+        projectId: 'p-codex',
+        turnId: 'turn-42',
+        category: 'turn',
+        name: 'Spanory codex - Turn turn-42',
+        startedAt: '2026-03-04T14:23:50.435Z',
+        endedAt: '2026-03-04T14:23:51.000Z',
+        input: 'run diagnostics',
+        output: '',
+        attributes: {},
+      },
+      {
+        runtime: 'codex',
+        sessionId: 's-codex',
+        projectId: 'p-codex',
+        turnId: 'turn-42',
+        category: 'shell_command',
+        name: 'Tool: Bash',
+        startedAt: '2026-03-04T14:23:50.600Z',
+        endedAt: '2026-03-04T14:23:50.700Z',
+        input: 'pwd',
+        output: '',
+        attributes: {
+          'gen_ai.tool.call.id': 'call-1',
+        },
+      },
+    ];
+    const snapshotB = [
+      {
+        ...snapshotA[0],
+        endedAt: '2026-03-04T14:27:06.324Z',
+        output: 'done',
+      },
+      {
+        ...snapshotA[1],
+        endedAt: '2026-03-04T14:23:52.100Z',
+        output: '/tmp',
+      },
+      {
+        runtime: 'codex',
+        sessionId: 's-codex',
+        projectId: 'p-codex',
+        turnId: 'turn-42',
+        category: 'shell_command',
+        name: 'Tool: Bash',
+        startedAt: '2026-03-04T14:23:53.000Z',
+        endedAt: '2026-03-04T14:23:53.200Z',
+        input: 'ls',
+        output: 'a\nb',
+        attributes: {
+          'gen_ai.tool.call.id': 'call-2',
+        },
+      },
+    ];
+
+    const spansA = compileOtlp(snapshotA, resource).resourceSpans[0].scopeSpans[0].spans;
+    const spansB = compileOtlp(snapshotB, resource).resourceSpans[0].scopeSpans[0].spans;
+    const attrValue = (span, key) => {
+      const item = span.attributes.find((attr) => attr.key === key);
+      if (!item) return undefined;
+      return item.value.stringValue ?? item.value.doubleValue ?? item.value.boolValue;
+    };
+
+    const turnA = spansA.find((span) => span.name === 'Spanory codex - Turn turn-42');
+    const turnB = spansB.find((span) => span.name === 'Spanory codex - Turn turn-42');
+    const call1A = spansA.find((span) => attrValue(span, 'gen_ai.tool.call.id') === 'call-1');
+    const call1B = spansB.find((span) => attrValue(span, 'gen_ai.tool.call.id') === 'call-1');
+
+    expect(turnA).toBeTruthy();
+    expect(turnB).toBeTruthy();
+    expect(call1A).toBeTruthy();
+    expect(call1B).toBeTruthy();
+
+    expect(turnA.spanId).toBe(turnB.spanId);
+    expect(call1A.spanId).toBe(call1B.spanId);
+    expect(call1B.parentSpanId).toBe(turnB.spanId);
+  });
+
   it('keeps parity attrs for openclaw runtime events', () => {
     const events = [
       {

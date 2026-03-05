@@ -238,6 +238,7 @@ spanory runtime opencode plugin doctor
 
 - `install` 会写入 loader 文件到 `~/.config/opencode/plugin/spanory-opencode-plugin.js`。
 - OpenCode 会自动加载该目录下插件文件。
+- 插件运行时会自动尝试读取 `~/.env`（仅补齐缺失变量），用于 GUI 启动 OpenCode 时继承不到 shell 环境的场景。
 
 ### 2) 配置 OTLP 环境变量
 
@@ -262,6 +263,19 @@ export SPANORY_OPENCODE_FLUSH_MODE="turn"
 ### 3) Plugin 运行状态检查
 
 ```bash
+spanory runtime opencode plugin doctor
+```
+
+未上报排查（推荐先看这三项）：
+
+```bash
+# 最近一次发送状态
+cat ~/.config/opencode/state/spanory/plugin-status.json
+
+# 插件详细诊断日志
+tail -n 120 ~/.config/opencode/state/spanory/plugin.log
+
+# 结构化健康检查（含 endpointConfigured 提示）
 spanory runtime opencode plugin doctor
 ```
 

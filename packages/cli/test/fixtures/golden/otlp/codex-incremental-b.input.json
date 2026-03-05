@@ -1,0 +1,52 @@
+{
+  "resource": {
+    "serviceName": "spanory",
+    "serviceVersion": "0.1.0",
+    "environment": "test"
+  },
+  "events": [
+    {
+      "runtime": "codex",
+      "sessionId": "s-codex",
+      "projectId": "p-codex",
+      "turnId": "turn-42",
+      "category": "turn",
+      "name": "Spanory codex - Turn turn-42",
+      "startedAt": "2026-03-04T14:23:50.435Z",
+      "endedAt": "2026-03-04T14:27:06.324Z",
+      "input": "run diagnostics",
+      "output": "done",
+      "attributes": {}
+    },
+    {
+      "runtime": "codex",
+      "sessionId": "s-codex",
+      "projectId": "p-codex",
+      "turnId": "turn-42",
+      "category": "shell_command",
+      "name": "Tool: Bash",
+      "startedAt": "2026-03-04T14:23:50.600Z",
+      "endedAt": "2026-03-04T14:23:52.100Z",
+      "input": "pwd",
+      "output": "/tmp",
+      "attributes": {
+        "gen_ai.tool.call.id": "call-1"
+      }
+    },
+    {
+      "runtime": "codex",
+      "sessionId": "s-codex",
+      "projectId": "p-codex",
+      "turnId": "turn-42",
+      "category": "shell_command",
+      "name": "Tool: Bash",
+      "startedAt": "2026-03-04T14:23:53.000Z",
+      "endedAt": "2026-03-04T14:23:53.200Z",
+      "input": "ls",
+      "output": "a\nb",
+      "attributes": {
+        "gen_ai.tool.call.id": "call-2"
+      }
+    }
+  ]
+}

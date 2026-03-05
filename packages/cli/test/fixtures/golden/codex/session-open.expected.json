@@ -1,0 +1,29 @@
+[
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-open",
+    "turnId": "turn-open-1",
+    "category": "turn",
+    "name": "Spanory codex - Turn turn-open-1",
+    "input": "run ls",
+    "output": "",
+    "attributes": {
+      "agentic.actor.role": "main",
+      "agentic.actor.role_confidence": 0.95,
+      "agentic.event.category": "turn",
+      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.runtime.version": "0.110.0",
+      "agentic.subagent.calls": 0,
+      "agentic.turn.completed": false,
+      "agentic.turn.diff.changed": false,
+      "agentic.turn.diff.char_delta": 0,
+      "agentic.turn.diff.line_delta": 0,
+      "agentic.turn.diff.similarity": 1,
+      "agentic.turn.input.hash": "f661e23bc3590b149f5120175400b7a61cfe34c4ba5c1dbc479d831c13e365d7",
+      "agentic.turn.input.prev_hash": "",
+      "gen_ai.operation.name": "invoke_agent",
+      "langfuse.observation.type": "agent"
+    }
+  }
+]

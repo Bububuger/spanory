@@ -1,39 +1,16 @@
-# Spanory TODO：增加 Codex watcher 兜底实时上报（2026-03-04）
+# Spanory TS 迁移 TODO（收官批次：CLI core + backend + plugins）(2026-03-04)
 
-## T1 阶段初始化
-- [x] 归档旧 `plan.md` 与 `todo.md`
-- [x] 写入本阶段 `plan.md` 与 `todo.md`
+- [x] T0 归档上一阶段 `plan/todo` 并切换收官计划
+- [x] T1 新增/更新各包 tsconfig 与 check/build 脚本
+- [x] T2 剩余源码 `.js -> .ts` 迁移并生成 `.js` 运行文件
+- [x] T3 验收：`npm run build`
+- [x] T3 验收：`npm run check`
+- [x] T3 验收：`npm test`
+- [x] T3 验收：`npm run test:bdd`
 
-验收：
-- [x] `ls -1 docs/plans/archive | tail -n 6`
-- [x] `rg -n "Codex watcher|Acceptance" plan.md todo.md`
-
-## T2 CLI 增加 codex watch
-- [x] 抽取 hook 处理内核为可复用函数
-- [x] 新增 `runtime codex watch`（支持 `--once`、`--poll-ms`、`--settle-ms`）
-- [x] watcher 默认只处理启动后新增/更新，支持 `--include-existing`
-
-验收：
-- [x] `node packages/cli/src/index.js runtime codex watch --help`
-- [x] `rg -n "command\('watch'\)|runCodexWatch|includeExisting" packages/cli/src/index.js`
-
-## T3 测试补齐
-- [x] 新增 BDD：`codex watch --once` 能处理更新会话
-- [x] 运行目标测试
-
-验收：
-- [x] `npm run --workspace @spanory/cli test:bdd -- test/bdd/codex.watch.integration.spec.js`
-
-## T4 文档同步
-- [x] 更新 `README.md` watcher 用法
-- [x] 更新 `docs/README_zh.md` watcher 用法
-
-验收：
-- [x] `rg -n "runtime codex watch|--once|include-existing|watcher" README.md docs/README_zh.md`
-
-## T5 提交与推送
-- [x] 提交
-- [x] 推送
-
-验收：
-- [x] `git status --short`
+## 验证记录（2026-03-04）
+- `npm run build` ✅
+- `npm run check` ✅
+- `npm test` ✅（unit 66 passed）
+- `npm run test:bdd` ✅（bdd 29 passed）
+- 收官核对：`src/*.js` 均已存在对应 `.ts` 源（missing ts pair: 0）✅

@@ -46,6 +46,18 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 | `@spanory/opencode-plugin` | OpenCode plugin for realtime ingestion |
 | `@spanory/cli` | Local parser, export CLI, hook handler |
 
+## Project Workflow (Team Style)
+
+To keep implementation style and quality consistent across humans and agents, follow the standards workflow first:
+
+- [Project Workflow](docs/standards/project-workflow.md)
+- [Standards Index](docs/standards/README.md)
+
+For new feature or bug fix work, this workflow defines:
+- Required design updates
+- Required test updates
+- Required verification gates before merge
+
 ## Quick Start
 
 ### Install
@@ -203,6 +215,11 @@ spanory runtime opencode plugin install
 spanory runtime opencode plugin doctor
 ```
 
+The plugin auto-loads `~/.env` at runtime (only fills missing env vars), so GUI-launched OpenCode can still pick up:
+
+- `OTEL_EXPORTER_OTLP_ENDPOINT`
+- `OTEL_EXPORTER_OTLP_HEADERS`
+
 Trigger mode (recommended realtime by turn):
 
 ```bash
@@ -211,6 +228,19 @@ export SPANORY_OPENCODE_FLUSH_MODE="turn"
 
 # optional: only flush on session lifecycle end events
 # export SPANORY_OPENCODE_FLUSH_MODE="session"
+```
+
+Diagnostics (when "triggered but not reported"):
+
+```bash
+# latest plugin status
+cat ~/.config/opencode/state/spanory/plugin-status.json
+
+# detailed plugin runtime logs
+tail -n 120 ~/.config/opencode/state/spanory/plugin.log
+
+# structured doctor checks (includes endpointConfigured hint)
+spanory runtime opencode plugin doctor
 ```
 
 ### Codex — Session Parse + Notify Hook

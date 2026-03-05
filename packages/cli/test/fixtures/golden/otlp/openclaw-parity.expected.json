@@ -1,0 +1,266 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "spanory"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.1.0"
+            }
+          },
+          {
+            "key": "deployment.environment",
+            "value": {
+              "stringValue": "test"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "spanory"
+          },
+          "spans": [
+            {
+              "traceId": "fc39b8ce22ff44e5ba4dbbe8510c6acd",
+              "spanId": "e38f1e4ab4798870",
+              "name": "Turn 1",
+              "startTimeUnixNano": "1772323200000000000",
+              "endTimeUnixNano": "1772323201000000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "openclaw"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "fc39b8ce22ff44e5ba4dbbe8510c6acd"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "oc-s1"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "oc-s1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "Spanory openclaw turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"openclaw\",\"projectId\":\"oc-p1\",\"sessionId\":\"oc-s1\",\"turnId\":\"turn-1\"}"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.model.name",
+                  "value": {
+                    "stringValue": "openclaw-pro"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "doubleValue": 10
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "doubleValue": 5
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "agent"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "e38f1e4ab4798870"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "fc39b8ce22ff44e5ba4dbbe8510c6acd",
+              "spanId": "20d5abe5bc39160b",
+              "parentSpanId": "e38f1e4ab4798870",
+              "name": "Tool: WebSearch",
+              "startTimeUnixNano": "1772323200200000000",
+              "endTimeUnixNano": "1772323200300000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "openclaw"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "fc39b8ce22ff44e5ba4dbbe8510c6acd"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "oc-s1"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "oc-s1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "Spanory openclaw turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"openclaw\",\"projectId\":\"oc-p1\",\"sessionId\":\"oc-s1\",\"turnId\":\"turn-1\"}"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-1"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "WebSearch"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "call-web-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "tool"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "20d5abe5bc39160b"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "{\"query\":\"langfuse\"}"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "{\"query\":\"langfuse\"}"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "ok"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "ok"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
