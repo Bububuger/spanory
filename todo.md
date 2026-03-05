@@ -1,11 +1,8 @@
-# TODO (2026-03-06) — docs 归并
+# TODO (2026-03-06) — unit JS 清理
 
-- [x] T1 归档当前计划文件并建立本阶段 plan/todo
-- [x] T2 迁移 docs 根目录散落的 plan/todo archive 文件
-- [x] T3 归并 docs/plans/archive 中混放的 todo 文件到 docs/todos/archive
-- [x] T4 结构验收与结果记录
+- [x] T1 unit spec 文件 `.js -> .ts` 重命名
+- [x] T2 运行 unit 回归并记录
 
 ## 验收记录
-- [x] `find docs -maxdepth 1 -type f | rg 'plan\.archive|todo\.archive'` 无结果
-- [x] `find docs/plans/archive -type f | rg '/todo-'` 无结果
-- [x] `find docs/todos/archive -type f | rg '/todo-'` 结果正常（45 个）
+- [x] `rg --files packages/cli/test/unit | rg '\.spec\.js$'` 无输出
+- [x] `npm run --workspace @spanory/spanory test` 通过（14 files / 66 tests）
