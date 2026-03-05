@@ -1,8 +1,8 @@
-# CI Dist 依赖缺失修复 TODO (2026-03-05)
+# BDD TS 化与 Plugin 入口收敛 TODO (2026-03-06)
 
-- [x] T1 修改 `.github/workflows/ci.yml`：`Check` 后增加 `Build`
-- [x] T1 验收：`rg -n "name: Build|run: npm run build" .github/workflows/ci.yml`
-- [x] T2 修改 `.github/workflows/release.yml`：`Check` 后增加 `Build`
-- [x] T2 验收：`rg -n "name: Build|run: npm run build" .github/workflows/release.yml`
-- [x] T3 本地回归：`npm run check && npm run build && npm test`
-- [x] T4 提交推送并观察 CI
+- [x] T1 重命名 `packages/cli/test/bdd/*.spec.js` -> `*.spec.ts`
+- [x] T1 验收：`rg --files packages/cli/test/bdd | rg '\\.spec\\.js$'`
+- [x] T2 删除 `packages/openclaw-plugin/index.js`
+- [x] T2 删除 `packages/opencode-plugin/index.js`
+- [x] T3 验收：`npm run --workspace @spanory/cli test:bdd`
+- [x] T4 汇总结果
