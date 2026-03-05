@@ -14,6 +14,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - New alert session metrics: `cache.read`, `cache.creation`, `cache.hit_rate`, `subagent.calls`, `diff.char_delta.max`.
 - Capture phase design doc for `Claude Code` and `OpenClaw`, plus core type contracts:
   `CaptureAdapter`, `CaptureRecord`, `CaptureRedactionPolicy`.
+- Engineering governance: added `docs/standards/change-context-log.md` and required medium/large changes to record background/decision/impact/verification.
+
+### Changed
+- Runtime/build shape migrated to `TS source + dist runtime artifacts` for active packages; runtime entrypoints now resolve from `dist`.
+
+### Removed
+- Removed unused workspace package `@spanory/langfuse` (`packages/langfuse`) to keep repository and dependency graph clean.
 
 ### Compatibility
 - Backward compatible: no mandatory migration for existing `hook/export/backfill` workflows.
