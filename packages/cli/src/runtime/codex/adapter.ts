@@ -408,7 +408,7 @@ function remapTurnIds(events, turns) {
     return {
       ...event,
       turnId: mappedTurnId,
-      name: event.category === 'turn' ? `Spanory codex - Turn ${mappedTurnId}` : event.name,
+      name: event.category === 'turn' ? `codex - Turn ${mappedTurnId}` : event.name,
     };
   });
 }

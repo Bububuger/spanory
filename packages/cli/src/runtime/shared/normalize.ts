@@ -281,7 +281,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
       sessionId,
       turnId,
       category: 'turn',
-      name: `Spanory ${runtime} - Turn ${turnId}`,
+      name: `${runtime} - Turn ${turnId}`,
       startedAt: start.toISOString(),
       endedAt: end.toISOString(),
       input: normalizedInput.input,

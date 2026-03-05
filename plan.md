@@ -1,16 +1,21 @@
-# Plan (2026-03-06) — unit 测试 JS 文件清理
+# Plan (2026-03-06) — 去掉上报 name 的 Spanory 前缀
 
 ## 背景
-`packages/cli/test/unit` 目录仍有 `.js` 测试文件，和当前测试基线（TS 优先）不一致。
+当前上报的 turn/trace name 带有 `Spanory` 前缀，导致名称冗长。
 
 ## 目标
-- 将 unit 测试 `*.spec.js` 全量迁移为 `*.spec.ts`（仅重命名）。
-- 保证测试行为不变，unit 回归通过。
+- 去掉上报 name 的 `Spanory` 前缀。
+- 保持 runtime 信息与 turn/session 可识别性。
+- 同步更新测试与 golden 期望。
 
 ## 变更范围
-- `packages/cli/test/unit/*.spec.js -> *.spec.ts`
-- `plan.md` / `todo.md`
+- 命名生成：`packages/cli/src/runtime/shared/normalize.ts`
+- codex 特化：`packages/cli/src/runtime/codex/adapter.ts`
+- openclaw plugin：`packages/openclaw-plugin/src/index.ts`
+- trace 名：`packages/otlp-core/src/index.ts`
+- 相关 unit/golden 测试文件
 
 ## 验收标准
-1. `rg --files packages/cli/test/unit | rg '\.spec\.js$'` 无输出。
-2. `npm run --workspace @spanory/spanory test` 通过。
+1. 关键源码中不再出现 `Spanory <runtime> - Turn` 和 `Spanory <runtime> <id>` 模板。
+2. `npm run --workspace @spanory/spanory test:golden:update` 成功。
+3. `npm run --workspace @spanory/spanory test` 成功。

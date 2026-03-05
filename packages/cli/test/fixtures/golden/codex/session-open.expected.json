@@ -5,7 +5,7 @@
     "sessionId": "session-open",
     "turnId": "turn-open-1",
     "category": "turn",
-    "name": "Spanory codex - Turn turn-open-1",
+    "name": "codex - Turn turn-open-1",
     "input": "run ls",
     "output": "",
     "attributes": {

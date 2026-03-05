@@ -5,7 +5,7 @@
     "sessionId": "session-b",
     "turnId": "turn-codex-b-1",
     "category": "turn",
-    "name": "Spanory codex - Turn turn-codex-b-1",
+    "name": "codex - Turn turn-codex-b-1",
     "input": "session-b question",
     "output": "session-b done",
     "attributes": {

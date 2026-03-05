@@ -157,7 +157,7 @@ describe('openclaw plugin runtime', () => {
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
 
-      const turnSpans = spans.filter((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpans = spans.filter((span) => span.name.startsWith('openclaw - Turn'));
       expect(turnSpans.length).toBeGreaterThanOrEqual(2);
 
       const firstTurnAttrs = toAttrMap(turnSpans[0]);
@@ -248,7 +248,7 @@ describe('openclaw plugin runtime', () => {
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
 
-      const turnSpan = spans.find((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpan = spans.find((span) => span.name.startsWith('openclaw - Turn'));
       const bashSpan = spans.find((span) => span.name === 'Tool: Bash');
 
       expect(turnSpan).toBeTruthy();
@@ -338,7 +338,7 @@ describe('openclaw plugin runtime', () => {
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
 
-      const turnSpan = spans.find((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpan = spans.find((span) => span.name.startsWith('openclaw - Turn'));
       const bashSpan = spans.find((span) => span.name === 'Tool: Bash');
 
       expect(turnSpan).toBeTruthy();
@@ -444,7 +444,7 @@ describe('openclaw plugin runtime', () => {
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
 
-      const turnSpan = spans.find((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpan = spans.find((span) => span.name.startsWith('openclaw - Turn'));
       const bashSpan = spans.find((span) => span.name === 'Tool: Bash');
 
       expect(turnSpan).toBeTruthy();
@@ -536,7 +536,7 @@ describe('openclaw plugin runtime', () => {
 
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
-      const turnSpans = spans.filter((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpans = spans.filter((span) => span.name.startsWith('openclaw - Turn'));
       const bashSpan = spans.find((span) => span.name === 'Tool: Bash');
 
       expect(turnSpans.length).toBe(1);
@@ -615,7 +615,7 @@ describe('openclaw plugin runtime', () => {
 
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
-      const turnSpans = spans.filter((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpans = spans.filter((span) => span.name.startsWith('openclaw - Turn'));
 
       expect(turnSpans.length).toBe(1);
       const turnAttrs = toAttrMap(turnSpans[0]);
@@ -690,7 +690,7 @@ describe('openclaw plugin runtime', () => {
 
       const spans = payloads.flatMap((payload) => payload.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? []);
       const toAttrMap = (span) => Object.fromEntries((span.attributes ?? []).map((a) => [a.key, a.value?.stringValue ?? a.value?.doubleValue ?? a.value?.boolValue]));
-      const turnSpans = spans.filter((span) => span.name.startsWith('Spanory openclaw - Turn'));
+      const turnSpans = spans.filter((span) => span.name.startsWith('openclaw - Turn'));
 
       expect(turnSpans.length).toBe(1);
       const turnAttrs = toAttrMap(turnSpans[0]);

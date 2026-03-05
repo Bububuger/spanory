@@ -61,18 +61,6 @@
                   }
                 },
                 {
-                  "key": "langfuse.trace.name",
-                  "value": {
-                    "stringValue": "Spanory openclaw turn-1"
-                  }
-                },
-                {
-                  "key": "langfuse.trace.metadata",
-                  "value": {
-                    "stringValue": "{\"runtime\":\"openclaw\",\"projectId\":\"oc-p1\",\"sessionId\":\"oc-s1\",\"turnId\":\"turn-1\"}"
-                  }
-                },
-                {
                   "key": "agentic.turn.id",
                   "value": {
                     "stringValue": "turn-1"
@@ -94,6 +82,18 @@
                   "key": "gen_ai.usage.output_tokens",
                   "value": {
                     "doubleValue": 5
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "openclaw turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"openclaw\",\"projectId\":\"oc-p1\",\"sessionId\":\"oc-s1\",\"turnId\":\"turn-1\"}"
                   }
                 },
                 {
@@ -179,18 +179,6 @@
                   }
                 },
                 {
-                  "key": "langfuse.trace.name",
-                  "value": {
-                    "stringValue": "Spanory openclaw turn-1"
-                  }
-                },
-                {
-                  "key": "langfuse.trace.metadata",
-                  "value": {
-                    "stringValue": "{\"runtime\":\"openclaw\",\"projectId\":\"oc-p1\",\"sessionId\":\"oc-s1\",\"turnId\":\"turn-1\"}"
-                  }
-                },
-                {
                   "key": "agentic.turn.id",
                   "value": {
                     "stringValue": "turn-1"
@@ -206,6 +194,18 @@
                   "key": "gen_ai.tool.call.id",
                   "value": {
                     "stringValue": "call-web-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "openclaw turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"openclaw\",\"projectId\":\"oc-p1\",\"sessionId\":\"oc-s1\",\"turnId\":\"turn-1\"}"
                   }
                 },
                 {

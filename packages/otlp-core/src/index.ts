@@ -179,7 +179,7 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
 
     if (!traceContextByTurn.has(turnKey)) {
       traceContextByTurn.set(turnKey, {
-        traceName: `Spanory ${event.runtime} ${event.turnId ?? event.sessionId}`,
+        traceName: `${event.runtime} ${event.turnId ?? event.sessionId}`,
         traceMetadata: JSON.stringify({
           runtime: event.runtime,
           projectId: event.projectId,
@@ -246,10 +246,11 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
       'langfuse.trace.id': traceId,
       'langfuse.session.id': event.sessionId,
       'session.id': event.sessionId,
-      'langfuse.trace.name': traceContext.traceName,
-      'langfuse.trace.metadata': traceContext.traceMetadata,
       ...(event.turnId ? { 'agentic.turn.id': event.turnId } : {}),
       ...(event.attributes ?? {}),
+      // Keep trace identity naming canonical even if upstream event attrs carry stale values.
+      'langfuse.trace.name': traceContext.traceName,
+      'langfuse.trace.metadata': traceContext.traceMetadata,
       ...(traceContext.hasTurnEvent
         ? {
             'langfuse.trace.input': traceContext.traceInput,

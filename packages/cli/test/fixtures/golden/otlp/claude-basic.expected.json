@@ -61,21 +61,21 @@
                   }
                 },
                 {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-1"
+                  }
+                },
+                {
                   "key": "langfuse.trace.name",
                   "value": {
-                    "stringValue": "Spanory claude-code turn-1"
+                    "stringValue": "claude-code turn-1"
                   }
                 },
                 {
                   "key": "langfuse.trace.metadata",
                   "value": {
                     "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"golden-p1\",\"sessionId\":\"golden-s1\",\"turnId\":\"turn-1\"}"
-                  }
-                },
-                {
-                  "key": "agentic.turn.id",
-                  "value": {
-                    "stringValue": "turn-1"
                   }
                 },
                 {
@@ -161,18 +161,6 @@
                   }
                 },
                 {
-                  "key": "langfuse.trace.name",
-                  "value": {
-                    "stringValue": "Spanory claude-code turn-1"
-                  }
-                },
-                {
-                  "key": "langfuse.trace.metadata",
-                  "value": {
-                    "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"golden-p1\",\"sessionId\":\"golden-s1\",\"turnId\":\"turn-1\"}"
-                  }
-                },
-                {
                   "key": "agentic.turn.id",
                   "value": {
                     "stringValue": "turn-1"
@@ -182,6 +170,18 @@
                   "key": "gen_ai.tool.call.id",
                   "value": {
                     "stringValue": "call-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "claude-code turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"golden-p1\",\"sessionId\":\"golden-s1\",\"turnId\":\"turn-1\"}"
                   }
                 },
                 {

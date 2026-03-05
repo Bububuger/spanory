@@ -69,7 +69,7 @@ describe('otlp compiler', () => {
         projectId: 'p-codex',
         turnId: 'turn-42',
         category: 'turn',
-        name: 'Spanory codex - Turn turn-42',
+        name: 'codex - Turn turn-42',
         startedAt: '2026-03-04T14:23:50.435Z',
         endedAt: '2026-03-04T14:23:51.000Z',
         input: 'run diagnostics',
@@ -128,8 +128,8 @@ describe('otlp compiler', () => {
       return item.value.stringValue ?? item.value.doubleValue ?? item.value.boolValue;
     };
 
-    const turnA = spansA.find((span) => span.name === 'Spanory codex - Turn turn-42');
-    const turnB = spansB.find((span) => span.name === 'Spanory codex - Turn turn-42');
+    const turnA = spansA.find((span) => span.name === 'codex - Turn turn-42');
+    const turnB = spansB.find((span) => span.name === 'codex - Turn turn-42');
     const call1A = spansA.find((span) => attrValue(span, 'gen_ai.tool.call.id') === 'call-1');
     const call1B = spansB.find((span) => attrValue(span, 'gen_ai.tool.call.id') === 'call-1');
 

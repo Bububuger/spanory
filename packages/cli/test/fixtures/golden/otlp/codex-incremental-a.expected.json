@@ -32,7 +32,7 @@
             {
               "traceId": "16d3c040577bff821ff5d8ecf1c8ba86",
               "spanId": "ee1a03e8db62d7ea",
-              "name": "Spanory codex - Turn turn-42",
+              "name": "codex - Turn turn-42",
               "startTimeUnixNano": "1772634230435000000",
               "endTimeUnixNano": "1772634231000000000",
               "attributes": [
@@ -61,21 +61,21 @@
                   }
                 },
                 {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-42"
+                  }
+                },
+                {
                   "key": "langfuse.trace.name",
                   "value": {
-                    "stringValue": "Spanory codex turn-42"
+                    "stringValue": "codex turn-42"
                   }
                 },
                 {
                   "key": "langfuse.trace.metadata",
                   "value": {
                     "stringValue": "{\"runtime\":\"codex\",\"projectId\":\"p-codex\",\"sessionId\":\"s-codex\",\"turnId\":\"turn-42\"}"
-                  }
-                },
-                {
-                  "key": "agentic.turn.id",
-                  "value": {
-                    "stringValue": "turn-42"
                   }
                 },
                 {
@@ -149,18 +149,6 @@
                   }
                 },
                 {
-                  "key": "langfuse.trace.name",
-                  "value": {
-                    "stringValue": "Spanory codex turn-42"
-                  }
-                },
-                {
-                  "key": "langfuse.trace.metadata",
-                  "value": {
-                    "stringValue": "{\"runtime\":\"codex\",\"projectId\":\"p-codex\",\"sessionId\":\"s-codex\",\"turnId\":\"turn-42\"}"
-                  }
-                },
-                {
                   "key": "agentic.turn.id",
                   "value": {
                     "stringValue": "turn-42"
@@ -170,6 +158,18 @@
                   "key": "gen_ai.tool.call.id",
                   "value": {
                     "stringValue": "call-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "codex turn-42"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"codex\",\"projectId\":\"p-codex\",\"sessionId\":\"s-codex\",\"turnId\":\"turn-42\"}"
                   }
                 },
                 {
