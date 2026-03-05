@@ -1,261 +1,245 @@
+// @ts-nocheck
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-
 function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
 }
-
 function toOptionalNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
 }
-
 function round6(value) {
-  return Number(Number(value).toFixed(6));
+    return Number(Number(value).toFixed(6));
 }
-
 function parseTurnOrdinal(turnId) {
-  const m = String(turnId ?? '').match(/^turn-(\d+)$/);
-  if (!m) return undefined;
-  const n = Number(m[1]);
-  return Number.isFinite(n) ? n : undefined;
+    const m = String(turnId ?? '').match(/^turn-(\d+)$/);
+    if (!m)
+        return undefined;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : undefined;
 }
-
 function usageFromEvent(event) {
-  const attrs = event.attributes ?? {};
-  const input = toNumber(attrs['gen_ai.usage.input_tokens']);
-  const output = toNumber(attrs['gen_ai.usage.output_tokens']);
-  const total = toNumber(attrs['gen_ai.usage.total_tokens']) || input + output;
-  return { input, output, total };
+    const attrs = event.attributes ?? {};
+    const input = toNumber(attrs['gen_ai.usage.input_tokens']);
+    const output = toNumber(attrs['gen_ai.usage.output_tokens']);
+    const total = toNumber(attrs['gen_ai.usage.total_tokens']) || input + output;
+    return { input, output, total };
 }
-
 export async function loadExportedEvents(inputPath) {
-  const inputStat = await stat(inputPath);
-  const files = [];
-
-  if (inputStat.isDirectory()) {
-    const names = await readdir(inputPath);
-    for (const name of names) {
-      if (name.endsWith('.json')) files.push(path.join(inputPath, name));
+    const inputStat = await stat(inputPath);
+    const files = [];
+    if (inputStat.isDirectory()) {
+        const names = await readdir(inputPath);
+        for (const name of names) {
+            if (name.endsWith('.json'))
+                files.push(path.join(inputPath, name));
+        }
     }
-  } else {
-    files.push(inputPath);
-  }
-
-  const sessions = [];
-  for (const file of files) {
-    const raw = await readFile(file, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.events)) continue;
-    sessions.push({
-      file,
-      context: parsed.context ?? {},
-      events: parsed.events,
-    });
-  }
-  return sessions;
+    else {
+        files.push(inputPath);
+    }
+    const sessions = [];
+    for (const file of files) {
+        const raw = await readFile(file, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.events))
+            continue;
+        sessions.push({
+            file,
+            context: parsed.context ?? {},
+            events: parsed.events,
+        });
+    }
+    return sessions;
 }
-
 export function summarizeSessions(sessions) {
-  return sessions.map((s) => {
-    const turns = s.events.filter((e) => e.category === 'turn');
-    const usage = turns.reduce(
-      (acc, e) => {
-        const u = usageFromEvent(e);
-        acc.input += u.input;
-        acc.output += u.output;
-        acc.total += u.total;
-        return acc;
-      },
-      { input: 0, output: 0, total: 0 },
-    );
-
-    return {
-      projectId: s.context.projectId ?? s.events[0]?.projectId,
-      sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
-      runtime: s.events[0]?.runtime,
-      turns: turns.length,
-      events: s.events.length,
-      usage,
-    };
-  });
+    return sessions.map((s) => {
+        const turns = s.events.filter((e) => e.category === 'turn');
+        const usage = turns.reduce((acc, e) => {
+            const u = usageFromEvent(e);
+            acc.input += u.input;
+            acc.output += u.output;
+            acc.total += u.total;
+            return acc;
+        }, { input: 0, output: 0, total: 0 });
+        return {
+            projectId: s.context.projectId ?? s.events[0]?.projectId,
+            sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
+            runtime: s.events[0]?.runtime,
+            turns: turns.length,
+            events: s.events.length,
+            usage,
+        };
+    });
 }
-
 export function summarizeMcp(sessions) {
-  const agg = new Map();
-  for (const s of sessions) {
-    for (const e of s.events) {
-      if (e.category !== 'mcp') continue;
-      const attrs = e.attributes ?? {};
-      const key = attrs['agentic.mcp.server.name'] ?? attrs['gen_ai.tool.name'] ?? e.name;
-      const cur = agg.get(key) ?? { server: key, calls: 0, sessions: new Set() };
-      cur.calls += 1;
-      cur.sessions.add(e.sessionId);
-      agg.set(key, cur);
+    const agg = new Map();
+    for (const s of sessions) {
+        for (const e of s.events) {
+            if (e.category !== 'mcp')
+                continue;
+            const attrs = e.attributes ?? {};
+            const key = attrs['agentic.mcp.server.name'] ?? attrs['gen_ai.tool.name'] ?? e.name;
+            const cur = agg.get(key) ?? { server: key, calls: 0, sessions: new Set() };
+            cur.calls += 1;
+            cur.sessions.add(e.sessionId);
+            agg.set(key, cur);
+        }
     }
-  }
-  return [...agg.values()].map((v) => ({ server: v.server, calls: v.calls, sessions: v.sessions.size }));
+    return [...agg.values()].map((v) => ({ server: v.server, calls: v.calls, sessions: v.sessions.size }));
 }
-
 export function summarizeCommands(sessions) {
-  const agg = new Map();
-  for (const s of sessions) {
-    for (const e of s.events) {
-      if (e.category !== 'agent_command') continue;
-      const command = e.attributes?.['agentic.command.name'] ?? e.name;
-      const cur = agg.get(command) ?? { command, calls: 0, sessions: new Set() };
-      cur.calls += 1;
-      cur.sessions.add(e.sessionId);
-      agg.set(command, cur);
+    const agg = new Map();
+    for (const s of sessions) {
+        for (const e of s.events) {
+            if (e.category !== 'agent_command')
+                continue;
+            const command = e.attributes?.['agentic.command.name'] ?? e.name;
+            const cur = agg.get(command) ?? { command, calls: 0, sessions: new Set() };
+            cur.calls += 1;
+            cur.sessions.add(e.sessionId);
+            agg.set(command, cur);
+        }
     }
-  }
-  return [...agg.values()].map((v) => ({ command: v.command, calls: v.calls, sessions: v.sessions.size }));
+    return [...agg.values()].map((v) => ({ command: v.command, calls: v.calls, sessions: v.sessions.size }));
 }
-
 export function summarizeAgents(sessions) {
-  const out = [];
-  for (const s of sessions) {
-    const turns = s.events.filter((e) => e.category === 'turn');
-    const tasks = s.events.filter((e) => e.category === 'agent_task');
-    const shell = s.events.filter((e) => e.category === 'shell_command');
-    const mcp = s.events.filter((e) => e.category === 'mcp');
-
-    const usage = turns.reduce(
-      (acc, e) => {
-        const u = usageFromEvent(e);
-        acc.input += u.input;
-        acc.output += u.output;
-        acc.total += u.total;
-        return acc;
-      },
-      { input: 0, output: 0, total: 0 },
-    );
-
-    out.push({
-      sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
-      projectId: s.context.projectId ?? s.events[0]?.projectId,
-      runtime: s.events[0]?.runtime,
-      turns: turns.length,
-      agentTasks: tasks.length,
-      shellCommands: shell.length,
-      mcpCalls: mcp.length,
-      usage,
-    });
-  }
-  return out;
+    const out = [];
+    for (const s of sessions) {
+        const turns = s.events.filter((e) => e.category === 'turn');
+        const tasks = s.events.filter((e) => e.category === 'agent_task');
+        const shell = s.events.filter((e) => e.category === 'shell_command');
+        const mcp = s.events.filter((e) => e.category === 'mcp');
+        const usage = turns.reduce((acc, e) => {
+            const u = usageFromEvent(e);
+            acc.input += u.input;
+            acc.output += u.output;
+            acc.total += u.total;
+            return acc;
+        }, { input: 0, output: 0, total: 0 });
+        out.push({
+            sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
+            projectId: s.context.projectId ?? s.events[0]?.projectId,
+            runtime: s.events[0]?.runtime,
+            turns: turns.length,
+            agentTasks: tasks.length,
+            shellCommands: shell.length,
+            mcpCalls: mcp.length,
+            usage,
+        });
+    }
+    return out;
 }
-
 export function summarizeCache(sessions) {
-  return sessions.map((s) => {
-    const turns = s.events.filter((e) => e.category === 'turn');
-    let inputTokens = 0;
-    let cacheReadInputTokens = 0;
-    let cacheCreationInputTokens = 0;
-    const explicitHitRates = [];
-
-    for (const turn of turns) {
-      const attrs = turn.attributes ?? {};
-      inputTokens += toNumber(attrs['gen_ai.usage.input_tokens']);
-      cacheReadInputTokens += toNumber(attrs['gen_ai.usage.details.cache_read_input_tokens']);
-      cacheCreationInputTokens += toNumber(attrs['gen_ai.usage.details.cache_creation_input_tokens']);
-      const hitRate = toOptionalNumber(attrs['gen_ai.usage.details.cache_hit_rate']);
-      if (hitRate !== undefined) explicitHitRates.push(hitRate);
-    }
-
-    const cacheHitRate = explicitHitRates.length > 0
-      ? round6(explicitHitRates.reduce((acc, v) => acc + v, 0) / explicitHitRates.length)
-      : round6((inputTokens + cacheReadInputTokens) > 0 ? cacheReadInputTokens / (inputTokens + cacheReadInputTokens) : 0);
-
-    return {
-      projectId: s.context.projectId ?? s.events[0]?.projectId,
-      sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
-      runtime: s.events[0]?.runtime,
-      turns: turns.length,
-      inputTokens,
-      cacheReadInputTokens,
-      cacheCreationInputTokens,
-      cacheHitRate,
-    };
-  });
-}
-
-export function summarizeTools(sessions) {
-  const agg = new Map();
-  for (const s of sessions) {
-    for (const e of s.events) {
-      if (!['tool', 'mcp', 'shell_command', 'agent_task'].includes(e.category)) continue;
-      const attrs = e.attributes ?? {};
-      const tool = attrs['gen_ai.tool.name'] ?? e.name;
-      const key = `${e.category}:${tool}`;
-      const cur = agg.get(key) ?? {
-        category: e.category,
-        tool,
-        calls: 0,
-        sessions: new Set(),
-      };
-      cur.calls += 1;
-      cur.sessions.add(e.sessionId);
-      agg.set(key, cur);
-    }
-  }
-
-  return [...agg.values()]
-    .map((v) => ({
-      category: v.category,
-      tool: v.tool,
-      calls: v.calls,
-      sessions: v.sessions.size,
-    }))
-    .sort((a, b) => {
-      if (b.calls !== a.calls) return b.calls - a.calls;
-      if (a.category !== b.category) return a.category.localeCompare(b.category);
-      return a.tool.localeCompare(b.tool);
+    return sessions.map((s) => {
+        const turns = s.events.filter((e) => e.category === 'turn');
+        let inputTokens = 0;
+        let cacheReadInputTokens = 0;
+        let cacheCreationInputTokens = 0;
+        const explicitHitRates = [];
+        for (const turn of turns) {
+            const attrs = turn.attributes ?? {};
+            inputTokens += toNumber(attrs['gen_ai.usage.input_tokens']);
+            cacheReadInputTokens += toNumber(attrs['gen_ai.usage.details.cache_read_input_tokens']);
+            cacheCreationInputTokens += toNumber(attrs['gen_ai.usage.details.cache_creation_input_tokens']);
+            const hitRate = toOptionalNumber(attrs['gen_ai.usage.details.cache_hit_rate']);
+            if (hitRate !== undefined)
+                explicitHitRates.push(hitRate);
+        }
+        const cacheHitRate = explicitHitRates.length > 0
+            ? round6(explicitHitRates.reduce((acc, v) => acc + v, 0) / explicitHitRates.length)
+            : round6((inputTokens + cacheReadInputTokens) > 0 ? cacheReadInputTokens / (inputTokens + cacheReadInputTokens) : 0);
+        return {
+            projectId: s.context.projectId ?? s.events[0]?.projectId,
+            sessionId: s.context.sessionId ?? s.events[0]?.sessionId,
+            runtime: s.events[0]?.runtime,
+            turns: turns.length,
+            inputTokens,
+            cacheReadInputTokens,
+            cacheCreationInputTokens,
+            cacheHitRate,
+        };
     });
 }
-
-export function summarizeTurnDiff(sessions) {
-  const rows = [];
-  for (const s of sessions) {
-    const turns = s.events
-      .filter((e) => e.category === 'turn')
-      .slice()
-      .sort((a, b) => {
-        const ao = parseTurnOrdinal(a.turnId);
-        const bo = parseTurnOrdinal(b.turnId);
-        if (ao === undefined && bo === undefined) return String(a.turnId ?? '').localeCompare(String(b.turnId ?? ''));
-        if (ao === undefined) return 1;
-        if (bo === undefined) return -1;
-        return ao - bo;
-      });
-
-    for (let i = 0; i < turns.length; i += 1) {
-      const turn = turns[i];
-      const attrs = turn.attributes ?? {};
-      const input = String(turn.input ?? '');
-      const prevInput = String(turns[i - 1]?.input ?? '');
-      const charDelta = toOptionalNumber(attrs['agentic.turn.diff.char_delta'])
-        ?? (i === 0 ? 0 : input.length - prevInput.length);
-      const lineDelta = toOptionalNumber(attrs['agentic.turn.diff.line_delta'])
-        ?? (i === 0 ? 0 : (input ? input.split(/\r?\n/).length : 0) - (prevInput ? prevInput.split(/\r?\n/).length : 0));
-      const similarity = toOptionalNumber(attrs['agentic.turn.diff.similarity']) ?? (i === 0 ? 1 : undefined);
-      const changed = typeof attrs['agentic.turn.diff.changed'] === 'boolean'
-        ? attrs['agentic.turn.diff.changed']
-        : (i === 0 ? false : input !== prevInput);
-
-      rows.push({
-        projectId: s.context.projectId ?? turn.projectId,
-        sessionId: s.context.sessionId ?? turn.sessionId,
-        runtime: turn.runtime,
-        turnId: turn.turnId,
-        inputHash: attrs['agentic.turn.input.hash'] ?? '',
-        prevHash: attrs['agentic.turn.input.prev_hash'] ?? '',
-        charDelta,
-        lineDelta,
-        similarity,
-        changed,
-      });
+export function summarizeTools(sessions) {
+    const agg = new Map();
+    for (const s of sessions) {
+        for (const e of s.events) {
+            if (!['tool', 'mcp', 'shell_command', 'agent_task'].includes(e.category))
+                continue;
+            const attrs = e.attributes ?? {};
+            const tool = attrs['gen_ai.tool.name'] ?? e.name;
+            const key = `${e.category}:${tool}`;
+            const cur = agg.get(key) ?? {
+                category: e.category,
+                tool,
+                calls: 0,
+                sessions: new Set(),
+            };
+            cur.calls += 1;
+            cur.sessions.add(e.sessionId);
+            agg.set(key, cur);
+        }
     }
-  }
-  return rows;
+    return [...agg.values()]
+        .map((v) => ({
+        category: v.category,
+        tool: v.tool,
+        calls: v.calls,
+        sessions: v.sessions.size,
+    }))
+        .sort((a, b) => {
+        if (b.calls !== a.calls)
+            return b.calls - a.calls;
+        if (a.category !== b.category)
+            return a.category.localeCompare(b.category);
+        return a.tool.localeCompare(b.tool);
+    });
+}
+export function summarizeTurnDiff(sessions) {
+    const rows = [];
+    for (const s of sessions) {
+        const turns = s.events
+            .filter((e) => e.category === 'turn')
+            .slice()
+            .sort((a, b) => {
+            const ao = parseTurnOrdinal(a.turnId);
+            const bo = parseTurnOrdinal(b.turnId);
+            if (ao === undefined && bo === undefined)
+                return String(a.turnId ?? '').localeCompare(String(b.turnId ?? ''));
+            if (ao === undefined)
+                return 1;
+            if (bo === undefined)
+                return -1;
+            return ao - bo;
+        });
+        for (let i = 0; i < turns.length; i += 1) {
+            const turn = turns[i];
+            const attrs = turn.attributes ?? {};
+            const input = String(turn.input ?? '');
+            const prevInput = String(turns[i - 1]?.input ?? '');
+            const charDelta = toOptionalNumber(attrs['agentic.turn.diff.char_delta'])
+                ?? (i === 0 ? 0 : input.length - prevInput.length);
+            const lineDelta = toOptionalNumber(attrs['agentic.turn.diff.line_delta'])
+                ?? (i === 0 ? 0 : (input ? input.split(/\r?\n/).length : 0) - (prevInput ? prevInput.split(/\r?\n/).length : 0));
+            const similarity = toOptionalNumber(attrs['agentic.turn.diff.similarity']) ?? (i === 0 ? 1 : undefined);
+            const changed = typeof attrs['agentic.turn.diff.changed'] === 'boolean'
+                ? attrs['agentic.turn.diff.changed']
+                : (i === 0 ? false : input !== prevInput);
+            rows.push({
+                projectId: s.context.projectId ?? turn.projectId,
+                sessionId: s.context.sessionId ?? turn.sessionId,
+                runtime: turn.runtime,
+                turnId: turn.turnId,
+                inputHash: attrs['agentic.turn.input.hash'] ?? '',
+                prevHash: attrs['agentic.turn.input.prev_hash'] ?? '',
+                charDelta,
+                lineDelta,
+                similarity,
+                changed,
+            });
+        }
+    }
+    return rows;
 }

@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "main": "index.js",
+  "types": "src/index.ts",
   "scripts": {
-    "check": "node -e \"console.log('opencode-plugin:ok')\"",
-    "build": "node -e \"console.log('opencode-plugin:build:noop')\"",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('opencode-plugin:test:noop')\""
   }
 }

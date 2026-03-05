@@ -14,5 +14,9 @@
     "test:bdd": "npm run --workspace @spanory/cli test:bdd",
     "build:bin": "bash scripts/release/build-binaries.sh",
     "package:release-assets": "bash scripts/release/package-release-assets.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^24.4.0",
+    "typescript": "^5.9.2"
   }
 }

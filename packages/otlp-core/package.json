@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "main": "src/index.js",
+  "types": "src/index.ts",
   "scripts": {
-    "check": "node -e \"console.log('otlp-core:ok')\"",
-    "build": "node -e \"console.log('otlp-core:build:noop')\"",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('otlp-core:test:noop')\""
   }
 }

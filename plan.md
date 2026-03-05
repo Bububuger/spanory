@@ -1,37 +1,32 @@
-# Codex 重复节点去重修复 Plan (2026-03-04)
+# Spanory TS 迁移 Plan（收官批次：CLI core + backend + plugins）(2026-03-04)
 
 ## Goal
-修复 Codex session 在 Langfuse 中出现大量 `Spanory codex - Turn ...` 重复节点的问题，确保同一 turn/tool 在增量导出时复用同一 observation id。
-
-## Root Cause (已验证)
-- watcher 在一个 turn 进行期间会多次触发增量导出（这是预期行为）。
-- `compileOtlpSpans` 当前 span id 计算包含 `endedAt/output/idx` 等会变化的字段。
-- 同一 turn 每次导出都会生成新的 `langfuse.observation.id`，因此在 Langfuse 侧表现为重复节点。
+完成剩余源码模块的 TypeScript 源迁移，形成“TS 源 + 生成 JS 运行文件”的统一工程形态。
 
 ## Scope
-- `packages/otlp-core/src/index.js`
-- `packages/cli/src/runtime/codex/adapter.js`
-- `packages/cli/test/unit/otlp.spec.js`
-- `packages/cli/test/unit/codex.adapter.spec.js`
+- `packages/cli/src/{index,env,otlp,alert/report}`
+- `packages/backend-langfuse/src/index`
+- `packages/openclaw-plugin/src/index`
+- `packages/opencode-plugin/src/index`
+- `packages/otlp-core` build 脚本对齐 TS
+- 各包 tsconfig 与 scripts
+- 全量门禁验证
 
 ## Tasks
-### T1 稳定化 Span Identity
-- 在 OTLP 编译阶段为不同事件构建稳定 identity key：
-  - turn: `runtime/projectId/sessionId/turnId/category`
-  - tool/mcp/agent_task: 优先 `gen_ai.tool.call.id` 或 `mcp.request.id`
-  - 其他事件保留兼容 fallback，但不依赖易变字段。
-- 目标：同一事件的 observation id 在增量导出中保持不变。
+### T1 基建与脚本对齐
+- 为 backend/openclaw-plugin/opencode-plugin 增加 tsconfig 与 check/build 脚本。
+- 对齐 otlp-core build 到 tsc。
 
-### T2 Codex Turn 完成态可观测
-- 在 codex adapter 的 turn 事件上增加 `agentic.turn.completed`，区分进行中与已完成 turn。
-- 作为诊断维度，便于后续排查“为什么会有频繁增量导出”。
+### T2 剩余源码迁移
+- 将上述剩余 `.js` 源迁移为 `.ts`。
+- 使用 tsc 生成同路径 `.js` 运行文件，保持入口与 import 契约不变。
 
-### T3 测试与验收
-- OTLP 单测覆盖：同一 turn 两次快照（output/tool 增加）应产出相同 turn/tool observation id。
-- Codex adapter 单测覆盖：有 `task_complete` 时 completed=true，未完成 turn 为 false。
-- 执行相关测试并通过。
+### T3 验收
+- 分包 build/check。
+- 全仓门禁：`npm run check && npm test && npm run test:bdd`。
 
 ## Acceptance
-1. `npm run --workspace @spanory/cli test -- test/unit/otlp.spec.js`
-2. `npm run --workspace @spanory/cli test -- test/unit/codex.adapter.spec.js`
-3. 针对目标 session 增量切片验证：turn observation id 不再变化。
+1. `npm run build`
+2. `npm run check`
+3. `npm test`
+4. `npm run test:bdd`

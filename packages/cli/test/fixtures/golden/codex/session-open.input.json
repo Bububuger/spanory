@@ -1,0 +1,7 @@
+{
+  "context": {
+    "projectId": "codex-test",
+    "sessionId": "session-open",
+    "transcriptPath": "test/fixtures/codex/sessions/session-open.jsonl"
+  }
+}
