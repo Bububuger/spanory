@@ -303,19 +303,23 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const resultByToolId = new Map();
   for (const msg of messages) {
     if (msg.role !== 'user') continue;
+    const resultAt = isoFromUnknownTimestamp(msg.timestamp, end);
     for (const tr of extractToolResults(msg.content)) {
       const toolUseId = String(tr.tool_use_id ?? tr.toolUseId ?? '');
       if (!toolUseId) continue;
       const content = extractToolResultText(tr, msg);
-      if (!resultByToolId.has(toolUseId) || !resultByToolId.get(toolUseId)) {
-        resultByToolId.set(toolUseId, content);
+      if (!resultByToolId.has(toolUseId) || !resultByToolId.get(toolUseId)?.content) {
+        resultByToolId.set(toolUseId, { content, endedAt: resultAt });
       }
     }
 
     if (msg.sourceToolUseId) {
       const fallback = extractToolResultText({}, msg);
-      if (fallback && (!resultByToolId.has(msg.sourceToolUseId) || !resultByToolId.get(msg.sourceToolUseId))) {
-        resultByToolId.set(msg.sourceToolUseId, fallback);
+      if (
+        fallback
+        && (!resultByToolId.has(msg.sourceToolUseId) || !resultByToolId.get(msg.sourceToolUseId)?.content)
+      ) {
+        resultByToolId.set(msg.sourceToolUseId, { content: fallback, endedAt: resultAt });
       }
     }
   }
@@ -379,8 +383,10 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
       const toolName = String(tu.name ?? '');
       const toolId = String(tu.id ?? '');
       const toolInput = tu.input ?? {};
-      const toolOutput = resultByToolId.get(toolId) ?? '';
+      const toolResult = resultByToolId.get(toolId);
+      const toolOutput = toolResult?.content ?? '';
       const t = assistant.timestamp.toISOString();
+      const toolEndedAt = toolResult?.endedAt ?? t;
 
       if (toolName === 'Bash') {
         const commandLine = String(toolInput.command ?? '');
@@ -392,7 +398,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           category: 'shell_command',
           name: 'Tool: Bash',
           startedAt: t,
-          endedAt: t,
+          endedAt: toolEndedAt,
           input: commandLine,
           output: toolOutput,
           attributes: {
@@ -420,7 +426,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           category: 'mcp',
           name: `Tool: ${toolName}`,
           startedAt: t,
-          endedAt: t,
+          endedAt: toolEndedAt,
           input: JSON.stringify(toolInput),
           output: toolOutput,
           attributes: {
@@ -447,7 +453,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           category: 'agent_task',
           name: 'Tool: Task',
           startedAt: t,
-          endedAt: t,
+          endedAt: toolEndedAt,
           input: JSON.stringify(toolInput),
           output: toolOutput,
           attributes: {
@@ -473,7 +479,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           category: 'tool',
           name: `Tool: ${toolName}`,
           startedAt: t,
-          endedAt: t,
+          endedAt: toolEndedAt,
           input: JSON.stringify(toolInput),
           output: toolOutput,
           attributes: {

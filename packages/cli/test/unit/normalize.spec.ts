@@ -3,6 +3,51 @@ import { describe, expect, it } from 'vitest';
 import { normalizeTranscriptMessages } from '../../src/runtime/shared/normalize.ts';
 
 describe('normalizeTranscriptMessages', () => {
+  it('uses tool_result timestamp as tool end time when available', () => {
+    const messages = [
+      {
+        role: 'user',
+        isMeta: false,
+        content: 'run command',
+        timestamp: new Date('2026-03-03T03:00:00.000Z'),
+      },
+      {
+        role: 'assistant',
+        isMeta: false,
+        content: [{ type: 'tool_use', id: 'bash-1', name: 'Bash', input: { command: 'pwd' } }],
+        model: 'gpt-5.3-codex',
+        usage: { input_tokens: 10, output_tokens: 3, total_tokens: 13 },
+        timestamp: new Date('2026-03-03T03:00:01.000Z'),
+      },
+      {
+        role: 'user',
+        isMeta: false,
+        content: [{ type: 'tool_result', tool_use_id: 'bash-1', content: '/tmp' }],
+        timestamp: new Date('2026-03-03T03:00:04.500Z'),
+      },
+      {
+        role: 'assistant',
+        isMeta: false,
+        content: [{ type: 'text', text: 'done' }],
+        model: 'gpt-5.3-codex',
+        usage: { input_tokens: 5, output_tokens: 2, total_tokens: 7 },
+        timestamp: new Date('2026-03-03T03:00:05.000Z'),
+      },
+    ];
+
+    const events = normalizeTranscriptMessages({
+      runtime: 'codex',
+      projectId: 'p-codex',
+      sessionId: 's-codex',
+      messages,
+    });
+
+    const bash = events.find((event) => event.category === 'shell_command');
+    expect(bash).toBeTruthy();
+    expect(bash.startedAt).toBe('2026-03-03T03:00:01.000Z');
+    expect(bash.endedAt).toBe('2026-03-03T03:00:04.500Z');
+  });
+
   it('adds turn hash/diff/actor/subagent/cache attributes', () => {
     const messages = [
       {
