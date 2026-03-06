@@ -45,3 +45,10 @@
 - 影响范围：`telemetry/*`、`scripts/telemetry/*`、`package.json`、`.github/workflows/{ci,release}.yml`、`packages/otlp-core/src/index.ts`、`docs/standards/*`、`docs/langfuse-parity.md`、测试与 golden fixtures。
 - 验证：`npm run telemetry:extract/diff/validate-mapping/report/check`、`npm run check`、`npm run build`、`npm test`、`npm run test:bdd` 全通过。
 - 回滚方案：回滚本次提交并恢复旧 resource 键；删除 telemetry gate 步骤与 `scripts/telemetry` 新增脚本，恢复原 CI 流程。
+
+## 2026-03-06 - 固化 ClickHouse 排障与本地 E2E 验收记忆
+- 背景：近期多次排查 Langfuse/ClickHouse 中的 trace、observation、runtime 实时上报问题，关键经验主要存在于会话上下文中，压缩后容易丢失。
+- 决策：不新增散落记忆文件，直接将 ClickHouse 查询模板沉淀到 `agent-onboarding`，将“重建本机二进制 -> 触发真实对话 -> 本地导出 -> ClickHouse 复核”的端到端验收闭环沉淀到 `runtime-validation-matrix`。
+- 影响范围：`docs/standards/agent-onboarding.md`、`docs/standards/runtime-validation-matrix.md`、阶段计划文档与 release 发布步骤。
+- 验证：文档中已包含 `FINAL` 查询原则、`session_id -> trace_id -> observations` 查询模板，以及本地真实对话验收命令；本次修复已通过本地导出与 ClickHouse 双重验证。
+- 回滚方案：回滚本次文档提交；若流程需要重写，以 `change-context-log` 中本条记录为基线重新整理。
