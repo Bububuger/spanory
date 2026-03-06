@@ -5,7 +5,7 @@
 - [x] T3 在 `runtime-validation-matrix.md` 记录本地真实对话验收闭环
 - [x] T4 在 `change-context-log.md` 追加本次背景记录
 - [x] T5 运行最小校验并记录结果
-- [ ] T6 提交并打新 tag 推送远端
+- [x] T6 提交并打新 tag 推送远端
 
 ## 验收记录
 - [x] 已归档上一阶段 `plan.md` / `todo.md`
@@ -15,4 +15,6 @@
 - [x] `npm run telemetry:check`
 - [x] `npm test`
 - [x] `npm run test:bdd`
-- [ ] 新版本 tag 已推送远端
+- [x] 提交：`ce32473 docs(standards): persist clickhouse and e2e release memory`
+- [x] tag：`v0.1.13`
+- [x] 新版本 tag 已推送远端
