@@ -107,6 +107,7 @@ jobs:
     needs: verify
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    environment: release
     timeout-minutes: 15
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

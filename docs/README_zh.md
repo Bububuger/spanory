@@ -524,7 +524,7 @@ npm i -g @bububuger/spanory
 spanory --help
 ```
 
-维护者发布提示：GitHub Actions 自动发布 npm 需要配置 `NPM_TOKEN`（路径：`Settings > Secrets and variables > Actions`）。
+维护者发布提示：GitHub Actions 自动发布 npm 需要在 `release` environment 中配置 `NPM_TOKEN`（路径：`Settings > Environments > release`）。
 
 ### 方式 C：从源码安装 CLI
 

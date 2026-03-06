@@ -411,8 +411,8 @@ CI runs the same gates via `.github/workflows/ci.yml`.
 - CD: `.github/workflows/release.yml`
   - Triggered by tag push: `v*` (for example `v0.2.0`)
   - Verifies quality gates before release
-  - Publishes `@bububuger/spanory` to npm when `NPM_TOKEN` secret is configured
-  - `NPM_TOKEN` path: `GitHub Settings > Secrets and variables > Actions`
+  - Publishes `@bububuger/spanory` to npm when `NPM_TOKEN` is configured in the `release` environment
+  - `NPM_TOKEN` path: `GitHub Settings > Environments > release`
   - Builds release binaries on Linux/macOS/Windows
   - macOS artifacts include both Apple Silicon (`darwin-arm64`) and Intel (`darwin-x64`)
   - Packages archives (`tar.gz` / `zip`) and `SHA256SUMS.txt`

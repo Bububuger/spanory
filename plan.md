@@ -1,27 +1,25 @@
-# Plan (2026-03-06) — 统一 npm Scope 为 @bububuger
+# Plan (2026-03-07) — 显式绑定 Release Environment
 
 ## 背景
-当前 npm 发布卡在 `@bububuger/*` scope 权限上。用户已明确决定将整个对外 npm scope 统一改为 `@bububuger/*`，并要求保持 CLI、plugin、release workflow、README 与仓库内部 workspace 引用一致。
+本轮已经确认 npm 发布成功依赖正确的 repository secret。为避免后续再把 `NPM_TOKEN` 更新到 GitHub Environment 却不生效，需要让 release workflow 显式绑定固定 environment，使 secret 来源单一且可见。
 
 ## 目标
-- 将 CLI 与 plugin 包名从 `@bububuger/*` 统一迁移到 `@bububuger/*`
-- 同步修正 build / publish / README / 文档中的 workspace 与安装命令
-- 保持 CLI 命令名 `spanory`、二进制产物名、runtime 行为不变
+- 在 release workflow 中为 npm 发布 job 显式绑定 `release` environment
+- 在中英文 README 中明确 `NPM_TOKEN` 的配置位置改为 `Environments > release`
+- 不改变现有发布逻辑、scope、二进制构建与 runtime 行为
 
 ## 变更范围
 - 文档流程：`plan.md`、`todo.md`
-- 包定义：`packages/*/package.json`、根 `package.json`、`package-lock.json`
-- 发布链路：`.github/workflows/release.yml`、`scripts/release/*`（如有必要）
-- 文档：`README.md`、`docs/README_zh.md`、相关 standards / parity / changelog
+- 工作流：`.github/workflows/release.yml`
+- 文档：`README.md`、`docs/README_zh.md`
 
 ## 实施方案
-1. 归档当前阶段 `plan.md/todo.md`，建立 scope 迁移阶段计划。
-2. 统一修改所有活跃包名与 workspace 引用到 `@bububuger/*`。
-3. 修正 release workflow、README 与安装命令，确保 npm publish 与用户文档一致。
-4. 重新生成 lockfile，并用最小命令验证 pack/build/test 链路。
-5. 验收通过后提交；如需发布，再打新 tag。
+1. 归档上一阶段 `plan.md/todo.md`，切到 environment 绑定阶段。
+2. 为 `publish-npm` job 增加 `environment: release`。
+3. 将 README 中 `NPM_TOKEN` 的配置路径统一改为 `Settings > Environments > release`。
+4. 运行最小校验，确认 YAML 可解析且文案一致。
 
 ## 验收标准
-1. 业务文件中不再残留 `@bububuger/spanory`、`@bububuger/spanory-openclaw-plugin`、`@bububuger/spanory-opencode-plugin`。
-2. `npm pack --workspace @bububuger/spanory --dry-run` 成功，并显示新包名。
-3. `npm run check`、`npm test`、`npm run test:bdd` 通过。
+1. `publish-npm` job 显式声明 `environment: release`。
+2. README / 中文 README 对 `NPM_TOKEN` 的说明与 workflow 一致。
+3. 相关文件通过最小校验。
