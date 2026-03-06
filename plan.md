@@ -1,27 +1,27 @@
-# Plan (2026-03-06) — 固化排障记忆并发布新版本
+# Plan (2026-03-06) — 统一 npm Scope 为 @bububuger
 
 ## 背景
-本轮已经完成 codex tool duration 修复，并在本地导出与 ClickHouse 中完成了端到端验证。为了避免上下文压缩后丢失关键排障与验收经验，需要把“ClickHouse 查询方法”和“本地真实对话验收闭环”沉淀进仓库现有标准文档，同时发布一个新版本承载该修复。
+当前 npm 发布卡在 `@bububuger/*` scope 权限上。用户已明确决定将整个对外 npm scope 统一改为 `@bububuger/*`，并要求保持 CLI、plugin、release workflow、README 与仓库内部 workspace 引用一致。
 
 ## 目标
-- 将 ClickHouse / Langfuse 查询方法写入长期标准文档
-- 将本地真实对话端到端验收流程写入 runtime 验收标准
-- 补变更背景记录并发布一个新的 semver tag
+- 将 CLI 与 plugin 包名从 `@bububuger/*` 统一迁移到 `@bububuger/*`
+- 同步修正 build / publish / README / 文档中的 workspace 与安装命令
+- 保持 CLI 命令名 `spanory`、二进制产物名、runtime 行为不变
 
 ## 变更范围
 - 文档流程：`plan.md`、`todo.md`
-- 长期记忆：`docs/standards/agent-onboarding.md`、`docs/standards/runtime-validation-matrix.md`
-- 变更台账：`docs/standards/change-context-log.md`
-- 发布：git tag / remote push
+- 包定义：`packages/*/package.json`、根 `package.json`、`package-lock.json`
+- 发布链路：`.github/workflows/release.yml`、`scripts/release/*`（如有必要）
+- 文档：`README.md`、`docs/README_zh.md`、相关 standards / parity / changelog
 
 ## 实施方案
-1. 归档当前阶段 `plan.md/todo.md`，写入本阶段目标与验收标准。
-2. 在 `agent-onboarding` 中补 ClickHouse 查询手册，覆盖 `session -> trace -> observation` 层级、`FINAL` 语义、典型查询模板。
-3. 在 runtime 验收矩阵中补本地真实对话验收闭环，覆盖二进制重建、覆盖安装、本地导出、`jq` 验证、ClickHouse 验证。
-4. 在变更背景记录台账中补本次长期记忆与发布背景。
-5. 运行最小文档/仓库校验，提交并打新 tag 发布。
+1. 归档当前阶段 `plan.md/todo.md`，建立 scope 迁移阶段计划。
+2. 统一修改所有活跃包名与 workspace 引用到 `@bububuger/*`。
+3. 修正 release workflow、README 与安装命令，确保 npm publish 与用户文档一致。
+4. 重新生成 lockfile，并用最小命令验证 pack/build/test 链路。
+5. 验收通过后提交；如需发布，再打新 tag。
 
 ## 验收标准
-1. 项目标准文档中已能找到 ClickHouse 查询方法与本地 E2E 验收流程。
-2. 相关文档路径纳入新 agent 上手入口，避免记忆丢失。
-3. 变更已提交并打出新 tag 推送远端。
+1. 业务文件中不再残留 `@bububuger/spanory`、`@bububuger/spanory-openclaw-plugin`、`@bububuger/spanory-opencode-plugin`。
+2. `npm pack --workspace @bububuger/spanory --dry-run` 成功，并显示新包名。
+3. `npm run check`、`npm test`、`npm run test:bdd` 通过。

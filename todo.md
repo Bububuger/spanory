@@ -1,20 +1,16 @@
-# TODO (2026-03-06) — 固化排障记忆并发布新版本
+# TODO (2026-03-06) — 统一 npm Scope 为 @bububuger
 
 - [x] T1 归档当前计划文件并建立本阶段 plan/todo
-- [x] T2 在 `agent-onboarding.md` 记录 ClickHouse / trace 查询手册
-- [x] T3 在 `runtime-validation-matrix.md` 记录本地真实对话验收闭环
-- [x] T4 在 `change-context-log.md` 追加本次背景记录
-- [x] T5 运行最小校验并记录结果
-- [x] T6 提交并打新 tag 推送远端
+- [x] T2 统一活跃包名与 workspace 引用到 `@bububuger/*`
+- [x] T3 修正文档与 release publish 说明
+- [x] T4 更新 lockfile 并执行最小发布链路验证
+- [x] T5 运行 `check/test/test:bdd`
+- [ ] T6 提交并视情况准备新 tag
 
 ## 验收记录
 - [x] 已归档上一阶段 `plan.md` / `todo.md`
-- [x] 标准文档已包含 ClickHouse 查询模板
-- [x] 标准文档已包含本地 E2E 验收闭环
+- [x] 业务文件已无旧 `@spanory/*` 活跃 npm scope 残留
+- [x] `npm pack --workspace @bububuger/spanory --dry-run`
 - [x] `npm run check`
-- [x] `npm run telemetry:check`
 - [x] `npm test`
 - [x] `npm run test:bdd`
-- [x] 提交：`ce32473 docs(standards): persist clickhouse and e2e release memory`
-- [x] tag：`v0.1.13`
-- [x] 新版本 tag 已推送远端

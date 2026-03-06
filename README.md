@@ -39,12 +39,12 @@ RuntimeAdapter → Canonical Events → BackendAdapter → OTLP Core → OTLP HT
 
 | Package | Description |
 |---------|-------------|
-| `@spanory/core` | Normalized schema, parser interfaces, mapping contracts (TypeScript) |
-| `@spanory/otlp-core` | OTLP compile & send transport |
-| `@spanory/backend-langfuse` | Langfuse backend adapter |
-| `@spanory/openclaw-plugin` | OpenClaw plugin for realtime ingestion |
-| `@spanory/opencode-plugin` | OpenCode plugin for realtime ingestion |
-| `@spanory/spanory` | Local parser, export CLI, hook handler |
+| `@bububuger/core` | Normalized schema, parser interfaces, mapping contracts (TypeScript) |
+| `@bububuger/otlp-core` | OTLP compile & send transport |
+| `@bububuger/backend-langfuse` | Langfuse backend adapter |
+| `@bububuger/spanory-openclaw-plugin` | OpenClaw plugin for realtime ingestion |
+| `@bububuger/spanory-opencode-plugin` | OpenCode plugin for realtime ingestion |
+| `@bububuger/spanory` | Local parser, export CLI, hook handler |
 
 ## Project Workflow (Team Style)
 
@@ -118,10 +118,10 @@ shasum -a 256 -c SHA256SUMS.txt
 
 ```bash
 # Run directly (no global install)
-npx @spanory/spanory@latest --help
+npx @bububuger/spanory@latest --help
 
 # Global install
-npm i -g @spanory/spanory
+npm i -g @bububuger/spanory
 spanory --help
 ```
 
@@ -411,7 +411,7 @@ CI runs the same gates via `.github/workflows/ci.yml`.
 - CD: `.github/workflows/release.yml`
   - Triggered by tag push: `v*` (for example `v0.2.0`)
   - Verifies quality gates before release
-  - Publishes `@spanory/spanory` to npm when `NPM_TOKEN` secret is configured
+  - Publishes `@bububuger/spanory` to npm when `NPM_TOKEN` secret is configured
   - `NPM_TOKEN` path: `GitHub Settings > Secrets and variables > Actions`
   - Builds release binaries on Linux/macOS/Windows
   - macOS artifacts include both Apple Silicon (`darwin-arm64`) and Intel (`darwin-x64`)

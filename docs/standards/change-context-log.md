@@ -36,7 +36,7 @@
 - 背景：`packages/langfuse` 已不在运行链路中，仅保留历史占位，且入口配置与实际文件不一致，增加认知噪音。
 - 决策：删除 `packages/langfuse` 目录并清理 lockfile 残留条目，保持仓库干净。
 - 影响范围：`packages/langfuse`、`package-lock.json`、阶段计划文档。
-- 验证：`test ! -d packages/langfuse`，并确认 `package-lock.json` 无 `@spanory/langfuse|packages/langfuse`；全量门禁通过。
+- 验证：`test ! -d packages/langfuse`，并确认 `package-lock.json` 无旧 `langfuse` workspace 残留；全量门禁通过。
 - 回滚方案：从历史提交恢复 `packages/langfuse` 目录并重新生成 lockfile。
 
 ## 2026-03-06 - 遥测字段规范化与 OTel 门禁

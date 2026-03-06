@@ -12,16 +12,16 @@ $Target = if ($args.Count -gt 0) { $args[0] } else { "host" }
 
 function Build-Host {
   if ($IsWindows) {
-    npm run --workspace @spanory/spanory build:bin:win-x64
+    npm run --workspace @bububuger/spanory build:bin:win-x64
   } else {
     throw "Unsupported host for this PowerShell build script."
   }
 }
 
 function Build-All {
-  npm run --workspace @spanory/spanory build:bin:macos-arm64
-  npm run --workspace @spanory/spanory build:bin:linux-x64
-  npm run --workspace @spanory/spanory build:bin:win-x64
+  npm run --workspace @bububuger/spanory build:bin:macos-arm64
+  npm run --workspace @bububuger/spanory build:bin:linux-x64
+  npm run --workspace @bububuger/spanory build:bin:win-x64
 }
 
 if ($Target -eq "all") {

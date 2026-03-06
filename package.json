@@ -11,7 +11,7 @@
     "check": "npm run --workspaces check",
     "build": "npm run --workspaces build",
     "test": "npm run --workspaces test",
-    "test:bdd": "npm run --workspace @spanory/spanory test:bdd",
+    "test:bdd": "npm run --workspace @bububuger/spanory test:bdd",
     "telemetry:extract": "node scripts/telemetry/extract-spanory-fields.mjs",
     "telemetry:sync-otel-semconv": "node scripts/telemetry/sync-otel-semconv.mjs",
     "telemetry:diff": "node scripts/telemetry/diff-fields.mjs",

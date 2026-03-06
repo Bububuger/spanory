@@ -58,22 +58,22 @@ jobs:
           - os: ubuntu-latest
             artifact_name: spanory-linux-x64
             artifact_path: dist/spanory-linux-x64
-            build_command: npm run --workspace @spanory/spanory build:bin:linux-x64
+            build_command: npm run --workspace @bububuger/spanory build:bin:linux-x64
             smoke_command: ./dist/spanory-linux-x64 --help
           - os: macos-14
             artifact_name: spanory-macos-arm64
             artifact_path: dist/spanory-macos-arm64
-            build_command: npm run --workspace @spanory/spanory build:bin:macos-arm64
+            build_command: npm run --workspace @bububuger/spanory build:bin:macos-arm64
             smoke_command: ./dist/spanory-macos-arm64 --help
           - os: macos-14
             artifact_name: spanory-macos-x64
             artifact_path: dist/spanory-macos-x64
-            build_command: npm run --workspace @spanory/spanory build:bin:macos-x64
+            build_command: npm run --workspace @bububuger/spanory build:bin:macos-x64
             smoke_command: ./dist/spanory-macos-x64 --help
           - os: windows-latest
             artifact_name: spanory-win-x64.exe
             artifact_path: dist/spanory-win-x64.exe
-            build_command: npm run --workspace @spanory/spanory build:bin:win-x64
+            build_command: npm run --workspace @bububuger/spanory build:bin:win-x64
             smoke_command: .\\dist\\spanory-win-x64.exe --help
 
     steps:
@@ -126,14 +126,14 @@ jobs:
 
       - name: Sync CLI Version With Tag
         if: env.NPM_TOKEN != ''
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @spanory/spanory
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @bububuger/spanory
 
       - name: Build Before Publish
         run: npm run build
 
       - name: Publish CLI To npm
         if: env.NPM_TOKEN != ''
-        run: npm publish --workspace @spanory/spanory --access public
+        run: npm publish --workspace @bububuger/spanory --access public
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 

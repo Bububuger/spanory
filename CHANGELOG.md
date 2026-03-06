@@ -20,7 +20,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Runtime/build shape migrated to `TS source + dist runtime artifacts` for active packages; runtime entrypoints now resolve from `dist`.
 
 ### Removed
-- Removed unused workspace package `@spanory/langfuse` (`packages/langfuse`) to keep repository and dependency graph clean.
+- Removed unused workspace package `@bububuger/langfuse` (`packages/langfuse`) to keep repository and dependency graph clean.
 
 ### Compatibility
 - Backward compatible: no mandatory migration for existing `hook/export/backfill` workflows.
@@ -36,7 +36,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [0.1.0] - 2026-02-28
 
 ### Added
-- Workspace bootstrap for `@spanory/core`, `@spanory/spanory`, and `@spanory/langfuse`.
+- Workspace bootstrap for `@bububuger/core`, `@bububuger/spanory`, and `@bububuger/langfuse`.
 - Claude Code runtime adapter (transcript parsing and category mapping).
 - OTLP payload compiler and sender for Langfuse-compatible ingestion.
 - SessionEnd hook wrappers for macOS and starter wrappers for Linux/Windows.

@@ -517,10 +517,10 @@ shasum -a 256 -c SHA256SUMS.txt
 
 ```bash
 # 直接运行（无需全局安装）
-npx @spanory/spanory@latest --help
+npx @bububuger/spanory@latest --help
 
 # 全局安装
-npm i -g @spanory/spanory
+npm i -g @bububuger/spanory
 spanory --help
 ```
 
