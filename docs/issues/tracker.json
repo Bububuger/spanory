@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-08T18:05:12.476Z",
+  "updatedAt": "2026-03-08T18:06:48.254Z",
   "issues": [
     {
       "id": "AUTO-20260309-GHAPI",
@@ -10,10 +10,11 @@
       "owner": "codex",
       "priority": "high",
       "nextAction": "网络恢复后执行 gh issue list 并逐项推进",
-      "updatedAt": "2026-03-08T18:05:12.475Z",
+      "updatedAt": "2026-03-08T18:06:48.253Z",
       "notes": [
         "2026-03-09: gh issue list 返回 error connecting to api.github.com",
-        "2026-03-08: network unreachable"
+        "2026-03-08: network unreachable",
+        "2026-03-08: git push/gh pr create failed: cannot resolve github.com"
       ]
     }
   ]
