@@ -26,6 +26,15 @@ import {
   summarizeTools,
   summarizeTurnDiff,
 } from './report/aggregate.js';
+import {
+  loadIssueState,
+  parsePendingTodoItems,
+  resolveIssueStatePath,
+  resolveTodoPath,
+  saveIssueState,
+  setIssueStatus,
+  syncIssueState,
+} from './issue/state.js';
 
 const runtimeAdapters = {
   'claude-code': claudeCodeAdapter,
@@ -1746,6 +1755,67 @@ alert
     if (options.failOnAlert && alerts.length > 0) {
       process.exitCode = 2;
     }
+  });
+
+const issue = program.command('issue').description('Manage local issue status for automation巡检');
+
+issue
+  .command('sync')
+  .description('Sync pending items from todo.md into issue state file')
+  .option('--todo-file <path>', 'Path to todo markdown file (default: ./todo.md)')
+  .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
+  .action(async (options) => {
+    const todoFile = resolveTodoPath(options.todoFile);
+    const stateFile = resolveIssueStatePath(options.stateFile);
+    const todoRaw = await readFile(todoFile, 'utf-8');
+    const pending = parsePendingTodoItems(todoRaw, 'todo.md');
+    const prev = await loadIssueState(stateFile);
+    const result = syncIssueState(prev, pending);
+    await saveIssueState(stateFile, result.state);
+    console.log(JSON.stringify({
+      stateFile,
+      todoFile,
+      pending: pending.length,
+      added: result.added,
+      reopened: result.reopened,
+      autoClosed: result.autoClosed,
+      total: result.state.issues.length,
+    }, null, 2));
+  });
+
+issue
+  .command('list')
+  .description('List issues from state file')
+  .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
+  .option('--status <status>', 'Filter by status: open,in_progress,blocked,done')
+  .action(async (options) => {
+    const stateFile = resolveIssueStatePath(options.stateFile);
+    const state = await loadIssueState(stateFile);
+    const statusFilter = options.status ? String(options.status).trim() : '';
+    const rows = statusFilter
+      ? state.issues.filter((item) => item.status === statusFilter)
+      : state.issues;
+    console.log(JSON.stringify({ stateFile, total: rows.length, issues: rows }, null, 2));
+  });
+
+issue
+  .command('set-status')
+  .description('Update one issue status in state file')
+  .requiredOption('--id <id>', 'Issue id, e.g. T2')
+  .requiredOption('--status <status>', 'Target status: open|in_progress|blocked|done')
+  .option('--note <text>', 'Optional status note')
+  .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
+  .action(async (options) => {
+    const stateFile = resolveIssueStatePath(options.stateFile);
+    const prev = await loadIssueState(stateFile);
+    const next = setIssueStatus(prev, {
+      id: options.id,
+      status: options.status,
+      note: options.note,
+    });
+    await saveIssueState(stateFile, next);
+    const issueItem = next.issues.find((item) => item.id === options.id);
+    console.log(JSON.stringify({ stateFile, issue: issueItem }, null, 2));
   });
 
 program

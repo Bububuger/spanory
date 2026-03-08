@@ -1,25 +1,31 @@
-# Plan (2026-03-07) — 显式绑定 Release Environment
+# Plan (2026-03-09) — Issue 巡检与状态管理
 
 ## 背景
-本轮已经确认 npm 发布成功依赖正确的 repository secret。为避免后续再把 `NPM_TOKEN` 更新到 GitHub Environment 却不生效，需要让 release workflow 显式绑定固定 environment，使 secret 来源单一且可见。
+自动化目标是“巡检 spanory 项目，逐一处理 issue，并提交 PR”。当前仓库缺少可持续的 issue 状态台账与命令化流转，导致自动化轮询无法稳定续跑。
 
 ## 目标
-- 在 release workflow 中为 npm 发布 job 显式绑定 `release` environment
-- 在中英文 README 中明确 `NPM_TOKEN` 的配置位置改为 `Environments > release`
-- 不改变现有发布逻辑、scope、二进制构建与 runtime 行为
+- 增加本地 issue 状态管理（状态机 + 持久化）
+- 支持从 `todo.md` 未完成项同步 issue 清单
+- 支持 issue 列表与状态更新命令
+- 用当前未完成项完成一次“逐项处理”闭环
 
 ## 变更范围
 - 文档流程：`plan.md`、`todo.md`
-- 工作流：`.github/workflows/release.yml`
-- 文档：`README.md`、`docs/README_zh.md`
+- CLI 实现：`packages/cli/src/index.ts`
+- issue 模块：`packages/cli/src/issue/state.ts`
+- 单测：`packages/cli/test/unit/issue.state.spec.ts`
+- 状态文件：`docs/issues/state.json`
+- 说明文档：`docs/issues/README.md`
 
 ## 实施方案
-1. 归档上一阶段 `plan.md/todo.md`，切到 environment 绑定阶段。
-2. 为 `publish-npm` job 增加 `environment: release`。
-3. 将 README 中 `NPM_TOKEN` 的配置路径统一改为 `Settings > Environments > release`。
-4. 运行最小校验，确认 YAML 可解析且文案一致。
+1. 新增 issue 状态模块，定义 `open/in_progress/blocked/done` 与基本流转。
+2. 在 CLI 增加 `spanory issue sync|list|set-status` 子命令。
+3. 从 `todo.md` 同步未完成任务到状态文件，执行一次巡检并更新状态。
+4. 补单测覆盖同步、状态更新、异常分支。
+5. 运行最小验收并更新 todo 勾选。
 
 ## 验收标准
-1. `publish-npm` job 显式声明 `environment: release`。
-2. README / 中文 README 对 `NPM_TOKEN` 的说明与 workflow 一致。
-3. 相关文件通过最小校验。
+1. `spanory issue sync` 能从 `todo.md` 生成/更新 `docs/issues/state.json`。
+2. `spanory issue list` 能输出 issue 与状态。
+3. `spanory issue set-status --id <id> --status <status>` 生效并持久化。
+4. 新增单测通过，相关命令执行通过。

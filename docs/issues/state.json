@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "updatedAt": "2026-03-08T17:07:54.871Z",
+  "issues": [
+    {
+      "id": "T2",
+      "title": "实现 issue 状态管理模块与 CLI 子命令",
+      "source": "todo.md",
+      "status": "done",
+      "notes": [
+        "synced from todo pending item",
+        "auto-closed because todo item is no longer pending"
+      ],
+      "createdAt": "2026-03-08T17:06:56.406Z",
+      "updatedAt": "2026-03-08T17:07:36.647Z",
+      "closedAt": "2026-03-08T17:07:36.647Z"
+    },
+    {
+      "id": "T3",
+      "title": "补充 issue 状态管理单测",
+      "source": "todo.md",
+      "status": "done",
+      "notes": [
+        "synced from todo pending item",
+        "auto-closed because todo item is no longer pending"
+      ],
+      "createdAt": "2026-03-08T17:06:56.406Z",
+      "updatedAt": "2026-03-08T17:07:36.647Z",
+      "closedAt": "2026-03-08T17:07:36.647Z"
+    },
+    {
+      "id": "T4",
+      "title": "同步并巡检当前 issue，逐项更新状态",
+      "source": "todo.md",
+      "status": "done",
+      "notes": [
+        "synced from todo pending item",
+        "auto-closed because todo item is no longer pending"
+      ],
+      "createdAt": "2026-03-08T17:06:56.406Z",
+      "updatedAt": "2026-03-08T17:07:36.647Z",
+      "closedAt": "2026-03-08T17:07:36.647Z"
+    },
+    {
+      "id": "T5",
+      "title": "运行最小验收并记录证据",
+      "source": "todo.md",
+      "status": "done",
+      "notes": [
+        "synced from todo pending item",
+        "auto-closed because todo item is no longer pending"
+      ],
+      "createdAt": "2026-03-08T17:06:56.406Z",
+      "updatedAt": "2026-03-08T17:07:36.647Z",
+      "closedAt": "2026-03-08T17:07:36.647Z"
+    },
+    {
+      "id": "T6",
+      "title": "提交改动并准备 PR",
+      "source": "todo.md",
+      "status": "in_progress",
+      "notes": [
+        "synced from todo pending item",
+        "开始提交与PR准备"
+      ],
+      "createdAt": "2026-03-08T17:06:56.406Z",
+      "updatedAt": "2026-03-08T17:07:54.871Z"
+    }
+  ]
+}

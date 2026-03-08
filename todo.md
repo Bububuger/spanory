@@ -1,15 +1,16 @@
-# TODO (2026-03-07) — 显式绑定 Release Environment
+# TODO (2026-03-09) — Issue 巡检与状态管理
 
-- [x] T1 归档当前计划文件并建立本阶段 plan/todo
-- [x] T2 为 `publish-npm` job 绑定 `release` environment
-- [x] T3 更新 README / 中文 README 中的 `NPM_TOKEN` 配置路径
-- [x] T4 运行最小校验并记录结果
-- [ ] T5 提交改动
+- [x] T1 归档上一阶段 `plan.md/todo.md` 并创建本阶段计划
+- [x] T2 实现 issue 状态管理模块与 CLI 子命令
+- [x] T3 补充 issue 状态管理单测
+- [x] T4 同步并巡检当前 issue，逐项更新状态
+- [x] T5 运行最小验收并记录证据
+- [ ] T6 提交改动并准备 PR
 
 ## 验收记录
 - [x] 已归档上一阶段 `plan.md` / `todo.md`
-- [x] `.github/workflows/release.yml` 已声明 `environment: release`
-- [x] README / 中文 README 已改为 `Settings > Environments > release`
-- [x] YAML / 文案最小校验通过
-- [x] `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/release.yml'); puts 'release.yml: ok'"` 通过
-- [x] `rg -n "environment: release|Environments > release|release environment" .github/workflows/release.yml README.md docs/README_zh.md` 命中预期
+- [x] `npm run --workspace @bububuger/spanory check` 通过
+- [x] `cd packages/cli && npx vitest run test/unit/issue.state.spec.ts` 通过（3/3）
+- [x] `npm run build` 通过（全部 workspace 构建）
+- [x] `node packages/cli/dist/index.js issue sync` 成功生成状态文件
+- [x] `node packages/cli/dist/index.js issue list` 可正确列出 issue
