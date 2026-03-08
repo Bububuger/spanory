@@ -8,6 +8,7 @@
 - [测试基线与门禁规范](./test-baseline-spec.md)
 - [遥测字段治理规范](./telemetry-field-governance.md)
 - [Runtime 验收矩阵（发布前强制）](./runtime-validation-matrix.md)
+- [Issue 状态管理规范](./issue-status-workflow.md)
 - [缺陷回归台账](./regression-cases.md)
 - [变更背景记录台账](./change-context-log.md)
 - [Agent 上手与交接规范](./agent-onboarding.md)
