@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-08T17:07:54.871Z",
+  "updatedAt": "2026-03-08T17:08:23.791Z",
   "issues": [
     {
       "id": "T2",
@@ -58,13 +58,15 @@
       "id": "T6",
       "title": "提交改动并准备 PR",
       "source": "todo.md",
-      "status": "in_progress",
+      "status": "done",
       "notes": [
         "synced from todo pending item",
-        "开始提交与PR准备"
+        "开始提交与PR准备",
+        "auto-closed because todo item is no longer pending"
       ],
       "createdAt": "2026-03-08T17:06:56.406Z",
-      "updatedAt": "2026-03-08T17:07:54.871Z"
+      "updatedAt": "2026-03-08T17:08:23.791Z",
+      "closedAt": "2026-03-08T17:08:23.791Z"
     }
   ]
 }

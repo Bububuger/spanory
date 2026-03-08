@@ -5,7 +5,7 @@
 - [x] T3 补充 issue 状态管理单测
 - [x] T4 同步并巡检当前 issue，逐项更新状态
 - [x] T5 运行最小验收并记录证据
-- [ ] T6 提交改动并准备 PR
+- [x] T6 提交改动并准备 PR
 
 ## 验收记录
 - [x] 已归档上一阶段 `plan.md` / `todo.md`
@@ -14,3 +14,4 @@
 - [x] `npm run build` 通过（全部 workspace 构建）
 - [x] `node packages/cli/dist/index.js issue sync` 成功生成状态文件
 - [x] `node packages/cli/dist/index.js issue list` 可正确列出 issue
+- [x] `git commit -m "feat(cli): add local issue status management workflow"` 已完成（`b7e25dc`）
