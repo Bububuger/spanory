@@ -18,6 +18,7 @@
     "telemetry:validate-mapping": "node scripts/telemetry/validate-mapping.mjs",
     "telemetry:report": "node scripts/telemetry/report.mjs",
     "telemetry:check": "node scripts/telemetry/check.mjs",
+    "issue:status": "node scripts/issues/status-report.mjs summary",
     "build:bin": "bash scripts/release/build-binaries.sh",
     "package:release-assets": "bash scripts/release/package-release-assets.sh"
   },
