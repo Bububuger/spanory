@@ -12,7 +12,7 @@
       "agentic.actor.role": "main",
       "agentic.actor.role_confidence": 0.95,
       "agentic.event.category": "turn",
-      "agentic.project.cwd": "/Users/me/workspace/another-demo",
+      "agentic.project.cwd": "another-demo-d58405",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "agentic.subagent.calls": 0,
       "agentic.turn.completed": true,

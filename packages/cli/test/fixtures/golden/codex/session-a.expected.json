@@ -12,7 +12,7 @@
       "agentic.actor.role": "main",
       "agentic.actor.role_confidence": 0.95,
       "agentic.event.category": "turn",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "agentic.subagent.calls": 1,
       "agentic.turn.completed": true,
@@ -48,7 +48,7 @@
       "agentic.command.args": "please summarize",
       "agentic.command.name": "compact",
       "agentic.event.category": "agent_command",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "invoke_agent",
       "langfuse.observation.type": "event"
@@ -65,7 +65,7 @@
     "output": "Exit code: 0\nOutput:\n/Users/me/workspace/demo\n",
     "attributes": {
       "agentic.event.category": "shell_command",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -88,7 +88,7 @@
     "attributes": {
       "agentic.event.category": "mcp",
       "agentic.mcp.server.name": "playwright",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -109,7 +109,7 @@
     "output": "{\"id\":\"agent-1\"}",
     "attributes": {
       "agentic.event.category": "agent_task",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "invoke_agent",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -130,7 +130,7 @@
     "output": "{\"status\":\"completed\",\"query\":\"spanory\"}",
     "attributes": {
       "agentic.event.category": "tool",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -153,7 +153,7 @@
       "agentic.actor.role": "main",
       "agentic.actor.role_confidence": 0.95,
       "agentic.event.category": "turn",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "agentic.subagent.calls": 0,
       "agentic.turn.completed": true,
@@ -187,7 +187,7 @@
     "output": "README.md\n",
     "attributes": {
       "agentic.event.category": "shell_command",
-      "agentic.project.cwd": "/Users/me/workspace/demo",
+      "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",

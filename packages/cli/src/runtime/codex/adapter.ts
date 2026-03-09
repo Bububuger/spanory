@@ -81,6 +81,21 @@ function usageFromTotals(start, end) {
   });
 }
 
+function extractPtySessionId(output) {
+  const text = String(output ?? '');
+  const match = text.match(/session ID\s+(\d+)/i);
+  return match ? match[1] : undefined;
+}
+
+function extractWallTimeMs(output) {
+  const text = String(output ?? '');
+  const match = text.match(/Wall time:\s*([0-9]+(?:\.[0-9]+)?)\s*seconds?/i);
+  if (!match) return undefined;
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  return Math.floor(seconds * 1000);
+}
+
 function createTurn(turnId, startedAt) {
   return {
     turnId,
@@ -208,6 +223,7 @@ async function readCodexSession(transcriptPath) {
   let sessionMeta = null;
   let callCounter = 0;
   const callIndex = new Map();
+  const ptyCallBySession = new Map();
 
   function finalizeCurrentTurn(at) {
     if (!currentTurn) return;
@@ -336,6 +352,11 @@ async function readCodexSession(transcriptPath) {
       const rawName = payload.name ?? payload.tool_name ?? payload.toolName;
       const rawInput = payload.type === 'custom_tool_call' ? payload.input : payload.arguments;
       const args = safeJsonParse(rawInput, typeof rawInput === 'string' ? { raw: rawInput } : {});
+      const ptySessionId = args.session_id != null ? String(args.session_id) : '';
+      if (String(rawName ?? '') === 'write_stdin' && ptySessionId && ptyCallBySession.has(ptySessionId)) {
+        callIndex.set(String(payload.call_id ?? payload.callId ?? `call-${callCounter}`), ptyCallBySession.get(ptySessionId));
+        continue;
+      }
       const normalized = normalizeToolCall(rawName, args, callCounter);
       const callId = String(payload.call_id ?? payload.callId ?? normalized.callId ?? `call-${callCounter}`);
       const call = {
@@ -355,8 +376,20 @@ async function readCodexSession(transcriptPath) {
       const callId = String(payload.call_id ?? payload.callId ?? '');
       const call = callIndex.get(callId);
       if (call) {
-        call.output = String(payload.output ?? '');
+        const output = String(payload.output ?? '');
+        if (output) call.output = output;
         call.endedAt = isoAt;
+        const wallTimeMs = extractWallTimeMs(output);
+        if (wallTimeMs) {
+          const derivedEndedAt = new Date(parseTimestamp(call.startedAt).getTime() + wallTimeMs).toISOString();
+          if (parseTimestamp(derivedEndedAt).getTime() > parseTimestamp(call.endedAt).getTime()) {
+            call.endedAt = derivedEndedAt;
+          }
+        }
+        if (call.toolName === 'Bash') {
+          const ptySessionId = extractPtySessionId(output);
+          if (ptySessionId) ptyCallBySession.set(ptySessionId, call);
+        }
       }
       continue;
     }
@@ -415,11 +448,12 @@ function remapTurnIds(events, turns) {
 
 function attachCwdAttribute(events, cwd) {
   if (!cwd) return events;
+  const sanitizedCwd = deriveProjectIdFromCwd(cwd);
   return events.map((event) => ({
     ...event,
     attributes: {
       ...(event.attributes ?? {}),
-      'agentic.project.cwd': cwd,
+      'agentic.project.cwd': sanitizedCwd,
     },
   }));
 }

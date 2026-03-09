@@ -140,6 +140,266 @@
       "example_value": "example-name"
     },
     {
+      "field": "agentic.context.boundary_kind",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_boundary canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "compact_before"
+    },
+    {
+      "field": "agentic.context.compaction_ratio",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_boundary emitted with before/after token estimates",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 0.42
+    },
+    {
+      "field": "agentic.context.composition",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "{\"tool_output\":28000,\"mention_file\":9000}"
+    },
+    {
+      "field": "agentic.context.delta_tokens",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot emitted after computing delta from prior snapshot",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 3512
+    },
+    {
+      "field": "agentic.context.estimated_total_tokens",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 84213
+    },
+    {
+      "field": "agentic.context.event_type",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "any context canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "context_snapshot"
+    },
+    {
+      "field": "agentic.context.fill_ratio",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 0.84
+    },
+    {
+      "field": "agentic.context.pollution_score",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 82
+    },
+    {
+      "field": "agentic.context.score_version",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution emitted with pollution_score",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "pollution_score_v1"
+    },
+    {
+      "field": "agentic.context.source_kind",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "tool_output"
+    },
+    {
+      "field": "agentic.context.source_name",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution emitted with a derivable source label",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "Read"
+    },
+    {
+      "field": "agentic.context.token_delta",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 2800
+    },
+    {
+      "field": "agentic.context.top_sources",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot canonical event emitted",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "[\"tool_output\",\"mention_file\",\"subagent\"]"
+    },
+    {
       "field": "agentic.event.category",
       "namespace": "agentic",
       "source": "runtime/shared-normalize",
@@ -164,7 +424,8 @@
         "shell_command",
         "agent_command",
         "agent_task",
-        "reasoning"
+        "reasoning",
+        "context"
       ],
       "example_value": "example"
     },
@@ -193,7 +454,8 @@
         "shell_command",
         "agent_command",
         "agent_task",
-        "reasoning"
+        "reasoning",
+        "context"
       ],
       "example_value": "example"
     },
@@ -292,7 +554,7 @@
       "target_platform": [
         "otel"
       ],
-      "emit_when": "codex runtime session_meta.cwd present",
+      "emit_when": "codex runtime session_meta.cwd present (sanitized basename+hash)",
       "source_path": [
         "packages/cli/src/runtime/codex/adapter.ts"
       ],
@@ -311,7 +573,7 @@
         "agent_task",
         "reasoning"
       ],
-      "example_value": "example"
+      "example_value": "demo-3278db"
     },
     {
       "field": "agentic.runtime.name",
@@ -333,7 +595,8 @@
         "opencode"
       ],
       "category_scope": [
-        "all"
+        "all",
+        "context"
       ],
       "example_value": "example-name"
     },
@@ -362,7 +625,8 @@
         "shell_command",
         "agent_command",
         "agent_task",
-        "reasoning"
+        "reasoning",
+        "context"
       ],
       "example_value": "example"
     },
@@ -560,7 +824,8 @@
         "opencode"
       ],
       "category_scope": [
-        "all"
+        "all",
+        "context"
       ],
       "example_value": "example-id"
     },
