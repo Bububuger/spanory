@@ -52,3 +52,10 @@
 - 影响范围：`docs/standards/agent-onboarding.md`、`docs/standards/runtime-validation-matrix.md`、阶段计划文档与 release 发布步骤。
 - 验证：文档中已包含 `FINAL` 查询原则、`session_id -> trace_id -> observations` 查询模板，以及本地真实对话验收命令；本次修复已通过本地导出与 ClickHouse 双重验证。
 - 回滚方案：回滚本次文档提交；若流程需要重写，以 `change-context-log` 中本条记录为基线重新整理。
+
+## 2026-03-09 - 冻结 context 观测 OTLP 字段命名空间
+- 背景：最新审阅指出 context 处理相关 canonical event 已在设计文档存在，但 `telemetry/field-spec.yaml` 中没有对应 OTLP 字段登记，后续实现会在 `agentic.*` 命名、emit 语义和 drift detection 上失去约束。
+- 决策：在 `field-spec.yaml` 中新增 `agentic.context.*` 字段组，并把 `agentic.event.category` 扩展到 `context`；在 `agentic-fields.md` 中同步解释 snapshot、boundary、source attribution 三类字段的上报意义。
+- 影响范围：`telemetry/field-spec.yaml`、`agentic-fields.md`、阶段计划文档。
+- 验证：最小 telemetry 校验通过，且新增字段均标记为 `custom`，不扩大现有 OTel official warning 范围。
+- 回滚方案：回滚本次字段冻结提交，移除 `agentic.context.*` 字段登记，并恢复 `agentic.event.category` 的原始枚举。

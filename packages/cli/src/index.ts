@@ -14,6 +14,7 @@ import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { loadUserEnv } from './env.js';
+import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
@@ -279,6 +280,24 @@ async function runHookMode(options) {
   const resolvedContext = adapter.resolveContextFromHook(hookPayload);
   if (!resolvedContext) {
     throw new Error('cannot resolve runtime context from hook payload; require session_id (or thread_id)');
+  }
+
+  if (runtimeName === 'codex') {
+    const runtimeHome = resolveRuntimeHome(runtimeName, options.runtimeHome);
+    const transcriptPath = resolvedContext.transcriptPath
+      ?? (await listCodexSessions(runtimeHome)).find((session) => session.sessionId === resolvedContext.sessionId)?.transcriptPath;
+    if (transcriptPath) {
+      const settle = await waitForFileMtimeToSettle({
+        filePath: transcriptPath,
+        stableWindowMs: 350,
+        timeoutMs: 2500,
+        pollMs: 120,
+      });
+      resolvedContext.transcriptPath = transcriptPath;
+      if (!settle.settled) {
+        console.log(`hook=settle-timeout sessionId=${resolvedContext.sessionId} waitedMs=${settle.waitedMs}`);
+      }
+    }
   }
 
   await runContextExportMode({
@@ -905,11 +924,23 @@ function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile })
     + `  echo "skip=empty-payload source=codex-notify args=$#" >> "${logFile}"\n`
     + '  exit 0\n'
     + 'fi\n'
+    + 'payload_file="$(mktemp "${TMPDIR:-/tmp}/spanory-codex-notify.XXXXXX")"\n'
+    + 'printf \'%s\' "$payload" > "$payload_file"\n'
     + `echo "$payload" | "${spanoryBin}" runtime codex hook \\\n`
     + '  --last-turn-only \\\n'
     + `  --runtime-home "${codexHome}" \\\n`
     + `  --export-json-dir "${exportDir}" \\\n`
-    + `  >> "${logFile}" 2>&1 || true\n`;
+    + `  >> "${logFile}" 2>&1 || true\n`
+    + '(\n'
+    + '  sleep 2\n'
+    + `  cat "$payload_file" | "${spanoryBin}" runtime codex hook \\\n`
+    + '    --last-turn-only \\\n'
+    + '    --force \\\n'
+    + `    --runtime-home "${codexHome}" \\\n`
+    + `    --export-json-dir "${exportDir}" \\\n`
+    + `    >> "${logFile}" 2>&1 || true\n`
+    + '  rm -f "$payload_file"\n'
+    + ') >/dev/null 2>&1 &\n';
 }
 
 async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {

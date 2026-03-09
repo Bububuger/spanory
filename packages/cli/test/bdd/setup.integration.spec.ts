@@ -67,6 +67,9 @@ describe('BDD setup command', () => {
     const codexScriptRaw = readFileSync(codexScript, 'utf-8');
     expect(codexScriptRaw).toContain('runtime codex hook');
     expect(codexScriptRaw).toContain('--last-turn-only');
+    expect(codexScriptRaw).toContain('--force');
+    expect(codexScriptRaw).toContain('sleep 2');
+    expect(codexScriptRaw).toContain('payload_file="$(mktemp');
     expect(codexScriptRaw).toContain('[[ ! -t 0 ]]');
     expect(codexScriptRaw).toContain('skip=empty-payload');
     const mode = statSync(codexScript).mode;
