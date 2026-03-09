@@ -65,6 +65,12 @@ Telemetry field governance gate:
 npm run telemetry:check
 ```
 
+Issue status巡检（自动化任务建议每轮执行）:
+
+```bash
+npm run issue:status
+```
+
 ## Quick Start
 
 ### Install
