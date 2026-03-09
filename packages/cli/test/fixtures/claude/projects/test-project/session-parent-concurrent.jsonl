@@ -1,0 +1,6 @@
+{"type":"user","timestamp":"2030-01-02T00:10:00.000Z","message":{"id":"pc-u-1","content":"parent concurrent turn 1"}}
+{"type":"assistant","timestamp":"2030-01-02T00:10:01.000Z","message":{"id":"pc-a-1","model":"claude-sonnet-4-6","content":[{"type":"tool_use","id":"task-con-a","name":"Task","input":{"task":"spawn a"}}]}}
+{"type":"user","timestamp":"2030-01-02T00:10:04.000Z","message":{"id":"pc-u-2","content":[{"type":"tool_result","tool_use_id":"task-con-a","content":"done a"}]}}
+{"type":"user","timestamp":"2030-01-02T00:10:05.000Z","message":{"id":"pc-u-3","content":"parent concurrent turn 2"}}
+{"type":"assistant","timestamp":"2030-01-02T00:10:06.000Z","message":{"id":"pc-a-2","model":"claude-sonnet-4-6","content":[{"type":"tool_use","id":"task-con-b","name":"Task","input":{"task":"spawn b"}}]}}
+{"type":"user","timestamp":"2030-01-02T00:10:09.000Z","message":{"id":"pc-u-4","content":[{"type":"tool_result","tool_use_id":"task-con-b","content":"done b"}]}}

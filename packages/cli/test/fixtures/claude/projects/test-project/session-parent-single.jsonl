@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2030-01-01T00:00:00.000Z","message":{"id":"ps-u-1","content":"start parent single"}}
+{"type":"assistant","timestamp":"2030-01-01T00:00:01.000Z","message":{"id":"ps-a-1","model":"claude-sonnet-4-6","content":[{"type":"tool_use","id":"task-single-1","name":"Task","input":{"task":"spawn"}}]}}
+{"type":"user","timestamp":"2030-01-01T00:00:03.000Z","message":{"id":"ps-u-2","content":[{"type":"tool_result","tool_use_id":"task-single-1","content":"done"}]}}
+{"type":"assistant","timestamp":"2030-01-01T00:00:04.000Z","message":{"id":"ps-a-2","model":"claude-sonnet-4-6","content":[{"type":"text","text":"parent done"}]}}

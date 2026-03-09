@@ -128,3 +128,20 @@ describe('openclawAdapter', () => {
     expect(turns[0].attributes['agentic.runtime.version']).toBe('3');
   });
 });
+
+it('infers parent linkage from sibling sessions for sidechain child session', async () => {
+  const transcriptPath = path.resolve('test/fixtures/openclaw/projects/test-project/session-parent-link-child.jsonl');
+  const events = await openclawAdapter.collectEvents({
+    projectId: 'test-project',
+    sessionId: 'session-parent-link-child',
+    transcriptPath,
+  });
+
+  const turn = events.find((e) => e.category === 'turn');
+  expect(turn).toBeTruthy();
+  expect(turn.attributes['agentic.agent_id']).toBe('oc-subagent-1');
+  expect(turn.attributes['agentic.parent.session_id']).toBe('session-parent-link-parent');
+  expect(turn.attributes['agentic.parent.turn_id']).toBe('turn-1');
+  expect(turn.attributes['agentic.parent.tool_call_id']).toBe('oc-task-1');
+  expect(turn.attributes['agentic.parent.link.confidence']).toBe('inferred');
+});

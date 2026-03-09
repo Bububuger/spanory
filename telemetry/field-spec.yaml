@@ -118,7 +118,7 @@
       "target_platform": [
         "otel"
       ],
-      "emit_when": "parent linkage metadata exists in current session messages",
+      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
       "source_path": [
         "packages/cli/src/runtime/shared/normalize.ts"
       ],
@@ -147,7 +147,7 @@
       "target_platform": [
         "otel"
       ],
-      "emit_when": "parent linkage metadata exists in current session messages",
+      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
       "source_path": [
         "packages/cli/src/runtime/shared/normalize.ts"
       ],
@@ -176,7 +176,7 @@
       "target_platform": [
         "otel"
       ],
-      "emit_when": "parent linkage metadata exists in current session messages",
+      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
       "source_path": [
         "packages/cli/src/runtime/shared/normalize.ts"
       ],
@@ -205,7 +205,7 @@
       "target_platform": [
         "otel"
       ],
-      "emit_when": "exact when explicit parent fields present, unknown when only agent_id exists",
+      "emit_when": "exact when explicit parent metadata exists; inferred when matched by sibling task time-window; unknown when only agent_id exists",
       "source_path": [
         "packages/cli/src/runtime/shared/normalize.ts"
       ],
@@ -224,7 +224,7 @@
         "agent_task",
         "reasoning"
       ],
-      "example_value": "exact"
+      "example_value": "inferred"
     },
     {
       "field": "agentic.command.args",

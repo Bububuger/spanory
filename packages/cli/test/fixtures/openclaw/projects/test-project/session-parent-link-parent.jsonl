@@ -1,0 +1,3 @@
+{"role":"user","timestamp":"2030-01-03T00:00:00.000Z","content":"openclaw parent input"}
+{"role":"assistant","timestamp":"2030-01-03T00:00:01.000Z","message":{"role":"assistant","model":"openclaw-pro","content":[{"type":"tool_use","id":"oc-task-1","name":"Task","input":{"task":"spawn"}}]}}
+{"role":"user","timestamp":"2030-01-03T00:00:03.000Z","content":[{"type":"tool_result","tool_use_id":"oc-task-1","content":"done"}]}

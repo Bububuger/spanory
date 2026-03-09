@@ -1,0 +1,2 @@
+{"role":"user","timestamp":"2030-01-03T00:00:02.000Z","content":"openclaw child input"}
+{"type":"message","id":"plc-a-1","timestamp":"2030-01-03T00:00:02.100Z","is_sidechain":true,"agent_id":"oc-subagent-1","message":{"role":"assistant","model":"openclaw-pro","content":[{"type":"text","text":"openclaw child output"}]}}

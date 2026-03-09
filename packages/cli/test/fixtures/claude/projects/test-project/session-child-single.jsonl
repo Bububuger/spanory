@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2030-01-01T00:00:02.000Z","message":{"id":"cs-u-1","content":"child single input"}}
+{"type":"assistant","timestamp":"2030-01-01T00:00:02.300Z","isSidechain":true,"agentId":"subagent-single","message":{"id":"cs-a-1","model":"claude-sonnet-4-6","content":[{"type":"text","text":"child single output"}]}}

@@ -316,13 +316,19 @@ function inferParentLinkAttributes(messages) {
     ),
   );
 
+  const explicitConfidence = firstNonEmptyString(
+    messages.map((m) => m?.parentLinkConfidence ?? m?.parent_link_confidence),
+  );
+
   const attrs = {};
   if (agentId) attrs['agentic.agent_id'] = agentId;
   if (parentSessionId) attrs['agentic.parent.session_id'] = parentSessionId;
   if (parentTurnId) attrs['agentic.parent.turn_id'] = parentTurnId;
   if (parentToolCallId) attrs['agentic.parent.tool_call_id'] = parentToolCallId;
 
-  if (parentSessionId || parentTurnId || parentToolCallId) {
+  if (explicitConfidence) {
+    attrs['agentic.parent.link.confidence'] = explicitConfidence;
+  } else if (parentSessionId || parentTurnId || parentToolCallId) {
     attrs['agentic.parent.link.confidence'] = 'exact';
   } else if (agentId) {
     attrs['agentic.parent.link.confidence'] = 'unknown';

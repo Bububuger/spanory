@@ -131,3 +131,85 @@ describe('claudeCodeAdapter', () => {
     expect(turn.attributes['agentic.runtime.version']).toBe('2.1.70');
   });
 });
+
+describe('claudeCodeAdapter parent-child linkage inference', () => {
+  it('infers parent linkage for a single sidechain child session', async () => {
+    const transcriptPath = path.resolve('test/fixtures/claude/projects/test-project/session-child-single.jsonl');
+    const events = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-child-single',
+      transcriptPath,
+    });
+
+    const turn = events.find((e) => e.category === 'turn');
+    expect(turn).toBeTruthy();
+    expect(turn.attributes['agentic.agent_id']).toBe('subagent-single');
+    expect(turn.attributes['agentic.parent.session_id']).toBe('session-parent-single');
+    expect(turn.attributes['agentic.parent.turn_id']).toBe('turn-1');
+    expect(turn.attributes['agentic.parent.tool_call_id']).toBe('task-single-1');
+    expect(turn.attributes['agentic.parent.link.confidence']).toBe('inferred');
+  });
+
+  it('infers the nearest parent task window for concurrent subagents', async () => {
+    const childAPath = path.resolve('test/fixtures/claude/projects/test-project/session-child-concurrent-a.jsonl');
+    const childBPath = path.resolve('test/fixtures/claude/projects/test-project/session-child-concurrent-b.jsonl');
+
+    const eventsA = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-child-concurrent-a',
+      transcriptPath: childAPath,
+    });
+    const eventsB = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-child-concurrent-b',
+      transcriptPath: childBPath,
+    });
+
+    const turnA = eventsA.find((e) => e.category === 'turn');
+    const turnB = eventsB.find((e) => e.category === 'turn');
+
+    expect(turnA.attributes['agentic.parent.session_id']).toBe('session-parent-concurrent');
+    expect(turnA.attributes['agentic.parent.turn_id']).toBe('turn-1');
+    expect(turnA.attributes['agentic.parent.tool_call_id']).toBe('task-con-a');
+    expect(turnA.attributes['agentic.parent.link.confidence']).toBe('inferred');
+
+    expect(turnB.attributes['agentic.parent.session_id']).toBe('session-parent-concurrent');
+    expect(turnB.attributes['agentic.parent.turn_id']).toBe('turn-2');
+    expect(turnB.attributes['agentic.parent.tool_call_id']).toBe('task-con-b');
+    expect(turnB.attributes['agentic.parent.link.confidence']).toBe('inferred');
+  });
+
+  it('keeps parent linkage empty when no candidate task window exists', async () => {
+    const transcriptPath = path.resolve('test/fixtures/claude/projects/test-project/session-child-nomatch.jsonl');
+    const events = await claudeCodeAdapter.collectEvents({
+      projectId: 'test-project',
+      sessionId: 'session-child-nomatch',
+      transcriptPath,
+    });
+
+    const turn = events.find((e) => e.category === 'turn');
+    expect(turn).toBeTruthy();
+    expect(turn.attributes['agentic.agent_id']).toBe('subagent-nomatch');
+    expect(turn.attributes['agentic.parent.session_id']).toBeUndefined();
+    expect(turn.attributes['agentic.parent.turn_id']).toBeUndefined();
+    expect(turn.attributes['agentic.parent.tool_call_id']).toBeUndefined();
+    expect(turn.attributes['agentic.parent.link.confidence']).toBe('unknown');
+  });
+});
+
+it('prefers exact parent metadata when present and does not override with inferred linkage', async () => {
+  const transcriptPath = path.resolve('test/fixtures/claude/projects/test-project/session-child-explicit.jsonl');
+  const events = await claudeCodeAdapter.collectEvents({
+    projectId: 'test-project',
+    sessionId: 'session-child-explicit',
+    transcriptPath,
+  });
+
+  const turn = events.find((e) => e.category === 'turn');
+  expect(turn).toBeTruthy();
+  expect(turn.attributes['agentic.agent_id']).toBe('subagent-explicit');
+  expect(turn.attributes['agentic.parent.session_id']).toBe('session-parent-explicit');
+  expect(turn.attributes['agentic.parent.turn_id']).toBe('turn-77');
+  expect(turn.attributes['agentic.parent.tool_call_id']).toBe('task-explicit-1');
+  expect(turn.attributes['agentic.parent.link.confidence']).toBe('exact');
+});
