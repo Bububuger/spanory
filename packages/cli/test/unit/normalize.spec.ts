@@ -187,4 +187,104 @@ describe('normalizeTranscriptMessages', () => {
     expect(reasoning.startedAt).toBe('2026-03-03T02:00:00.500Z');
     expect(reasoning.attributes['langfuse.observation.type']).toBe('span');
   });
+
+  it('emits parent-child linkage attributes when metadata is present', () => {
+    const messages = [
+      {
+        role: 'user',
+        isMeta: false,
+        content: 'hello',
+        timestamp: new Date('2026-03-03T05:00:00.000Z'),
+      },
+      {
+        role: 'assistant',
+        isMeta: false,
+        isSidechain: true,
+        agentId: 'subagent-1',
+        parentSessionId: 'sess-parent',
+        parentTurnId: 'turn-parent-3',
+        parentToolCallId: 'call-task-xyz',
+        content: [{ type: 'text', text: 'from subagent' }],
+        model: 'claude-sonnet-4-6',
+        usage: { input_tokens: 2, output_tokens: 1, total_tokens: 3 },
+        timestamp: new Date('2026-03-03T05:00:01.000Z'),
+      },
+    ];
+
+    const events = normalizeTranscriptMessages({
+      runtime: 'claude-code',
+      projectId: 'p-parent',
+      sessionId: 's-child',
+      messages,
+    });
+
+    for (const event of events) {
+      expect(event.attributes['agentic.agent_id']).toBe('subagent-1');
+      expect(event.attributes['agentic.parent.session_id']).toBe('sess-parent');
+      expect(event.attributes['agentic.parent.turn_id']).toBe('turn-parent-3');
+      expect(event.attributes['agentic.parent.tool_call_id']).toBe('call-task-xyz');
+      expect(event.attributes['agentic.parent.link.confidence']).toBe('exact');
+    }
+  });
+
+  it('extracts structured shell command attributes', () => {
+    const scenarios = [
+      { command: 'ls -la', expectName: 'ls', expectArgs: '-la', expectPipeCount: 0, expectRaw: 'ls -la' },
+      {
+        command: 'find . -name "*.ts" | xargs grep TODO | wc -l',
+        expectName: 'find',
+        expectArgs: '. -name "*.ts"',
+        expectPipeCount: 2,
+        expectRaw: 'find . -name "*.ts" | xargs grep TODO | wc -l',
+      },
+      { command: '', expectName: '', expectArgs: '', expectPipeCount: 0, expectRaw: '' },
+      {
+        command: 'npm run build && npm test',
+        expectName: 'npm',
+        expectArgs: 'run build && npm test',
+        expectPipeCount: 0,
+        expectRaw: 'npm run build && npm test',
+      },
+    ];
+
+    for (let i = 0; i < scenarios.length; i += 1) {
+      const scenario = scenarios[i];
+      const events = normalizeTranscriptMessages({
+        runtime: 'codex',
+        projectId: 'p-cmd',
+        sessionId: 's-cmd-' + i,
+        messages: [
+          {
+            role: 'user',
+            isMeta: false,
+            content: 'run command',
+            timestamp: new Date('2026-03-03T04:00:00.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [{ type: 'tool_use', id: 'bash-1', name: 'Bash', input: { command: scenario.command } }],
+            model: 'gpt-5.3-codex',
+            usage: { input_tokens: 10, output_tokens: 3, total_tokens: 13 },
+            timestamp: new Date('2026-03-03T04:00:01.000Z'),
+          },
+          {
+            role: 'user',
+            isMeta: false,
+            content: [{ type: 'tool_result', tool_use_id: 'bash-1', content: 'ok' }],
+            timestamp: new Date('2026-03-03T04:00:02.000Z'),
+          },
+        ],
+      });
+
+      const bash = events.find((event) => event.category === 'shell_command');
+      expect(bash).toBeTruthy();
+      expect(bash.attributes['process.command_line']).toBe(scenario.command);
+      expect(bash.attributes['agentic.command.name']).toBe(scenario.expectName);
+      expect(bash.attributes['agentic.command.args']).toBe(scenario.expectArgs);
+      expect(bash.attributes['agentic.command.pipe_count']).toBe(scenario.expectPipeCount);
+      expect(bash.attributes['agentic.command.raw']).toBe(scenario.expectRaw);
+    }
+  });
+
 });

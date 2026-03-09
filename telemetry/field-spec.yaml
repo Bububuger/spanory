@@ -82,6 +82,151 @@
       "example_value": "example"
     },
     {
+      "field": "agentic.agent_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "sidechain signal exists in current session messages",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "subagent-1"
+    },
+    {
+      "field": "agentic.parent.session_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "parent linkage metadata exists in current session messages",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "sess-parent"
+    },
+    {
+      "field": "agentic.parent.turn_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "parent linkage metadata exists in current session messages",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "turn-parent-3"
+    },
+    {
+      "field": "agentic.parent.tool_call_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "parent linkage metadata exists in current session messages",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "call-task-xyz"
+    },
+    {
+      "field": "agentic.parent.link.confidence",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "exact when explicit parent fields present, unknown when only agent_id exists",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "exact"
+    },
+    {
       "field": "agentic.command.args",
       "namespace": "agentic",
       "source": "runtime/shared-normalize",
@@ -138,6 +283,52 @@
         "reasoning"
       ],
       "example_value": "example-name"
+    },
+    {
+      "field": "agentic.command.pipe_count",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "shell_command category events from Bash tool",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "shell_command"
+      ],
+      "example_value": 2
+    },
+    {
+      "field": "agentic.command.raw",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "shell_command category events from Bash tool",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "shell_command"
+      ],
+      "example_value": "find . -name \"*.ts\" | xargs grep TODO | wc -l"
     },
     {
       "field": "agentic.context.boundary_kind",

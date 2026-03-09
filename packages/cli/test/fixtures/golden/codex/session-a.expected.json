@@ -64,6 +64,10 @@
     "input": "pwd",
     "output": "Exit code: 0\nOutput:\n/Users/me/workspace/demo\n",
     "attributes": {
+      "agentic.command.args": "",
+      "agentic.command.name": "pwd",
+      "agentic.command.pipe_count": 0,
+      "agentic.command.raw": "pwd",
       "agentic.event.category": "shell_command",
       "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",
@@ -186,6 +190,10 @@
     "input": "ls",
     "output": "README.md\n",
     "attributes": {
+      "agentic.command.args": "",
+      "agentic.command.name": "ls",
+      "agentic.command.pipe_count": 0,
+      "agentic.command.raw": "ls",
       "agentic.event.category": "shell_command",
       "agentic.project.cwd": "demo-3278db",
       "agentic.runtime.version": "0.107.0-alpha.5",

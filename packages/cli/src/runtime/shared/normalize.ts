@@ -198,6 +198,31 @@ function parseSlashCommand(text) {
   };
 }
 
+function parseBashCommandAttributes(commandLine) {
+  const raw = String(commandLine ?? '').trim();
+  if (!raw) {
+    return {
+      'agentic.command.name': '',
+      'agentic.command.args': '',
+      'agentic.command.pipe_count': 0,
+      'agentic.command.raw': '',
+    };
+  }
+
+  const segments = raw.split(/\|(?!\|)/);
+  const firstSegment = String(segments[0] ?? '').trim();
+  const tokens = firstSegment ? firstSegment.split(/\s+/) : [];
+  const name = String(tokens[0] ?? '').trim();
+  const args = tokens.length > 1 ? tokens.slice(1).join(' ') : '';
+
+  return {
+    'agentic.command.name': name,
+    'agentic.command.args': args,
+    'agentic.command.pipe_count': Math.max(segments.length - 1, 0),
+    'agentic.command.raw': raw,
+  };
+}
+
 function isMcpToolName(name) {
   const n = String(name || '').toLowerCase();
   return n === 'mcp' || n.startsWith('mcp__') || n.startsWith('mcp-');
@@ -242,6 +267,70 @@ function actorHeuristic(messages) {
   return { role: 'main', confidence: 0.95 };
 }
 
+function firstNonEmptyString(values) {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function inferParentLinkAttributes(messages) {
+  const agentId = firstNonEmptyString(
+    messages.map((m) => m?.agentId ?? m?.agent_id ?? m?.message?.agentId ?? m?.message?.agent_id),
+  );
+
+  const parentSessionId = firstNonEmptyString(
+    messages.map(
+      (m) =>
+        m?.parentSessionId
+        ?? m?.parent_session_id
+        ?? m?.parent?.sessionId
+        ?? m?.parent?.session_id
+        ?? m?.session_meta?.parent_session_id
+        ?? m?.sessionMeta?.parentSessionId,
+    ),
+  );
+
+  const parentTurnId = firstNonEmptyString(
+    messages.map(
+      (m) =>
+        m?.parentTurnId
+        ?? m?.parent_turn_id
+        ?? m?.parent?.turnId
+        ?? m?.parent?.turn_id
+        ?? m?.session_meta?.parent_turn_id
+        ?? m?.sessionMeta?.parentTurnId,
+    ),
+  );
+
+  const parentToolCallId = firstNonEmptyString(
+    messages.map(
+      (m) =>
+        m?.parentToolCallId
+        ?? m?.parent_tool_call_id
+        ?? m?.parent?.toolCallId
+        ?? m?.parent?.tool_call_id
+        ?? m?.session_meta?.parent_tool_call_id
+        ?? m?.sessionMeta?.parentToolCallId,
+    ),
+  );
+
+  const attrs = {};
+  if (agentId) attrs['agentic.agent_id'] = agentId;
+  if (parentSessionId) attrs['agentic.parent.session_id'] = parentSessionId;
+  if (parentTurnId) attrs['agentic.parent.turn_id'] = parentTurnId;
+  if (parentToolCallId) attrs['agentic.parent.tool_call_id'] = parentToolCallId;
+
+  if (parentSessionId || parentTurnId || parentToolCallId) {
+    attrs['agentic.parent.link.confidence'] = 'exact';
+  } else if (agentId) {
+    attrs['agentic.parent.link.confidence'] = 'unknown';
+  }
+
+  return attrs;
+}
+
 function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const user = messages.find(isPromptUserMessage) ?? messages.find((m) => m.role === 'user' && !m.isMeta) ?? messages[0];
   const assistantsRaw = messages.filter((m) => m.role === 'assistant');
@@ -273,6 +362,8 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
   }
   const usage = Object.keys(totalUsage).length ? totalUsage : undefined;
   const actor = actorHeuristic(messages);
+  const parentLinkAttrs = inferParentLinkAttributes(messages);
+  const sharedAttrs = { ...runtimeAttrs, ...parentLinkAttrs };
 
   const events = [
     {
@@ -290,7 +381,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         'agentic.event.category': 'turn',
         'langfuse.observation.type': 'agent',
         'gen_ai.operation.name': 'invoke_agent',
-        ...runtimeAttrs,
+        ...sharedAttrs,
         ...modelAttributes(latestModel),
         'agentic.actor.role': actor.role,
         'agentic.actor.role_confidence': actor.confidence,
@@ -342,7 +433,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         attributes: {
           'agentic.event.category': isMcp ? 'mcp' : 'agent_command',
           'langfuse.observation.type': isMcp ? 'tool' : 'event',
-          ...runtimeAttrs,
+          ...sharedAttrs,
           'agentic.command.name': slash.name,
           'agentic.command.args': slash.args,
           'gen_ai.operation.name': isMcp ? 'execute_tool' : 'invoke_agent',
@@ -371,7 +462,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
         attributes: {
           'agentic.event.category': 'reasoning',
           'langfuse.observation.type': 'span',
-          ...runtimeAttrs,
+          ...sharedAttrs,
           'gen_ai.operation.name': 'invoke_agent',
           ...modelAttributes(assistant.model),
         },
@@ -404,8 +495,9 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'shell_command',
             'langfuse.observation.type': 'tool',
-            ...runtimeAttrs,
+            ...sharedAttrs,
             'process.command_line': commandLine,
+            ...parseBashCommandAttributes(commandLine),
             'gen_ai.tool.name': 'Bash',
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
@@ -432,7 +524,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'mcp',
             'langfuse.observation.type': 'tool',
-            ...runtimeAttrs,
+            ...sharedAttrs,
             'gen_ai.tool.name': toolName,
             'mcp.request.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
@@ -459,7 +551,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'agent_task',
             'langfuse.observation.type': 'agent',
-            ...runtimeAttrs,
+            ...sharedAttrs,
             'gen_ai.tool.name': 'Task',
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'invoke_agent',
@@ -485,7 +577,7 @@ function createTurn(messages, turnId, projectId, sessionId, runtime) {
           attributes: {
             'agentic.event.category': 'tool',
             'langfuse.observation.type': 'tool',
-            ...runtimeAttrs,
+            ...sharedAttrs,
             'gen_ai.tool.name': toolName,
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
