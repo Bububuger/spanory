@@ -14,8 +14,8 @@ const sessions = [
         attributes: {
           'gen_ai.usage.input_tokens': 20,
           'gen_ai.usage.total_tokens': 30,
-          'gen_ai.usage.details.cache_read_input_tokens': 6,
-          'gen_ai.usage.details.cache_creation_input_tokens': 2,
+          'gen_ai.usage.cache_read.input_tokens': 6,
+          'gen_ai.usage.cache_creation.input_tokens': 2,
           'gen_ai.usage.details.cache_hit_rate': 0.230769,
           'agentic.turn.diff.char_delta': 0,
         },
@@ -51,6 +51,83 @@ const sessions = [
         projectId: 'p1',
         category: 'agent_task',
         attributes: {},
+      },
+      {
+        runtime: 'claude-code',
+        sessionId: 's1',
+        projectId: 'p1',
+        category: 'context',
+        turnId: 'turn-1',
+        attributes: {
+          'agentic.context.event_type': 'context_snapshot',
+          'agentic.context.composition': '{"unknown":20,"tool_output":80}',
+          'agentic.context.top_sources': '["unknown","tool_output"]',
+          'agentic.context.fill_ratio': 0.81,
+          'agentic.context.delta_tokens': 1000,
+        },
+      },
+      {
+        runtime: 'claude-code',
+        sessionId: 's1',
+        projectId: 'p1',
+        category: 'context',
+        turnId: 'turn-2',
+        attributes: {
+          'agentic.context.event_type': 'context_snapshot',
+          'agentic.context.composition': '{"unknown":30,"tool_output":70}',
+          'agentic.context.top_sources': '["unknown","tool_output"]',
+          'agentic.context.fill_ratio': 0.79,
+          'agentic.context.delta_tokens': 25000,
+        },
+      },
+      {
+        runtime: 'claude-code',
+        sessionId: 's1',
+        projectId: 'p1',
+        category: 'context',
+        turnId: 'turn-3',
+        attributes: {
+          'agentic.context.event_type': 'context_snapshot',
+          'agentic.context.composition': '{"unknown":40,"tool_output":60}',
+          'agentic.context.top_sources': '["unknown","tool_output"]',
+          'agentic.context.fill_ratio': 0.74,
+          'agentic.context.delta_tokens': -5000,
+        },
+      },
+      {
+        runtime: 'claude-code',
+        sessionId: 's1',
+        projectId: 'p1',
+        category: 'context',
+        turnId: 'turn-3',
+        attributes: {
+          'agentic.context.event_type': 'context_boundary',
+          'agentic.context.boundary_kind': 'compact_after',
+        },
+      },
+      {
+        runtime: 'claude-code',
+        sessionId: 's1',
+        projectId: 'p1',
+        category: 'context',
+        turnId: 'turn-1',
+        attributes: {
+          'agentic.context.event_type': 'context_source_attribution',
+          'agentic.context.source_kind': 'tool_output',
+          'agentic.context.pollution_score': 90,
+        },
+      },
+      {
+        runtime: 'claude-code',
+        sessionId: 's1',
+        projectId: 'p1',
+        category: 'context',
+        turnId: 'turn-2',
+        attributes: {
+          'agentic.context.event_type': 'context_source_attribution',
+          'agentic.context.source_kind': 'tool_output',
+          'agentic.context.pollution_score': 88,
+        },
       },
     ],
   },
@@ -95,6 +172,40 @@ describe('alert evaluator', () => {
       'cache-hit-rate',
       'subagent-calls',
       'diff-char-max',
+    ]);
+  });
+
+  it('supports context unknown/pollution session metrics', () => {
+    const alerts = evaluateRules(
+      [
+        { id: 'unknown-share', scope: 'session', metric: 'context.unknown_delta_share.window5', op: 'gt', threshold: 0.15 },
+        { id: 'unknown-top-streak', scope: 'session', metric: 'context.unknown_top_streak', op: 'gte', threshold: 3 },
+        { id: 'high-pollution-streak', scope: 'session', metric: 'context.high_pollution_source_streak', op: 'gte', threshold: 2 },
+      ],
+      sessions,
+    );
+
+    expect(alerts.map((a) => a.ruleId)).toEqual([
+      'unknown-share',
+      'unknown-top-streak',
+      'high-pollution-streak',
+    ]);
+  });
+
+  it('supports context fill/delta/compact session metrics', () => {
+    const alerts = evaluateRules(
+      [
+        { id: 'fill-ratio-max', scope: 'session', metric: 'context.fill_ratio.max', op: 'gte', threshold: 0.8 },
+        { id: 'delta-ratio-max', scope: 'session', metric: 'context.delta_ratio.max', op: 'gte', threshold: 0.1 },
+        { id: 'compact-count', scope: 'session', metric: 'context.compact.count', op: 'gte', threshold: 1 },
+      ],
+      sessions,
+    );
+
+    expect(alerts.map((a) => a.ruleId)).toEqual([
+      'fill-ratio-max',
+      'delta-ratio-max',
+      'compact-count',
     ]);
   });
 });

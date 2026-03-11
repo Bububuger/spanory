@@ -139,7 +139,7 @@ it('infers parent linkage from sibling sessions for sidechain child session', as
 
   const turn = events.find((e) => e.category === 'turn');
   expect(turn).toBeTruthy();
-  expect(turn.attributes['agentic.agent_id']).toBe('oc-subagent-1');
+  expect(turn.attributes['gen_ai.agent.id']).toBe('oc-subagent-1');
   expect(turn.attributes['agentic.parent.session_id']).toBe('session-parent-link-parent');
   expect(turn.attributes['agentic.parent.turn_id']).toBe('turn-1');
   expect(turn.attributes['agentic.parent.tool_call_id']).toBe('oc-task-1');

@@ -219,7 +219,7 @@ describe('normalizeTranscriptMessages', () => {
     });
 
     for (const event of events) {
-      expect(event.attributes['agentic.agent_id']).toBe('subagent-1');
+      expect(event.attributes['gen_ai.agent.id']).toBe('subagent-1');
       expect(event.attributes['agentic.parent.session_id']).toBe('sess-parent');
       expect(event.attributes['agentic.parent.turn_id']).toBe('turn-parent-3');
       expect(event.attributes['agentic.parent.tool_call_id']).toBe('call-task-xyz');
@@ -229,21 +229,19 @@ describe('normalizeTranscriptMessages', () => {
 
   it('extracts structured shell command attributes', () => {
     const scenarios = [
-      { command: 'ls -la', expectName: 'ls', expectArgs: '-la', expectPipeCount: 0, expectRaw: 'ls -la' },
+      { command: 'ls -la', expectName: 'ls', expectArgs: '-la', expectPipeCount: 0 },
       {
         command: 'find . -name "*.ts" | xargs grep TODO | wc -l',
         expectName: 'find',
         expectArgs: '. -name "*.ts"',
         expectPipeCount: 2,
-        expectRaw: 'find . -name "*.ts" | xargs grep TODO | wc -l',
       },
-      { command: '', expectName: '', expectArgs: '', expectPipeCount: 0, expectRaw: '' },
+      { command: '', expectName: '', expectArgs: '', expectPipeCount: 0 },
       {
         command: 'npm run build && npm test',
         expectName: 'npm',
         expectArgs: 'run build && npm test',
         expectPipeCount: 0,
-        expectRaw: 'npm run build && npm test',
       },
     ];
 
@@ -283,8 +281,208 @@ describe('normalizeTranscriptMessages', () => {
       expect(bash.attributes['agentic.command.name']).toBe(scenario.expectName);
       expect(bash.attributes['agentic.command.args']).toBe(scenario.expectArgs);
       expect(bash.attributes['agentic.command.pipe_count']).toBe(scenario.expectPipeCount);
-      expect(bash.attributes['agentic.command.raw']).toBe(scenario.expectRaw);
     }
+  });
+
+  it('emits context snapshot, boundary, and source attribution events for enabled runtimes', () => {
+    const runtimes = ['claude-code', 'codex', 'openclaw', 'opencode'];
+
+    for (const runtime of runtimes) {
+      const events = normalizeTranscriptMessages({
+        runtime,
+        projectId: 'p-context',
+        sessionId: `s-context-${runtime}`,
+        messages: [
+          {
+            role: 'user',
+            isMeta: false,
+            content: '请读取 /tmp/CLAUDE.md 并总结',
+            timestamp: new Date('2026-03-09T00:00:00.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [
+              { type: 'tool_use', id: 'read-1', name: 'Read', input: { file_path: '/tmp/CLAUDE.md' } },
+              { type: 'text', text: '已读取。' },
+            ],
+            model: 'claude-sonnet-4-6',
+            usage: { input_tokens: 120, output_tokens: 20, total_tokens: 140 },
+            timestamp: new Date('2026-03-09T00:00:01.000Z'),
+          },
+          {
+            role: 'user',
+            isMeta: false,
+            content: [{ type: 'tool_result', tool_use_id: 'read-1', content: 'file-content' }],
+            timestamp: new Date('2026-03-09T00:00:02.000Z'),
+          },
+          {
+            role: 'user',
+            isMeta: false,
+            content: '/compact 请压缩上下文',
+            timestamp: new Date('2026-03-09T00:00:03.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [{ type: 'text', text: '已压缩。' }],
+            model: 'claude-sonnet-4-6',
+            usage: { input_tokens: 40, output_tokens: 10, total_tokens: 50 },
+            timestamp: new Date('2026-03-09T00:00:04.000Z'),
+          },
+        ],
+      });
+
+      const contextEvents = events.filter((event) => event.category === 'context');
+      expect(contextEvents.length).toBeGreaterThan(0);
+      expect(contextEvents.every((event) => event.attributes['agentic.event.category'] === 'context')).toBe(true);
+
+      const snapshots = contextEvents.filter(
+        (event) => event.attributes['agentic.context.event_type'] === 'context_snapshot',
+      );
+      expect(snapshots).toHaveLength(2);
+
+      const firstSnapshot = snapshots[0];
+      const firstComposition = JSON.parse(String(firstSnapshot.attributes['agentic.context.composition'] ?? '{}'));
+      const firstTopSources = JSON.parse(String(firstSnapshot.attributes['agentic.context.top_sources'] ?? '[]'));
+      expect(firstSnapshot.attributes['agentic.context.estimated_total_tokens']).toBe(120);
+      expect(firstSnapshot.attributes['agentic.context.delta_tokens']).toBe(0);
+      expect(firstSnapshot.attributes['agentic.context.fill_ratio']).toBeCloseTo(0.0006, 6);
+      expect(firstSnapshot.attributes['agentic.context.estimation_method']).toBe('usage');
+      expect(firstSnapshot.attributes['agentic.context.estimation_confidence']).toBe(1);
+      expect(firstComposition.claude_md).toBeGreaterThan(0);
+      expect(Array.isArray(firstTopSources)).toBe(true);
+
+      const secondSnapshot = snapshots[1];
+      expect(secondSnapshot.attributes['agentic.context.estimated_total_tokens']).toBe(40);
+      expect(secondSnapshot.attributes['agentic.context.delta_tokens']).toBe(-80);
+
+      const boundaries = contextEvents.filter(
+        (event) => event.attributes['agentic.context.event_type'] === 'context_boundary',
+      );
+      const boundaryKinds = boundaries.map((event) => event.attributes['agentic.context.boundary_kind']);
+      expect(boundaryKinds).toContain('compact_before');
+      expect(boundaryKinds).toContain('compact_after');
+      const compactBefore = boundaries.find((event) => event.attributes['agentic.context.boundary_kind'] === 'compact_before');
+      const compactAfter = boundaries.find((event) => event.attributes['agentic.context.boundary_kind'] === 'compact_after');
+      expect(compactBefore?.attributes['agentic.context.detection_method']).toBe('hook');
+      expect(compactAfter?.attributes['agentic.context.detection_method']).toBe('inferred');
+
+      const attributions = contextEvents.filter(
+        (event) => event.attributes['agentic.context.event_type'] === 'context_source_attribution',
+      );
+      expect(attributions.length).toBeGreaterThan(0);
+      const attribution = attributions[0];
+      expect(String(attribution.attributes['agentic.context.source_kind']).length).toBeGreaterThan(0);
+      expect(String(attribution.attributes['agentic.context.source_name']).length).toBeGreaterThan(0);
+      expect(Number(attribution.attributes['agentic.context.token_delta'])).toBeGreaterThan(0);
+      expect(Number(attribution.attributes['agentic.context.source_share'])).toBeGreaterThan(0);
+      expect(Number(attribution.attributes['agentic.context.repeat_count_recent'])).toBeGreaterThanOrEqual(1);
+      expect(Number(attribution.attributes['agentic.context.pollution_score'])).toBeGreaterThanOrEqual(0);
+      expect(Number(attribution.attributes['agentic.context.pollution_score'])).toBeLessThanOrEqual(100);
+      expect(attribution.attributes['agentic.context.score_version']).toBe('pollution_score_v1');
+    }
+  });
+
+  it('uses calibrated estimation when usage anchors already exist in session', () => {
+    const events = normalizeTranscriptMessages({
+      runtime: 'codex',
+      projectId: 'p-calibrated',
+      sessionId: 's-calibrated',
+      messages: [
+        {
+          role: 'user',
+          isMeta: false,
+          content: 'turn1',
+          timestamp: new Date('2026-03-09T01:00:00.000Z'),
+        },
+        {
+          role: 'assistant',
+          isMeta: false,
+          content: [{ type: 'text', text: 'ack-1' }],
+          usage: { input_tokens: 100, output_tokens: 10, total_tokens: 110 },
+          timestamp: new Date('2026-03-09T01:00:01.000Z'),
+        },
+        {
+          role: 'user',
+          isMeta: false,
+          content: 'turn2',
+          timestamp: new Date('2026-03-09T01:00:02.000Z'),
+        },
+        {
+          role: 'assistant',
+          isMeta: false,
+          content: [{ type: 'text', text: 'ack-2' }],
+          usage: { input_tokens: 90, output_tokens: 10, total_tokens: 100 },
+          timestamp: new Date('2026-03-09T01:00:03.000Z'),
+        },
+        {
+          role: 'user',
+          isMeta: false,
+          content: 'turn3',
+          timestamp: new Date('2026-03-09T01:00:04.000Z'),
+        },
+        {
+          role: 'assistant',
+          isMeta: false,
+          content: [{ type: 'text', text: 'no usage in this turn but should be calibrated' }],
+          timestamp: new Date('2026-03-09T01:00:05.000Z'),
+        },
+      ],
+    });
+
+    const snapshots = events.filter(
+      (event) => event.category === 'context' && event.attributes['agentic.context.event_type'] === 'context_snapshot',
+    );
+    expect(snapshots).toHaveLength(3);
+    expect(snapshots[0].attributes['agentic.context.estimation_method']).toBe('usage');
+    expect(snapshots[1].attributes['agentic.context.estimation_method']).toBe('usage');
+    expect(snapshots[2].attributes['agentic.context.estimation_method']).toBe('calibrated');
+    expect(Number(snapshots[2].attributes['agentic.context.estimation_confidence'])).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('does not emit compact_after boundary for minor token drops', () => {
+    const events = normalizeTranscriptMessages({
+      runtime: 'codex',
+      projectId: 'p-compact-threshold',
+      sessionId: 's-compact-threshold',
+      messages: [
+        {
+          role: 'user',
+          isMeta: false,
+          content: 'turn1',
+          timestamp: new Date('2026-03-09T02:00:00.000Z'),
+        },
+        {
+          role: 'assistant',
+          isMeta: false,
+          content: [{ type: 'text', text: 'a' }],
+          usage: { input_tokens: 100, output_tokens: 10, total_tokens: 110 },
+          timestamp: new Date('2026-03-09T02:00:01.000Z'),
+        },
+        {
+          role: 'user',
+          isMeta: false,
+          content: 'turn2',
+          timestamp: new Date('2026-03-09T02:00:02.000Z'),
+        },
+        {
+          role: 'assistant',
+          isMeta: false,
+          content: [{ type: 'text', text: 'b' }],
+          usage: { input_tokens: 80, output_tokens: 10, total_tokens: 90 },
+          timestamp: new Date('2026-03-09T02:00:03.000Z'),
+        },
+      ],
+    });
+
+    const compactAfter = events.filter(
+      (event) =>
+        event.category === 'context'
+        && event.attributes['agentic.context.event_type'] === 'context_boundary'
+        && event.attributes['agentic.context.boundary_kind'] === 'compact_after',
+    );
+    expect(compactAfter).toHaveLength(0);
   });
 
 });

@@ -15,11 +15,39 @@
   ],
   "deprecated_fields": [
     {
+      "field": "agentic.agent_id",
+      "replacement": "gen_ai.agent.id",
+      "since": "field-convergence-2026-03-11",
+      "policy": "forbidden",
+      "reason": "prefer OTel gen_ai.agent.id"
+    },
+    {
+      "field": "agentic.command.raw",
+      "replacement": "process.command_line",
+      "since": "field-convergence-2026-03-11",
+      "policy": "forbidden",
+      "reason": "prefer OTel process.command_line"
+    },
+    {
       "field": "deployment.environment",
       "replacement": "deployment.environment.name",
       "since": "otel-semconv-deprecation",
       "policy": "forbidden",
       "reason": "OTel resource semantic conventions use deployment.environment.name"
+    },
+    {
+      "field": "gen_ai.usage.details.cache_creation_input_tokens",
+      "replacement": "gen_ai.usage.cache_creation.input_tokens",
+      "since": "field-convergence-2026-03-11",
+      "policy": "forbidden",
+      "reason": "rename to OTel semconv path"
+    },
+    {
+      "field": "gen_ai.usage.details.cache_read_input_tokens",
+      "replacement": "gen_ai.usage.cache_read.input_tokens",
+      "since": "field-convergence-2026-03-11",
+      "policy": "forbidden",
+      "reason": "rename to OTel semconv path"
     }
   ],
   "fields": [
@@ -80,151 +108,6 @@
         "reasoning"
       ],
       "example_value": "example"
-    },
-    {
-      "field": "agentic.agent_id",
-      "namespace": "agentic",
-      "source": "runtime/shared-normalize",
-      "stability": "custom",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "sidechain signal exists in current session messages",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "turn",
-        "tool",
-        "mcp",
-        "shell_command",
-        "agent_command",
-        "agent_task",
-        "reasoning"
-      ],
-      "example_value": "subagent-1"
-    },
-    {
-      "field": "agentic.parent.session_id",
-      "namespace": "agentic",
-      "source": "runtime/shared-normalize",
-      "stability": "custom",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "turn",
-        "tool",
-        "mcp",
-        "shell_command",
-        "agent_command",
-        "agent_task",
-        "reasoning"
-      ],
-      "example_value": "sess-parent"
-    },
-    {
-      "field": "agentic.parent.turn_id",
-      "namespace": "agentic",
-      "source": "runtime/shared-normalize",
-      "stability": "custom",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "turn",
-        "tool",
-        "mcp",
-        "shell_command",
-        "agent_command",
-        "agent_task",
-        "reasoning"
-      ],
-      "example_value": "turn-parent-3"
-    },
-    {
-      "field": "agentic.parent.tool_call_id",
-      "namespace": "agentic",
-      "source": "runtime/shared-normalize",
-      "stability": "custom",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "turn",
-        "tool",
-        "mcp",
-        "shell_command",
-        "agent_command",
-        "agent_task",
-        "reasoning"
-      ],
-      "example_value": "call-task-xyz"
-    },
-    {
-      "field": "agentic.parent.link.confidence",
-      "namespace": "agentic",
-      "source": "runtime/shared-normalize",
-      "stability": "custom",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "exact when explicit parent metadata exists; inferred when matched by sibling task time-window; unknown when only agent_id exists",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "turn",
-        "tool",
-        "mcp",
-        "shell_command",
-        "agent_command",
-        "agent_task",
-        "reasoning"
-      ],
-      "example_value": "inferred"
     },
     {
       "field": "agentic.command.args",
@@ -308,29 +191,6 @@
       "example_value": 2
     },
     {
-      "field": "agentic.command.raw",
-      "namespace": "agentic",
-      "source": "runtime/shared-normalize",
-      "stability": "custom",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "shell_command category events from Bash tool",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "shell_command"
-      ],
-      "example_value": "find . -name \"*.ts\" | xargs grep TODO | wc -l"
-    },
-    {
       "field": "agentic.context.boundary_kind",
       "namespace": "agentic",
       "source": "context-observability-design",
@@ -343,7 +203,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -363,7 +226,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -383,7 +249,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -403,12 +272,38 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
       ],
       "example_value": 3512
+    },
+    {
+      "field": "agentic.context.detection_method",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_boundary canonical event emitted with boundary classification",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "inferred"
     },
     {
       "field": "agentic.context.estimated_total_tokens",
@@ -423,12 +318,61 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
       ],
       "example_value": 84213
+    },
+    {
+      "field": "agentic.context.estimation_confidence",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot emitted with token estimation confidence",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 0.85
+    },
+    {
+      "field": "agentic.context.estimation_method",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_snapshot emitted with method metadata",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": "calibrated"
     },
     {
       "field": "agentic.context.event_type",
@@ -443,7 +387,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -463,7 +410,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -483,12 +433,38 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
       ],
       "example_value": 82
+    },
+    {
+      "field": "agentic.context.repeat_count_recent",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution emitted with sliding window repeat count",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 2
     },
     {
       "field": "agentic.context.score_version",
@@ -503,7 +479,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -523,7 +502,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -543,12 +525,38 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
       ],
       "example_value": "Read"
+    },
+    {
+      "field": "agentic.context.source_share",
+      "namespace": "agentic",
+      "source": "context-observability-design",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "context_source_attribution emitted with per-source share",
+      "source_path": [
+        "agentic-fields.md"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "context"
+      ],
+      "example_value": 0.31
     },
     {
       "field": "agentic.context.token_delta",
@@ -563,7 +571,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -583,7 +594,10 @@
         "agentic-fields.md"
       ],
       "runtime_support": [
-        "claude-code"
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
       ],
       "category_scope": [
         "context"
@@ -736,6 +750,122 @@
         "reasoning"
       ],
       "example_value": "example-name"
+    },
+    {
+      "field": "agentic.parent.link.confidence",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "exact when explicit parent metadata exists; inferred when matched by sibling task time-window; unknown when only agent_id exists",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "inferred"
+    },
+    {
+      "field": "agentic.parent.session_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "sess-parent"
+    },
+    {
+      "field": "agentic.parent.tool_call_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "call-task-xyz"
+    },
+    {
+      "field": "agentic.parent.turn_id",
+      "namespace": "agentic",
+      "source": "runtime/shared-normalize",
+      "stability": "custom",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "set from explicit metadata or best-effort sibling task time-window inference for sidechain sessions",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "turn-parent-3"
     },
     {
       "field": "agentic.project.cwd",
@@ -1102,6 +1232,35 @@
       "example_value": "example-name"
     },
     {
+      "field": "gen_ai.agent.id",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "sidechain signal exists in current session messages",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": "subagent-1"
+    },
+    {
       "field": "gen_ai.operation.name",
       "namespace": "gen_ai",
       "source": "runtime/shared-normalize",
@@ -1218,7 +1377,7 @@
       "example_value": "example-name"
     },
     {
-      "field": "gen_ai.usage.completion_tokens",
+      "field": "gen_ai.usage.cache_creation.input_tokens",
       "namespace": "gen_ai",
       "source": "runtime/shared-normalize",
       "stability": "official",
@@ -1247,7 +1406,36 @@
       "example_value": 1
     },
     {
-      "field": "gen_ai.usage.details.cache_creation_input_tokens",
+      "field": "gen_ai.usage.cache_read.input_tokens",
+      "namespace": "gen_ai",
+      "source": "runtime/shared-normalize",
+      "stability": "official",
+      "target_platform": [
+        "otel"
+      ],
+      "emit_when": "usage data available",
+      "source_path": [
+        "packages/cli/src/runtime/shared/normalize.ts"
+      ],
+      "runtime_support": [
+        "claude-code",
+        "codex",
+        "openclaw",
+        "opencode"
+      ],
+      "category_scope": [
+        "turn",
+        "tool",
+        "mcp",
+        "shell_command",
+        "agent_command",
+        "agent_task",
+        "reasoning"
+      ],
+      "example_value": 1
+    },
+    {
+      "field": "gen_ai.usage.completion_tokens",
       "namespace": "gen_ai",
       "source": "runtime/shared-normalize",
       "stability": "official",
@@ -1279,7 +1467,7 @@
       "field": "gen_ai.usage.details.cache_hit_rate",
       "namespace": "gen_ai",
       "source": "runtime/shared-normalize",
-      "stability": "official",
+      "stability": "custom",
       "target_platform": [
         "otel"
       ],
@@ -1303,35 +1491,6 @@
         "reasoning"
       ],
       "example_value": "example"
-    },
-    {
-      "field": "gen_ai.usage.details.cache_read_input_tokens",
-      "namespace": "gen_ai",
-      "source": "runtime/shared-normalize",
-      "stability": "official",
-      "target_platform": [
-        "otel"
-      ],
-      "emit_when": "usage data available",
-      "source_path": [
-        "packages/cli/src/runtime/shared/normalize.ts"
-      ],
-      "runtime_support": [
-        "claude-code",
-        "codex",
-        "openclaw",
-        "opencode"
-      ],
-      "category_scope": [
-        "turn",
-        "tool",
-        "mcp",
-        "shell_command",
-        "agent_command",
-        "agent_task",
-        "reasoning"
-      ],
-      "example_value": 1
     },
     {
       "field": "gen_ai.usage.input_tokens",
@@ -1424,7 +1583,7 @@
       "field": "gen_ai.usage.total_tokens",
       "namespace": "gen_ai",
       "source": "runtime/shared-normalize",
-      "stability": "official",
+      "stability": "custom",
       "target_platform": [
         "otel"
       ],
@@ -1837,7 +1996,7 @@
       "field": "mcp.request.id",
       "namespace": "mcp",
       "source": "runtime/shared-normalize",
-      "stability": "official",
+      "stability": "custom",
       "target_platform": [
         "otel"
       ],

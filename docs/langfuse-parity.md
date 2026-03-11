@@ -57,8 +57,8 @@ transcript/hook context lacks required data.
 | `gen_ai.usage.total_tokens` | Yes | Yes | Done | Usage extraction |
 | `gen_ai.usage.prompt_tokens` | Yes (compat) | Yes | Done | Mirrored from input |
 | `gen_ai.usage.completion_tokens` | Yes (compat) | Yes | Done | Mirrored from output |
-| `gen_ai.usage.details.cache_read_input_tokens` | Yes | Yes | Done | Parsed if present |
-| `gen_ai.usage.details.cache_creation_input_tokens` | Yes | Yes | Done | Parsed if present |
+| `gen_ai.usage.cache_read.input_tokens` | Yes | Yes | Done | OTel semconv path |
+| `gen_ai.usage.cache_creation.input_tokens` | Yes | Yes | Done | OTel semconv path |
 | `gen_ai.operation.name` | Yes | Yes | Done | Mapped by event type |
 | `langfuse.observation.status_message` | Yes | No | Gap | Claude transcript lacks normalized status semantics |
 | `langfuse.observation.level` | Yes | No | Gap | No reliable source in Claude transcript |

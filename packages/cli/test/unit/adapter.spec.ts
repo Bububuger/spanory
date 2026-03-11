@@ -143,7 +143,7 @@ describe('claudeCodeAdapter parent-child linkage inference', () => {
 
     const turn = events.find((e) => e.category === 'turn');
     expect(turn).toBeTruthy();
-    expect(turn.attributes['agentic.agent_id']).toBe('subagent-single');
+    expect(turn.attributes['gen_ai.agent.id']).toBe('subagent-single');
     expect(turn.attributes['agentic.parent.session_id']).toBe('session-parent-single');
     expect(turn.attributes['agentic.parent.turn_id']).toBe('turn-1');
     expect(turn.attributes['agentic.parent.tool_call_id']).toBe('task-single-1');
@@ -189,7 +189,7 @@ describe('claudeCodeAdapter parent-child linkage inference', () => {
 
     const turn = events.find((e) => e.category === 'turn');
     expect(turn).toBeTruthy();
-    expect(turn.attributes['agentic.agent_id']).toBe('subagent-nomatch');
+    expect(turn.attributes['gen_ai.agent.id']).toBe('subagent-nomatch');
     expect(turn.attributes['agentic.parent.session_id']).toBeUndefined();
     expect(turn.attributes['agentic.parent.turn_id']).toBeUndefined();
     expect(turn.attributes['agentic.parent.tool_call_id']).toBeUndefined();
@@ -207,7 +207,7 @@ it('prefers exact parent metadata when present and does not override with inferr
 
   const turn = events.find((e) => e.category === 'turn');
   expect(turn).toBeTruthy();
-  expect(turn.attributes['agentic.agent_id']).toBe('subagent-explicit');
+  expect(turn.attributes['gen_ai.agent.id']).toBe('subagent-explicit');
   expect(turn.attributes['agentic.parent.session_id']).toBe('session-parent-explicit');
   expect(turn.attributes['agentic.parent.turn_id']).toBe('turn-77');
   expect(turn.attributes['agentic.parent.tool_call_id']).toBe('task-explicit-1');

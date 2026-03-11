@@ -31,6 +31,28 @@ function usageFromEvent(event) {
   return { input, output, total };
 }
 
+function parseJsonObject(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
+function parseJsonArray(value) {
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore parse errors
+  }
+  return [];
+}
+
 export async function loadExportedEvents(inputPath) {
   const inputStat = await stat(inputPath);
   const files = [];
@@ -158,8 +180,8 @@ export function summarizeCache(sessions) {
     for (const turn of turns) {
       const attrs = turn.attributes ?? {};
       inputTokens += toNumber(attrs['gen_ai.usage.input_tokens']);
-      cacheReadInputTokens += toNumber(attrs['gen_ai.usage.details.cache_read_input_tokens']);
-      cacheCreationInputTokens += toNumber(attrs['gen_ai.usage.details.cache_creation_input_tokens']);
+      cacheReadInputTokens += toNumber(attrs['gen_ai.usage.cache_read.input_tokens']);
+      cacheCreationInputTokens += toNumber(attrs['gen_ai.usage.cache_creation.input_tokens']);
       const hitRate = toOptionalNumber(attrs['gen_ai.usage.details.cache_hit_rate']);
       if (hitRate !== undefined) explicitHitRates.push(hitRate);
     }
@@ -259,4 +281,106 @@ export function summarizeTurnDiff(sessions) {
     }
   }
   return rows;
+}
+
+export function summarizeContext(sessions) {
+  return sessions.map((s) => {
+    const events = s.events ?? [];
+    const snapshots = events.filter((e) => e?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
+    const boundaries = events.filter((e) => e?.attributes?.['agentic.context.event_type'] === 'context_boundary');
+    const attributions = events.filter((e) => e?.attributes?.['agentic.context.event_type'] === 'context_source_attribution');
+
+    let maxFillRatio = 0;
+    let maxDeltaTokens = 0;
+    for (const snapshot of snapshots) {
+      const attrs = snapshot.attributes ?? {};
+      const fillRatio = toOptionalNumber(attrs['agentic.context.fill_ratio']) ?? 0;
+      const deltaTokens = toOptionalNumber(attrs['agentic.context.delta_tokens']) ?? 0;
+      maxFillRatio = Math.max(maxFillRatio, fillRatio);
+      maxDeltaTokens = Math.max(maxDeltaTokens, deltaTokens);
+    }
+
+    const compactCount = boundaries.filter(
+      (e) => String(e?.attributes?.['agentic.context.boundary_kind'] ?? '') === 'compact_after',
+    ).length;
+
+    const last5 = snapshots.slice(-5);
+    let unknownTokens = 0;
+    let totalTokens = 0;
+    for (const snapshot of last5) {
+      const composition = parseJsonObject(snapshot?.attributes?.['agentic.context.composition']);
+      if (!composition) continue;
+      for (const [kind, raw] of Object.entries(composition)) {
+        const value = Number(raw);
+        if (!Number.isFinite(value) || value <= 0) continue;
+        totalTokens += value;
+        if (kind === 'unknown') unknownTokens += value;
+      }
+    }
+    const unknownDeltaShareWindow5 = totalTokens > 0 ? round6(unknownTokens / totalTokens) : 0;
+
+    let unknownTopStreak = 0;
+    let runningUnknown = 0;
+    for (const snapshot of snapshots) {
+      const topSources = parseJsonArray(snapshot?.attributes?.['agentic.context.top_sources']);
+      const top = String(topSources[0] ?? '').trim();
+      if (top === 'unknown') {
+        runningUnknown += 1;
+        unknownTopStreak = Math.max(unknownTopStreak, runningUnknown);
+      } else {
+        runningUnknown = 0;
+      }
+    }
+
+    let highPollutionSourceStreak = 0;
+    const turnOrder = [];
+    const highByTurn = new Map();
+    for (const event of attributions) {
+      const attrs = event?.attributes ?? {};
+      const turnId = String(event?.turnId ?? '');
+      if (!turnId) continue;
+      if (!highByTurn.has(turnId)) {
+        highByTurn.set(turnId, []);
+        turnOrder.push(turnId);
+      }
+      const sourceKind = String(attrs['agentic.context.source_kind'] ?? '').trim();
+      const score = Number(attrs['agentic.context.pollution_score']);
+      if (!sourceKind || !Number.isFinite(score) || score < 80) continue;
+      highByTurn.get(turnId).push({ sourceKind, score });
+    }
+    let runningSource = '';
+    let runningCount = 0;
+    for (const turnId of turnOrder) {
+      const items = highByTurn.get(turnId) ?? [];
+      if (!items.length) {
+        runningSource = '';
+        runningCount = 0;
+        continue;
+      }
+      items.sort((a, b) => b.score - a.score);
+      const topSource = items[0].sourceKind;
+      if (topSource === runningSource) {
+        runningCount += 1;
+      } else {
+        runningSource = topSource;
+        runningCount = 1;
+      }
+      highPollutionSourceStreak = Math.max(highPollutionSourceStreak, runningCount);
+    }
+
+    return {
+      projectId: s.context.projectId ?? events[0]?.projectId,
+      sessionId: s.context.sessionId ?? events[0]?.sessionId,
+      runtime: events[0]?.runtime,
+      snapshots: snapshots.length,
+      boundaries: boundaries.length,
+      compactCount,
+      attributions: attributions.length,
+      maxFillRatio: round6(maxFillRatio),
+      maxDeltaTokens,
+      unknownDeltaShareWindow5,
+      unknownTopStreak,
+      highPollutionSourceStreak,
+    };
+  });
 }

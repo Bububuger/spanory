@@ -4,6 +4,7 @@ import {
   summarizeCache,
   summarizeAgents,
   summarizeCommands,
+  summarizeContext,
   summarizeMcp,
   summarizeSessions,
   summarizeTools,
@@ -23,8 +24,8 @@ function buildSession() {
           'gen_ai.usage.input_tokens': 10,
           'gen_ai.usage.output_tokens': 5,
           'gen_ai.usage.total_tokens': 15,
-          'gen_ai.usage.details.cache_read_input_tokens': 2,
-          'gen_ai.usage.details.cache_creation_input_tokens': 1,
+          'gen_ai.usage.cache_read.input_tokens': 2,
+          'gen_ai.usage.cache_creation.input_tokens': 1,
           'gen_ai.usage.details.cache_hit_rate': 0.166667,
         },
       },
@@ -102,6 +103,77 @@ function buildDiffSession() {
   };
 }
 
+function buildContextSession() {
+  return {
+    context: { projectId: 'p1', sessionId: 's3' },
+    events: [
+      {
+        runtime: 'codex',
+        sessionId: 's3',
+        projectId: 'p1',
+        turnId: 'turn-1',
+        category: 'context',
+        attributes: {
+          'agentic.context.event_type': 'context_snapshot',
+          'agentic.context.fill_ratio': 0.82,
+          'agentic.context.delta_tokens': 22000,
+          'agentic.context.composition': '{"unknown":20,"tool_output":80}',
+          'agentic.context.top_sources': '["unknown","tool_output"]',
+        },
+      },
+      {
+        runtime: 'codex',
+        sessionId: 's3',
+        projectId: 'p1',
+        turnId: 'turn-2',
+        category: 'context',
+        attributes: {
+          'agentic.context.event_type': 'context_snapshot',
+          'agentic.context.fill_ratio': 0.9,
+          'agentic.context.delta_tokens': -5000,
+          'agentic.context.composition': '{"unknown":15,"tool_output":85}',
+          'agentic.context.top_sources': '["unknown","tool_output"]',
+        },
+      },
+      {
+        runtime: 'codex',
+        sessionId: 's3',
+        projectId: 'p1',
+        turnId: 'turn-2',
+        category: 'context',
+        attributes: {
+          'agentic.context.event_type': 'context_boundary',
+          'agentic.context.boundary_kind': 'compact_after',
+        },
+      },
+      {
+        runtime: 'codex',
+        sessionId: 's3',
+        projectId: 'p1',
+        turnId: 'turn-1',
+        category: 'context',
+        attributes: {
+          'agentic.context.event_type': 'context_source_attribution',
+          'agentic.context.source_kind': 'tool_output',
+          'agentic.context.pollution_score': 86,
+        },
+      },
+      {
+        runtime: 'codex',
+        sessionId: 's3',
+        projectId: 'p1',
+        turnId: 'turn-2',
+        category: 'context',
+        attributes: {
+          'agentic.context.event_type': 'context_source_attribution',
+          'agentic.context.source_kind': 'tool_output',
+          'agentic.context.pollution_score': 84,
+        },
+      },
+    ],
+  };
+}
+
 describe('report aggregations', () => {
   it('builds session summary', () => {
     const rows = summarizeSessions([buildSession()]);
@@ -152,5 +224,15 @@ describe('report aggregations', () => {
     expect(rows[1].charDelta).toBe(5);
     expect(rows[1].similarity).toBe(0.5);
     expect(rows[1].changed).toBe(true);
+  });
+
+  it('builds context summary', () => {
+    const rows = summarizeContext([buildContextSession()]);
+    expect(rows[0].snapshots).toBe(2);
+    expect(rows[0].compactCount).toBe(1);
+    expect(rows[0].maxFillRatio).toBe(0.9);
+    expect(rows[0].maxDeltaTokens).toBe(22000);
+    expect(rows[0].unknownTopStreak).toBe(2);
+    expect(rows[0].highPollutionSourceStreak).toBe(2);
   });
 });

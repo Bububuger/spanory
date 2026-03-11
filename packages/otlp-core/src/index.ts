@@ -124,6 +124,32 @@ function observationIdentity(event: SpanoryEvent, idx: number): string {
   return `event:${turnId}:${event.category}:${event.name}:${event.startedAt ?? ''}:${idx}`;
 }
 
+function numberFromUnknown(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+function usageDetailsFromAttributes(attrs: Record<string, unknown>): string | undefined {
+  const input = numberFromUnknown(attrs['gen_ai.usage.input_tokens']);
+  const output = numberFromUnknown(attrs['gen_ai.usage.output_tokens']);
+  const total = numberFromUnknown(attrs['gen_ai.usage.total_tokens']);
+  const cacheRead = numberFromUnknown(attrs['gen_ai.usage.cache_read.input_tokens']);
+  const cacheCreation = numberFromUnknown(attrs['gen_ai.usage.cache_creation.input_tokens']);
+
+  const usageDetails = {
+    ...(input !== undefined ? { input } : {}),
+    ...(output !== undefined ? { output } : {}),
+    ...(total !== undefined ? { total } : {}),
+    ...(cacheRead !== undefined ? { input_cache_read: cacheRead } : {}),
+    ...(cacheCreation !== undefined ? { input_cache_creation: cacheCreation } : {}),
+  };
+  return Object.keys(usageDetails).length ? JSON.stringify(usageDetails) : undefined;
+}
+
 export function buildResource(input: Partial<OtlpResource> = {}): OtlpResource {
   return {
     serviceName: input.serviceName ?? process.env.SPANORY_SERVICE_NAME ?? 'spanory',
@@ -241,13 +267,17 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
       rootByTurn.set(turnKey, spanId);
     }
 
+    const usageDetails = usageDetailsFromAttributes(event.attributes ?? {});
     const attrs = {
       'agentic.runtime.name': event.runtime,
+      'session.id': event.sessionId,
       'langfuse.trace.id': traceId,
       'langfuse.session.id': event.sessionId,
-      'session.id': event.sessionId,
       ...(event.turnId ? { 'agentic.turn.id': event.turnId } : {}),
       ...(event.attributes ?? {}),
+      ...(usageDetails && !event.attributes?.['langfuse.observation.usage_details']
+        ? { 'langfuse.observation.usage_details': usageDetails }
+        : {}),
       // Keep trace identity naming canonical even if upstream event attrs carry stale values.
       'langfuse.trace.name': traceContext.traceName,
       'langfuse.trace.metadata': traceContext.traceMetadata,

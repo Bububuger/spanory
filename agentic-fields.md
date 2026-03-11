@@ -75,13 +75,18 @@ agentic.*
 | `agentic.context.fill_ratio` | 当前上下文占窗口比例（0.0–1.0） |
 | `agentic.context.estimated_total_tokens` | 当前上下文总 token 估算值 |
 | `agentic.context.delta_tokens` | 相对上一个快照的 token 增量 |
+| `agentic.context.estimation_method` | 估算方法：`usage` / `heuristic` / `calibrated` |
+| `agentic.context.estimation_confidence` | 估算置信度（0.0–1.0） |
 | `agentic.context.composition` | 各来源 token 占用的 JSON 序列化映射 |
 | `agentic.context.top_sources` | 当前 top-N 上下文来源的 JSON 序列化数组 |
 | `agentic.context.boundary_kind` | 上下文边界类型：`compact_before` / `compact_after` / `restore` / `resume` |
 | `agentic.context.compaction_ratio` | compact 前后压缩比例 |
+| `agentic.context.detection_method` | 边界检测方式：`hook` / `inferred` |
 | `agentic.context.source_kind` | 归因来源种类：如 `tool_output` / `claude_md` |
 | `agentic.context.source_name` | 可读来源名称，如工具名、文件名或 skill 名 |
 | `agentic.context.token_delta` | 该来源导致的 token 增量 |
+| `agentic.context.source_share` | 该来源在本次归因总增量中的占比 |
+| `agentic.context.repeat_count_recent` | 该来源在最近窗口（默认 5 turn）中的出现次数 |
 | `agentic.context.pollution_score` | 该来源的上下文污染评分 |
 | `agentic.context.score_version` | 评分算法版本，如 `pollution_score_v1` |
 
@@ -207,7 +212,7 @@ Agent 当前工作目录。仅在 codex runtime 的 `session_meta.cwd` 存在时
 
 Bash 执行的完整命令字符串（含管道、`&&` 等）原样存入 `process.command_line` 和 span `input`，不做任何拆分。
 
-> **已知缺口（[issue #3](https://github.com/Bububuger/spanory/issues/3)）：** shell 命令缺乏结构化解析，无法按首命令分组统计，也无法统计管道深度。
+> **已知缺口（[issue #3](https://github.com/Bububuger/spanory/issues/3)）：** shell 命令仍有拆解边界（`&&` / `;` / `||` 链式语句未做深度语法解析），复杂场景下分组粒度仍有限。
 >
 > **计划新增字段：**
 >
@@ -216,7 +221,6 @@ Bash 执行的完整命令字符串（含管道、`&&` 等）原样存入 `proce
 > | `agentic.command.name` | 首段第一个 token（主命令名） | `find` |
 > | `agentic.command.args` | 首段剩余参数 | `. -name "*.ts"` |
 > | `agentic.command.pipe_count` | 管道段数（`\|` 分隔） | `2` |
-> | `agentic.command.raw` | 完整原始命令串（`process.command_line` 的别名） | `find . \| xargs grep TODO \| wc -l` |
 >
 > `&&`、`;`、`||` 链内部不做深度拆解，提取主命令名已足够满足分组和审计需求。
 
@@ -244,7 +248,7 @@ Bash 执行的完整命令字符串（含管道、`&&` 等）原样存入 `proce
 >
 > | 字段 | 含义 |
 > |---|---|
-> | `agentic.agent_id` | 当前 session 自身的 agentId（现只用于 role 推断，未写出） |
+> | `gen_ai.agent.id` | 当前 session 自身的 agentId（OTel 官方字段） |
 > | `agentic.parent.session_id` | 派生本 session 的父 session ID |
 > | `agentic.parent.turn_id` | 父 session 中触发派发的 turn ID |
 > | `agentic.parent.tool_call_id` | 父 turn 中 Task 工具调用的 call ID |

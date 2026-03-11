@@ -12,7 +12,7 @@
       "agentic.actor.role": "main",
       "agentic.actor.role_confidence": 0.95,
       "agentic.event.category": "turn",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.110.0",
       "agentic.subagent.calls": 0,
       "agentic.turn.completed": false,
@@ -24,6 +24,52 @@
       "agentic.turn.input.prev_hash": "",
       "gen_ai.operation.name": "invoke_agent",
       "langfuse.observation.type": "agent"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-open",
+    "turnId": "turn-open-1",
+    "category": "context",
+    "name": "Context Snapshot",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.composition": "{\"turn\":2}",
+      "agentic.context.delta_tokens": 0,
+      "agentic.context.estimated_total_tokens": 2,
+      "agentic.context.estimation_confidence": 0.4,
+      "agentic.context.estimation_method": "heuristic",
+      "agentic.context.event_type": "context_snapshot",
+      "agentic.context.fill_ratio": 0.00001,
+      "agentic.context.top_sources": "[\"turn\"]",
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.110.0"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-open",
+    "turnId": "turn-open-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 37,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "turn",
+      "agentic.context.source_name": "turn",
+      "agentic.context.source_share": 1,
+      "agentic.context.token_delta": 2,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.110.0"
     }
   }
 ]

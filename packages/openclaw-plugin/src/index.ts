@@ -36,10 +36,10 @@ function usageToAttributes(usage) {
     attrs['gen_ai.usage.total_tokens'] = total;
   }
   if (cacheRead !== undefined) {
-    attrs['gen_ai.usage.details.cache_read_input_tokens'] = cacheRead;
+    attrs['gen_ai.usage.cache_read.input_tokens'] = cacheRead;
   }
   if (cacheWrite !== undefined) {
-    attrs['gen_ai.usage.details.cache_creation_input_tokens'] = cacheWrite;
+    attrs['gen_ai.usage.cache_creation.input_tokens'] = cacheWrite;
   }
   attrs['langfuse.observation.usage_details'] = JSON.stringify({
     ...(input !== undefined ? { input } : {}),

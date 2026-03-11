@@ -12,7 +12,7 @@
       "agentic.actor.role": "main",
       "agentic.actor.role_confidence": 0.95,
       "agentic.event.category": "turn",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "agentic.subagent.calls": 1,
       "agentic.turn.completed": true,
@@ -31,8 +31,7 @@
       "gen_ai.usage.prompt_tokens": 20,
       "gen_ai.usage.total_tokens": 30,
       "langfuse.observation.model.name": "gpt-5.3-codex",
-      "langfuse.observation.type": "agent",
-      "langfuse.observation.usage_details": "{\"input\":20,\"output\":10,\"total\":30}"
+      "langfuse.observation.type": "agent"
     }
   },
   {
@@ -48,7 +47,7 @@
       "agentic.command.args": "please summarize",
       "agentic.command.name": "compact",
       "agentic.event.category": "agent_command",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "invoke_agent",
       "langfuse.observation.type": "event"
@@ -67,9 +66,8 @@
       "agentic.command.args": "",
       "agentic.command.name": "pwd",
       "agentic.command.pipe_count": 0,
-      "agentic.command.raw": "pwd",
       "agentic.event.category": "shell_command",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -92,7 +90,7 @@
     "attributes": {
       "agentic.event.category": "mcp",
       "agentic.mcp.server.name": "playwright",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -113,7 +111,7 @@
     "output": "{\"id\":\"agent-1\"}",
     "attributes": {
       "agentic.event.category": "agent_task",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "invoke_agent",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -134,7 +132,7 @@
     "output": "{\"status\":\"completed\",\"query\":\"spanory\"}",
     "attributes": {
       "agentic.event.category": "tool",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -142,6 +140,190 @@
       "gen_ai.tool.name": "WebSearch",
       "langfuse.observation.model.name": "gpt-5.3-codex",
       "langfuse.observation.type": "tool"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Snapshot",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.composition": "{\"tool_output\":33,\"tool_input\":31,\"subagent\":25,\"team_coordination\":18,\"turn\":10,\"mention_file\":10,\"skill\":7}",
+      "agentic.context.delta_tokens": 0,
+      "agentic.context.estimated_total_tokens": 20,
+      "agentic.context.estimation_confidence": 1,
+      "agentic.context.estimation_method": "usage",
+      "agentic.context.event_type": "context_snapshot",
+      "agentic.context.fill_ratio": 0.0001,
+      "agentic.context.top_sources": "[\"tool_output\",\"tool_input\",\"subagent\"]",
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 36,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "tool_output",
+      "agentic.context.source_name": "Bash",
+      "agentic.context.source_share": 0.246269,
+      "agentic.context.token_delta": 33,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 35,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "tool_input",
+      "agentic.context.source_name": "Bash",
+      "agentic.context.source_share": 0.231343,
+      "agentic.context.token_delta": 31,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 29,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "subagent",
+      "agentic.context.source_name": "Task",
+      "agentic.context.source_share": 0.186567,
+      "agentic.context.token_delta": 25,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 23,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "team_coordination",
+      "agentic.context.source_name": "Task",
+      "agentic.context.source_share": 0.134328,
+      "agentic.context.token_delta": 18,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 16,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "turn",
+      "agentic.context.source_name": "turn",
+      "agentic.context.source_share": 0.074627,
+      "agentic.context.token_delta": 10,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 16,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "mention_file",
+      "agentic.context.source_name": "https://example.com",
+      "agentic.context.source_share": 0.074627,
+      "agentic.context.token_delta": 10,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-1",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 13,
+      "agentic.context.repeat_count_recent": 1,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "skill",
+      "agentic.context.source_name": "/compact",
+      "agentic.context.source_share": 0.052239,
+      "agentic.context.token_delta": 7,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
     }
   },
   {
@@ -157,7 +339,7 @@
       "agentic.actor.role": "main",
       "agentic.actor.role_confidence": 0.95,
       "agentic.event.category": "turn",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "agentic.subagent.calls": 0,
       "agentic.turn.completed": true,
@@ -176,8 +358,7 @@
       "gen_ai.usage.prompt_tokens": 6,
       "gen_ai.usage.total_tokens": 9,
       "langfuse.observation.model.name": "gpt-5.3-codex",
-      "langfuse.observation.type": "agent",
-      "langfuse.observation.usage_details": "{\"input\":6,\"output\":3,\"total\":9}"
+      "langfuse.observation.type": "agent"
     }
   },
   {
@@ -193,9 +374,8 @@
       "agentic.command.args": "",
       "agentic.command.name": "ls",
       "agentic.command.pipe_count": 0,
-      "agentic.command.raw": "ls",
       "agentic.event.category": "shell_command",
-      "agentic.project.cwd": "demo-3278db",
+      "agentic.project.cwd": "demo-3278dbdbc4",
       "agentic.runtime.version": "0.107.0-alpha.5",
       "gen_ai.operation.name": "execute_tool",
       "gen_ai.request.model": "gpt-5.3-codex",
@@ -204,6 +384,117 @@
       "langfuse.observation.model.name": "gpt-5.3-codex",
       "langfuse.observation.type": "tool",
       "process.command_line": "ls"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-2",
+    "category": "context",
+    "name": "Context Snapshot",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.composition": "{\"turn\":6,\"tool_output\":3,\"tool_input\":1}",
+      "agentic.context.delta_tokens": -14,
+      "agentic.context.estimated_total_tokens": 6,
+      "agentic.context.estimation_confidence": 1,
+      "agentic.context.estimation_method": "usage",
+      "agentic.context.event_type": "context_snapshot",
+      "agentic.context.fill_ratio": 0.00003,
+      "agentic.context.top_sources": "[\"turn\",\"tool_output\",\"tool_input\"]",
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-2",
+    "category": "context",
+    "name": "Context Boundary",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.boundary_kind": "compact_after",
+      "agentic.context.compaction_ratio": 0.7,
+      "agentic.context.detection_method": "inferred",
+      "agentic.context.event_type": "context_boundary",
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-2",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 43,
+      "agentic.context.repeat_count_recent": 2,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "turn",
+      "agentic.context.source_name": "turn",
+      "agentic.context.source_share": 0.6,
+      "agentic.context.token_delta": 6,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-2",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 43,
+      "agentic.context.repeat_count_recent": 2,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "tool_output",
+      "agentic.context.source_name": "Bash",
+      "agentic.context.source_share": 0.3,
+      "agentic.context.token_delta": 3,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
+    }
+  },
+  {
+    "runtime": "codex",
+    "projectId": "codex-test",
+    "sessionId": "session-a",
+    "turnId": "turn-codex-2",
+    "category": "context",
+    "name": "Context Source Attribution",
+    "input": "",
+    "output": "",
+    "attributes": {
+      "agentic.context.event_type": "context_source_attribution",
+      "agentic.context.pollution_score": 25,
+      "agentic.context.repeat_count_recent": 2,
+      "agentic.context.score_version": "pollution_score_v1",
+      "agentic.context.source_kind": "tool_input",
+      "agentic.context.source_name": "Bash",
+      "agentic.context.source_share": 0.1,
+      "agentic.context.token_delta": 1,
+      "agentic.event.category": "context",
+      "agentic.project.cwd": "demo-3278dbdbc4",
+      "agentic.runtime.version": "0.107.0-alpha.5"
     }
   }
 ]
