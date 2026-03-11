@@ -26,8 +26,8 @@
         "gen_ai.usage.output_tokens": 5,
         "gen_ai.usage.completion_tokens": 5,
         "gen_ai.usage.total_tokens": 15,
-        "gen_ai.usage.details.cache_read_input_tokens": 2,
-        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "gen_ai.usage.cache_read.input_tokens": 2,
+        "gen_ai.usage.cache_creation.input_tokens": 1,
         "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
       }
     },
@@ -74,8 +74,8 @@
         "gen_ai.usage.output_tokens": 5,
         "gen_ai.usage.completion_tokens": 5,
         "gen_ai.usage.total_tokens": 15,
-        "gen_ai.usage.details.cache_read_input_tokens": 2,
-        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "gen_ai.usage.cache_read.input_tokens": 2,
+        "gen_ai.usage.cache_creation.input_tokens": 1,
         "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
       }
     },
@@ -103,8 +103,8 @@
         "gen_ai.usage.output_tokens": 5,
         "gen_ai.usage.completion_tokens": 5,
         "gen_ai.usage.total_tokens": 15,
-        "gen_ai.usage.details.cache_read_input_tokens": 2,
-        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "gen_ai.usage.cache_read.input_tokens": 2,
+        "gen_ai.usage.cache_creation.input_tokens": 1,
         "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
       }
     },
@@ -131,8 +131,8 @@
         "gen_ai.usage.output_tokens": 5,
         "gen_ai.usage.completion_tokens": 5,
         "gen_ai.usage.total_tokens": 15,
-        "gen_ai.usage.details.cache_read_input_tokens": 2,
-        "gen_ai.usage.details.cache_creation_input_tokens": 1,
+        "gen_ai.usage.cache_read.input_tokens": 2,
+        "gen_ai.usage.cache_creation.input_tokens": 1,
         "langfuse.observation.usage_details": "{\"input\":10,\"output\":5,\"total\":15,\"input_cache_read\":2,\"input_cache_creation\":1}"
       }
     },
@@ -302,13 +302,13 @@
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "key": "gen_ai.usage.cache_read.input_tokens",
                     "value": {
                       "doubleValue": 2
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "key": "gen_ai.usage.cache_creation.input_tokens",
                     "value": {
                       "doubleValue": 1
                     }
@@ -586,13 +586,13 @@
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "key": "gen_ai.usage.cache_read.input_tokens",
                     "value": {
                       "doubleValue": 2
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "key": "gen_ai.usage.cache_creation.input_tokens",
                     "value": {
                       "doubleValue": 1
                     }
@@ -746,13 +746,13 @@
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "key": "gen_ai.usage.cache_read.input_tokens",
                     "value": {
                       "doubleValue": 2
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "key": "gen_ai.usage.cache_creation.input_tokens",
                     "value": {
                       "doubleValue": 1
                     }
@@ -900,13 +900,13 @@
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_read_input_tokens",
+                    "key": "gen_ai.usage.cache_read.input_tokens",
                     "value": {
                       "doubleValue": 2
                     }
                   },
                   {
-                    "key": "gen_ai.usage.details.cache_creation_input_tokens",
+                    "key": "gen_ai.usage.cache_creation.input_tokens",
                     "value": {
                       "doubleValue": 1
                     }

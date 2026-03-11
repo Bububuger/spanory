@@ -102,4 +102,23 @@ describe('BDD report command', () => {
     expect(data.view).toBe('turn-diff-summary');
     expect(data.rows.length).toBeGreaterThan(0);
   });
+
+  it('Given context exported json, When report context runs, Then returns context summary rows', () => {
+    const out = execFileSync(
+      'node',
+      [
+        entry,
+        'report',
+        'context',
+        '--input-json',
+        'test/fixtures/exported/session-context.json',
+      ],
+      { env: cleanEnv },
+    ).toString('utf8');
+
+    const data = JSON.parse(out);
+    expect(data.view).toBe('context-summary');
+    expect(data.rows[0].sessionId).toBe('s-context');
+    expect(data.rows[0].compactCount).toBe(1);
+  });
 });

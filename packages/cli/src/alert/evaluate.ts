@@ -10,10 +10,13 @@ import {
   summarizeTurnDiff,
 } from '../report/aggregate.js';
 
+const DEFAULT_CONTEXT_WINDOW_TOKENS = 200000;
+
 function getMetricFromSessionRow(row, metric, refs = {}) {
   const cacheRow = refs.cacheBySessionId?.get(row.sessionId);
   const agentRow = refs.agentBySessionId?.get(row.sessionId);
   const turnDiffRows = refs.turnDiffBySessionId?.get(row.sessionId) ?? [];
+  const contextRow = refs.contextBySessionId?.get(row.sessionId);
 
   switch (metric) {
     case 'events':
@@ -36,9 +39,152 @@ function getMetricFromSessionRow(row, metric, refs = {}) {
       return agentRow?.agentTasks ?? 0;
     case 'diff.char_delta.max':
       return turnDiffRows.reduce((max, rowItem) => Math.max(max, Math.abs(Number(rowItem.charDelta ?? 0))), 0);
+    case 'context.unknown_delta_share.window5':
+      return contextRow?.unknownDeltaShareWindow5 ?? 0;
+    case 'context.unknown_top_streak':
+      return contextRow?.unknownTopStreak ?? 0;
+    case 'context.high_pollution_source_streak':
+      return contextRow?.highPollutionSourceStreak ?? 0;
+    case 'context.fill_ratio.max':
+      return contextRow?.maxFillRatio ?? 0;
+    case 'context.delta_ratio.max':
+      return contextRow?.maxDeltaRatio ?? 0;
+    case 'context.compact.count':
+      return contextRow?.compactCount ?? 0;
     default:
       return 0;
   }
+}
+
+function parseJsonObject(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
+function parseJsonArray(value) {
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore parse errors
+  }
+  return [];
+}
+
+function summarizeContextForSession(events) {
+  const snapshots = events.filter(
+    (event) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot',
+  );
+  const attributions = events.filter(
+    (event) => event?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
+  );
+
+  const last5 = snapshots.slice(-5);
+  let unknownTokens = 0;
+  let totalTokens = 0;
+  for (const snapshot of last5) {
+    const composition = parseJsonObject(snapshot?.attributes?.['agentic.context.composition']);
+    if (!composition) continue;
+    for (const [kind, raw] of Object.entries(composition)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      totalTokens += value;
+      if (kind === 'unknown') unknownTokens += value;
+    }
+  }
+  const unknownDeltaShareWindow5 = totalTokens > 0 ? unknownTokens / totalTokens : 0;
+
+  let unknownTopStreak = 0;
+  let runningUnknown = 0;
+  for (const snapshot of snapshots) {
+    const topSources = parseJsonArray(snapshot?.attributes?.['agentic.context.top_sources']);
+    const top = String(topSources[0] ?? '').trim();
+    if (top === 'unknown') {
+      runningUnknown += 1;
+      if (runningUnknown > unknownTopStreak) unknownTopStreak = runningUnknown;
+    } else {
+      runningUnknown = 0;
+    }
+  }
+
+  const turnOrder = [];
+  const highByTurn = new Map();
+  for (const event of attributions) {
+    const attrs = event?.attributes ?? {};
+    const turnId = String(event?.turnId ?? '');
+    if (!turnId) continue;
+    if (!highByTurn.has(turnId)) {
+      highByTurn.set(turnId, []);
+      turnOrder.push(turnId);
+    }
+    const sourceKind = String(attrs['agentic.context.source_kind'] ?? '').trim();
+    const score = Number(attrs['agentic.context.pollution_score']);
+    if (!sourceKind || !Number.isFinite(score)) continue;
+    if (score < 80) continue;
+    highByTurn.get(turnId).push({ sourceKind, score });
+  }
+
+  let highPollutionSourceStreak = 0;
+  let runningSource = '';
+  let runningCount = 0;
+  for (const turnId of turnOrder) {
+    const items = highByTurn.get(turnId) ?? [];
+    if (!items.length) {
+      runningSource = '';
+      runningCount = 0;
+      continue;
+    }
+    items.sort((a, b) => b.score - a.score);
+    const topSource = items[0].sourceKind;
+    if (topSource === runningSource) {
+      runningCount += 1;
+    } else {
+      runningSource = topSource;
+      runningCount = 1;
+    }
+    if (runningCount > highPollutionSourceStreak) {
+      highPollutionSourceStreak = runningCount;
+    }
+  }
+
+  let maxFillRatio = 0;
+  let maxDeltaRatio = 0;
+  let compactCount = 0;
+  for (const event of events) {
+    const attrs = event?.attributes ?? {};
+    if (String(attrs['agentic.context.event_type'] ?? '') === 'context_snapshot') {
+      const fillRatio = Number(attrs['agentic.context.fill_ratio']);
+      if (Number.isFinite(fillRatio) && fillRatio > maxFillRatio) maxFillRatio = fillRatio;
+
+      const deltaTokens = Number(attrs['agentic.context.delta_tokens']);
+      if (Number.isFinite(deltaTokens) && deltaTokens > 0) {
+        const ratio = deltaTokens / DEFAULT_CONTEXT_WINDOW_TOKENS;
+        if (ratio > maxDeltaRatio) maxDeltaRatio = ratio;
+      }
+    }
+    if (
+      String(attrs['agentic.context.event_type'] ?? '') === 'context_boundary'
+      && String(attrs['agentic.context.boundary_kind'] ?? '') === 'compact_after'
+    ) {
+      compactCount += 1;
+    }
+  }
+
+  return {
+    unknownDeltaShareWindow5,
+    unknownTopStreak,
+    highPollutionSourceStreak,
+    maxFillRatio,
+    maxDeltaRatio,
+    compactCount,
+  };
 }
 
 function getMetricFromAgentRow(row, metric) {
@@ -76,6 +222,12 @@ function evaluateSessionRule(rule, sessions) {
     list.push(row);
     turnDiffBySessionId.set(key, list);
   }
+  const contextBySessionId = new Map(
+    sessions.map((session) => [
+      session.context?.sessionId ?? session.events?.[0]?.sessionId,
+      summarizeContextForSession(session.events ?? []),
+    ]),
+  );
 
   const matched = rows
     .map((row) => {
@@ -83,6 +235,7 @@ function evaluateSessionRule(rule, sessions) {
         cacheBySessionId,
         agentBySessionId,
         turnDiffBySessionId,
+        contextBySessionId,
       });
       return { row, value };
     })

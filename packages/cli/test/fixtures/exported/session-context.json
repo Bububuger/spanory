@@ -1,0 +1,54 @@
+{
+  "context": {
+    "projectId": "p-context",
+    "sessionId": "s-context"
+  },
+  "events": [
+    {
+      "runtime": "codex",
+      "projectId": "p-context",
+      "sessionId": "s-context",
+      "turnId": "turn-1",
+      "category": "context",
+      "name": "Context Snapshot",
+      "startedAt": "2026-03-11T01:00:00.000Z",
+      "attributes": {
+        "agentic.context.event_type": "context_snapshot",
+        "agentic.context.fill_ratio": 0.85,
+        "agentic.context.delta_tokens": 1000,
+        "agentic.context.composition": "{\"unknown\":20,\"tool_output\":80}",
+        "agentic.context.top_sources": "[\"unknown\",\"tool_output\"]"
+      }
+    },
+    {
+      "runtime": "codex",
+      "projectId": "p-context",
+      "sessionId": "s-context",
+      "turnId": "turn-2",
+      "category": "context",
+      "name": "Context Snapshot",
+      "startedAt": "2026-03-11T01:01:00.000Z",
+      "attributes": {
+        "agentic.context.event_type": "context_snapshot",
+        "agentic.context.fill_ratio": 0.91,
+        "agentic.context.delta_tokens": 30000,
+        "agentic.context.composition": "{\"unknown\":10,\"tool_output\":90}",
+        "agentic.context.top_sources": "[\"unknown\",\"tool_output\"]"
+      }
+    },
+    {
+      "runtime": "codex",
+      "projectId": "p-context",
+      "sessionId": "s-context",
+      "turnId": "turn-2",
+      "category": "context",
+      "name": "Context Boundary",
+      "startedAt": "2026-03-11T01:01:10.000Z",
+      "attributes": {
+        "agentic.context.event_type": "context_boundary",
+        "agentic.context.boundary_kind": "compact_after",
+        "agentic.context.compaction_ratio": 0.52
+      }
+    }
+  ]
+}

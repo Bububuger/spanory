@@ -1,0 +1,7 @@
+{
+  "rules": [
+    {"id":"context-fill-high","scope":"session","metric":"context.fill_ratio.max","op":"gte","threshold":0.8},
+    {"id":"context-delta-ratio-high","scope":"session","metric":"context.delta_ratio.max","op":"gte","threshold":0.1},
+    {"id":"context-compact-frequent","scope":"session","metric":"context.compact.count","op":"gte","threshold":1}
+  ]
+}

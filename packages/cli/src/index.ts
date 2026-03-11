@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // @ts-nocheck
+import { existsSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 
 import { Command } from 'commander';
 
@@ -24,6 +26,7 @@ import {
   summarizeAgents,
   summarizeCommands,
   summarizeMcp,
+  summarizeContext,
   summarizeSessions,
   summarizeTools,
   summarizeTurnDiff,
@@ -66,6 +69,9 @@ const SPANORY_VERSION = _resolveVersion();
 
 const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
 const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
+const requireFromHere = createRequire(import.meta.url);
+const CLI_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
 
 function getResource() {
   return {
@@ -687,18 +693,51 @@ function resolveOpenclawPluginDir() {
   if (process.env.SPANORY_OPENCLAW_PLUGIN_DIR) {
     return process.env.SPANORY_OPENCLAW_PLUGIN_DIR;
   }
-  return path.resolve(process.cwd(), 'packages/openclaw-plugin');
+  const candidates = [
+    resolveInstalledPackageDir('@bububuger/spanory-openclaw-plugin'),
+    path.resolve(CLI_PACKAGE_DIR, '..', 'openclaw-plugin'),
+    path.resolve(process.cwd(), 'packages/openclaw-plugin'),
+  ].filter(Boolean);
+  const hit = candidates.find((dir) => existsSync(path.join(dir, 'package.json')));
+  return hit ?? candidates[0] ?? path.resolve(process.cwd(), 'packages/openclaw-plugin');
 }
 
 function resolveOpencodePluginDir() {
   if (process.env.SPANORY_OPENCODE_PLUGIN_DIR) {
     return process.env.SPANORY_OPENCODE_PLUGIN_DIR;
   }
-  // When running as a pkg binary, resolve relative to the binary's directory
-  if ((process as any).pkg) {
-    return path.resolve(path.dirname(process.execPath), '..', 'opencode-plugin');
+  const pkgCandidate = (process as any).pkg
+    ? path.resolve(path.dirname(process.execPath), '..', 'opencode-plugin')
+    : undefined;
+  const candidates = [
+    resolveInstalledPackageDir('@bububuger/spanory-opencode-plugin'),
+    pkgCandidate,
+    path.resolve(CLI_PACKAGE_DIR, '..', 'opencode-plugin'),
+    path.resolve(process.cwd(), 'packages/opencode-plugin'),
+  ].filter(Boolean);
+  const hit = candidates.find((dir) => existsSync(path.join(dir, 'package.json')));
+  return hit ?? candidates[0] ?? path.resolve(process.cwd(), 'packages/opencode-plugin');
+}
+
+function resolveInstalledPackageDir(packageName) {
+  try {
+    const pkgJsonPath = requireFromHere.resolve(`${packageName}/package.json`);
+    return path.dirname(pkgJsonPath);
+  } catch {
+    return undefined;
   }
-  return path.resolve(process.cwd(), 'packages/opencode-plugin');
+}
+
+async function resolveOpencodePluginEntry(pluginDir) {
+  const explicitEntry = process.env.SPANORY_OPENCODE_PLUGIN_ENTRY;
+  if (explicitEntry) {
+    await stat(explicitEntry);
+    return explicitEntry;
+  }
+
+  const pluginEntry = path.join(pluginDir, 'dist', 'index.js');
+  await stat(pluginEntry);
+  return pluginEntry;
 }
 
 function resolveOpencodePluginInstallDir(runtimeHome) {
@@ -1102,10 +1141,17 @@ function installOpenclawPlugin(runtimeHome) {
   };
 }
 
-async function installOpencodePlugin(runtimeHome) {
-  const pluginDir = path.resolve(resolveOpencodePluginDir());
-  const pluginEntry = path.join(pluginDir, 'dist', 'index.js');
-  await stat(pluginEntry);
+async function installOpencodePlugin(runtimeHome, pluginDirOverride) {
+  const pluginDir = path.resolve(pluginDirOverride ?? resolveOpencodePluginDir());
+  let pluginEntry;
+  try {
+    pluginEntry = await resolveOpencodePluginEntry(pluginDir);
+  } catch {
+    throw new Error(
+      `opencode plugin entry not found at ${path.join(pluginDir, 'dist', 'index.js')}. `
+      + 'build plugin first: npm run --workspace @bububuger/spanory-opencode-plugin build',
+    );
+  }
 
   const installDir = resolveOpencodePluginInstallDir(runtimeHome);
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
@@ -1690,20 +1736,8 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
       .option('--plugin-dir <path>', 'Plugin directory path (default: packages/opencode-plugin)')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
       .action(async (options) => {
-        const pluginDir = path.resolve(options.pluginDir ?? resolveOpencodePluginDir());
-        const pluginEntry = path.join(pluginDir, 'dist', 'index.js');
-        await stat(pluginEntry);
-
-        const installDir = resolveOpencodePluginInstallDir(options.runtimeHome);
-        const loaderFile = opencodePluginLoaderPath(options.runtimeHome);
-        await mkdir(installDir, { recursive: true });
-
-        const importUrl = pathToFileURL(pluginEntry).href;
-        const loader = `import plugin from ${JSON.stringify(importUrl)};\n`
-          + 'export const SpanoryOpencodePlugin = plugin;\n'
-          + 'export default SpanoryOpencodePlugin;\n';
-        await writeFile(loaderFile, loader, 'utf-8');
-        console.log(`installed=${loaderFile}`);
+        const result = await installOpencodePlugin(options.runtimeHome, options.pluginDir);
+        console.log(`installed=${result.loaderFile}`);
       });
 
     plugin
@@ -1795,6 +1829,15 @@ report
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'tool-summary', rows: summarizeTools(sessions) }, null, 2));
+  });
+
+report
+  .command('context')
+  .description('Context observability summary per session')
+  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .action(async (options) => {
+    const sessions = await loadExportedEvents(options.inputJson);
+    console.log(JSON.stringify({ view: 'context-summary', rows: summarizeContext(sessions) }, null, 2));
   });
 
 report

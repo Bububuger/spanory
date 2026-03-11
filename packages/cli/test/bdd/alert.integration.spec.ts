@@ -74,4 +74,26 @@ describe('BDD alert eval command', () => {
     expect(ids.has('subagent-calls-high')).toBe(true);
     expect(ids.has('diff-char-max-high')).toBe(true);
   });
+
+  it('Given context session metrics rules, When alert eval runs, Then context metric alerts are emitted', () => {
+    const out = execFileSync(
+      'node',
+      [
+        entry,
+        'alert',
+        'eval',
+        '--input-json',
+        'test/fixtures/exported/session-context.json',
+        '--rules',
+        'test/fixtures/alert-rules-context.json',
+      ],
+      { env: cleanEnv },
+    ).toString('utf8');
+
+    const data = JSON.parse(out);
+    const ids = new Set(data.alerts.map((alert) => alert.ruleId));
+    expect(ids.has('context-fill-high')).toBe(true);
+    expect(ids.has('context-delta-ratio-high')).toBe(true);
+    expect(ids.has('context-compact-frequent')).toBe(true);
+  });
 });
