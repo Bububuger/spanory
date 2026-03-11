@@ -8,6 +8,6 @@
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
-    "test": "node -e \"console.log('core:test:noop')\""
+    "test": "npm run build && node --test test/**/*.test.mjs"
   }
 }
