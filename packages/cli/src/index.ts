@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 // @ts-nocheck
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
 import { Command } from 'commander';
@@ -56,27 +55,37 @@ const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
-function _resolveVersion(): string {
-  if (process.env.SPANORY_VERSION) return process.env.SPANORY_VERSION;
-  try {
-    const pkgPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../package.json');
-    return JSON.parse(readFileSync(pkgPath, 'utf-8')).version;
-  } catch {
-    return '0.0.0';
-  }
-}
-const SPANORY_VERSION = _resolveVersion();
 
 const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
 const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
-const requireFromHere = createRequire(import.meta.url);
-const CLI_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const EXECUTION_ENTRY = path.resolve(process.argv[1] ?? process.cwd());
+const requireFromHere = createRequire(EXECUTION_ENTRY);
+const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
+const DEFAULT_VERSION = '0.1.1';
+
+function readVersionFromPackageJson() {
+  const candidates = [
+    path.join(CLI_PACKAGE_DIR, 'package.json'),
+    path.resolve(process.cwd(), 'packages', 'cli', 'package.json'),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(file, 'utf8'));
+      const version = String(parsed?.version ?? '').trim();
+      if (version) return version;
+    } catch {}
+  }
+  return null;
+}
+
+const CLI_VERSION = process.env.SPANORY_VERSION ?? readVersionFromPackageJson() ?? DEFAULT_VERSION;
 
 function getResource() {
   return {
     serviceName: 'spanory',
-    serviceVersion: SPANORY_VERSION,
+    serviceVersion: CLI_VERSION,
     environment: process.env.SPANORY_ENV ?? 'development',
   };
 }
@@ -1768,7 +1777,7 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version(SPANORY_VERSION);
+  .version(CLI_VERSION);
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
 for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {

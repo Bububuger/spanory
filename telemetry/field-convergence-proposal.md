@@ -1,13 +1,13 @@
 ---
 type: file
-summary: "Spanory 字段收敛提案与落地状态（v2026-03-11）"
+summary: "Spanory 字段收敛提案与落地状态（v2026-03-12）"
 created: 2026-03-11T00:00:00+08:00
-modified: 2026-03-11T22:45:00+08:00
+modified: 2026-03-12T00:45:00+08:00
 tags: [telemetry, otel, semconv, governance, convergence]
 owner: codex
 ---
 
-# Spanory 字段收敛提案与落地状态（v2026-03-11）
+# Spanory 字段收敛提案与落地状态（v2026-03-12）
 
 > 本文档已从“提案”更新为“提案 + 实施现状”。
 > 当前基线以 `telemetry/spanory-fields.current.yaml` 与 `telemetry/reports/field-diff.json` 为准。
@@ -63,3 +63,53 @@ cache 相关字段已对齐 OTel semconv：
 1. 评估是否收敛 `gen_ai.usage.total_tokens`（改为消费端计算字段）。
 2. 评估 `mcp.request.id` 是否迁移到更稳定的官方命名（待 semconv 统一后再定）。
 3. 持续用 `telemetry:extract + diff + validate + report` 做门禁。
+
+## 6. 当前上报字段清单（用于验收）
+
+基线来源：
+- `telemetry/spanory-fields.current.yaml`
+- `telemetry/reports/field-diff.json`（`coverage` 分类）
+
+字段总数：`77`
+
+### 6.1 OTel 官方语义字段（official_semconv，16）
+
+- `deployment.environment.name`
+- `gen_ai.agent.id`
+- `gen_ai.operation.name`
+- `gen_ai.request.model`
+- `gen_ai.tool.call.id`
+- `gen_ai.tool.name`
+- `gen_ai.usage.cache_creation.input_tokens`
+- `gen_ai.usage.cache_read.input_tokens`
+- `gen_ai.usage.completion_tokens`
+- `gen_ai.usage.input_tokens`
+- `gen_ai.usage.output_tokens`
+- `gen_ai.usage.prompt_tokens`
+- `process.command_line`
+- `service.name`
+- `service.version`
+- `session.id`
+
+### 6.2 Agentic 命名空间字段（custom_agentic，44）
+
+- 覆盖 `agentic.actor.*` / `agentic.command.*` / `agentic.context.*` / `agentic.event.*` / `agentic.input.*` / `agentic.mcp.*` / `agentic.parent.*` / `agentic.project.*` / `agentic.runtime.*` / `agentic.subagent.*` / `agentic.turn.*`
+- 完整清单以 `telemetry/spanory-fields.current.yaml` 为准。
+
+### 6.3 平台私有投影字段（platform_private，14）
+
+- 覆盖 `langfuse.observation.*`、`langfuse.trace.*`、`langfuse.session.id`
+- 这类字段为平台投影层，不作为 canonical 语义源。
+
+### 6.4 其他扩展字段（custom_other，3）
+
+- `gen_ai.usage.details.cache_hit_rate`
+- `gen_ai.usage.total_tokens`
+- `mcp.request.id`
+
+### 6.5 已禁用旧 key（forbidden）
+
+- `agentic.command.raw` -> `process.command_line`
+- `agentic.agent_id` -> `gen_ai.agent.id`
+- `gen_ai.usage.details.cache_creation_input_tokens` -> `gen_ai.usage.cache_creation.input_tokens`
+- `gen_ai.usage.details.cache_read_input_tokens` -> `gen_ai.usage.cache_read.input_tokens`
