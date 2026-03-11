@@ -30,7 +30,7 @@ describe('codexAdapter', () => {
     expect(turn1.attributes['gen_ai.usage.input_tokens']).toBe(20);
     expect(turn1.attributes['gen_ai.usage.output_tokens']).toBe(10);
     expect(turn1.attributes['gen_ai.usage.total_tokens']).toBe(30);
-    expect(turn1.attributes['agentic.project.cwd']).toBe('demo-3278db');
+    expect(turn1.attributes['agentic.project.cwd']).toBe('demo-3278dbdbc4');
 
     const bash = events.find((e) => e.category === 'shell_command');
     expect(bash).toBeTruthy();
@@ -67,7 +67,7 @@ describe('codexAdapter', () => {
     });
 
     expect(ctx).toEqual({
-      projectId: expect.stringMatching(/^demo-[a-f0-9]{6}$/),
+      projectId: 'demo-3278dbdbc4',
       sessionId: 'session-a',
     });
   });

@@ -39,6 +39,7 @@ describe('BDD codex hook ingestion', () => {
     expect(existsSync(outFile)).toBe(true);
     const data = JSON.parse(readFileSync(outFile, 'utf8'));
     expect(data.context.sessionId).toBe('session-a');
+    expect(data.context.projectId).toBe('demo-3278dbdbc4');
     expect(new Set(data.events.map((event) => event.turnId))).toEqual(new Set(['turn-codex-2']));
     const turn = data.events.find((event) => event.category === 'turn');
     expect(turn.input).toContain('第二轮问题');

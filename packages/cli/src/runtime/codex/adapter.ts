@@ -64,7 +64,7 @@ function sanitizeProjectBase(name) {
 
 function deriveProjectIdFromCwd(cwd) {
   const base = sanitizeProjectBase(path.basename(String(cwd ?? '').trim()) || 'codex');
-  const hash = createHash('sha1').update(String(cwd ?? '')).digest('hex').slice(0, 6);
+  const hash = createHash('sha1').update(String(cwd ?? '')).digest('hex').slice(0, 10);
   return `${base}-${hash}`;
 }
 
