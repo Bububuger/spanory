@@ -55,6 +55,9 @@ const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
+const SPANORY_NPM_PACKAGE = '@bububuger/spanory';
+const HOOK_STDIN_IDLE_MS = 200;
+const HOOK_STDIN_TIMEOUT_MS = 1500;
 
 const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
 const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
@@ -155,9 +158,58 @@ function maskEndpoint(endpoint) {
 }
 
 async function readStdinText() {
-  const chunks = [];
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  return Buffer.concat(chunks).toString('utf-8');
+  if (process.stdin.isTTY) return '';
+
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let lastDataAt = Date.now();
+    let settled = false;
+
+    function done(error, value = '') {
+      if (settled) return;
+      settled = true;
+      clearInterval(idleTimer);
+      clearTimeout(hardTimeout);
+      process.stdin.off('data', onData);
+      process.stdin.off('end', onEnd);
+      process.stdin.off('error', onError);
+      process.stdin.pause();
+      if (typeof process.stdin.unref === 'function') {
+        process.stdin.unref();
+      }
+      if (error) reject(error);
+      else resolve(value);
+    }
+
+    function onData(chunk) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      lastDataAt = Date.now();
+    }
+
+    function onEnd() {
+      done(null, Buffer.concat(chunks).toString('utf-8'));
+    }
+
+    function onError(error) {
+      done(error);
+    }
+
+    const idleTimer = setInterval(() => {
+      if (chunks.length === 0) return;
+      if (Date.now() - lastDataAt >= HOOK_STDIN_IDLE_MS) {
+        done(null, Buffer.concat(chunks).toString('utf-8'));
+      }
+    }, 50);
+
+    const hardTimeout = setTimeout(() => {
+      done(new Error(`hook stdin read timeout after ${HOOK_STDIN_TIMEOUT_MS}ms`));
+    }, HOOK_STDIN_TIMEOUT_MS);
+
+    process.stdin.on('data', onData);
+    process.stdin.on('end', onEnd);
+    process.stdin.on('error', onError);
+    process.stdin.resume();
+  });
 }
 
 function fingerprintSession(context, events) {
@@ -1044,7 +1096,7 @@ function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile })
     + 'set -euo pipefail\n'
     + 'payload="${1:-}"\n'
     + 'if [[ -z "$payload" ]] && [[ ! -t 0 ]]; then\n'
-    + '  payload="$(cat || true)"\n'
+    + '  IFS= read -r -t 0 payload || true\n'
     + 'fi\n'
     + 'if [[ -z "${payload//[$\'\\t\\r\\n \']/}" ]]; then\n'
     + `  echo "skip=empty-payload source=codex-notify args=$#" >> "${logFile}"\n`
@@ -1134,6 +1186,39 @@ async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
 function commandExists(command) {
   const result = runSystemCommand('which', [command], { env: process.env });
   return result.code === 0;
+}
+
+function detectUpgradePackageManager(userAgent = process.env.npm_config_user_agent) {
+  const token = String(userAgent ?? '').trim().split(/\s+/)[0] ?? '';
+  if (token.startsWith('tnpm/')) return 'tnpm';
+  return 'npm';
+}
+
+function detectUpgradeScope() {
+  if (String(process.env.npm_config_global ?? '').trim() === 'true') {
+    return 'global';
+  }
+  const normalizedEntry = String(EXECUTION_ENTRY ?? '').replaceAll('\\', '/');
+  if (normalizedEntry.includes('/lib/node_modules/') || normalizedEntry.includes('/npm-global/')) {
+    return 'global';
+  }
+  if (normalizedEntry.includes('/node_modules/')) {
+    return 'local';
+  }
+  return 'global';
+}
+
+function resolveUpgradeInvocation(scope, manager) {
+  const selectedManager = manager === 'tnpm' ? 'tnpm' : 'npm';
+  const args = ['install'];
+  if (scope === 'global') args.push('-g');
+  args.push(`${SPANORY_NPM_PACKAGE}@latest`);
+  return {
+    manager: selectedManager,
+    command: selectedManager,
+    args,
+    scope,
+  };
 }
 
 function openclawRuntimeHomeForSetup(homeRoot, explicitRuntimeHome) {
@@ -1797,7 +1882,7 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version(CLI_VERSION);
+  .version(CLI_VERSION, '-v, --version');
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
 for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
@@ -2061,6 +2146,37 @@ setup
     const report = await runSetupDoctor(options);
     console.log(JSON.stringify(report, null, 2));
     if (!report.ok) process.exitCode = 2;
+  });
+
+program
+  .command('upgrade')
+  .description('Upgrade spanory CLI from npm registry')
+  .option('--dry-run', 'Print upgrade command without executing', false)
+  .option('--manager <name>', 'Package manager override: npm|tnpm')
+  .option('--scope <scope>', 'Install scope override: global|local')
+  .action(async (options) => {
+    const manager = options.manager === 'tnpm' ? 'tnpm' : detectUpgradePackageManager();
+    const scope = options.scope === 'local' ? 'local' : options.scope === 'global' ? 'global' : detectUpgradeScope();
+    const invocation = resolveUpgradeInvocation(scope, manager);
+
+    if (options.dryRun) {
+      console.log(JSON.stringify({ dryRun: true, ...invocation }, null, 2));
+      return;
+    }
+
+    const result = runSystemCommand(invocation.command, invocation.args, { env: process.env });
+    const output = (result.stdout || result.stderr || '').trim();
+    if (result.code !== 0) {
+      console.error(output || result.error || 'upgrade failed');
+      process.exitCode = 2;
+      return;
+    }
+
+    console.log(JSON.stringify({
+      ok: true,
+      ...invocation,
+      output,
+    }, null, 2));
   });
 
 loadUserEnv()

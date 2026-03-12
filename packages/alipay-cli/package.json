@@ -1,26 +1,24 @@
 {
   "name": "@alipay/spanory",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Spanory CLI for cross-runtime agent observability",
+  "type": "module",
   "license": "MIT",
   "publishConfig": {
     "registry": "https://registry.antgroup-inc.cn",
     "tag": "latest"
   },
   "files": [
-    "bin/spanory",
-    "bin/spanory-macos-arm64",
-    "bin/spanory-macos-x64",
-    "bin/spanory-linux-x64",
+    "dist",
     "opencode-plugin"
   ],
   "bin": {
-    "spanory": "bin/spanory"
+    "spanory": "dist/index.js"
   },
   "scripts": {
-    "build": "true",
-    "postinstall": "xattr -d com.apple.quarantine bin/spanory-* 2>/dev/null || true",
+    "build": "npm run prepare-js",
+    "prepare-js": "bash scripts/prepare-bin.sh",
     "prepare-bin": "bash scripts/prepare-bin.sh",
-    "prepublishOnly": "npm run prepare-bin"
+    "prepublishOnly": "npm run prepare-js"
   }
 }

@@ -1,6 +1,11 @@
-# TODO (2026-03-12) — 本地发版与二进制验证
+# Todo (2026-03-12) — 增加 spanory upgrade 命令
 
-- [ ] T1 提交当前待发布改动
-- [ ] T2 bump 版本到 0.1.17 并提交
-- [ ] T3 重建本地二进制并验证版本
-- [ ] T4 创建本地 tag v0.1.17（不推送）
+- [x] 归档上一阶段 `plan.md/todo.md`
+- [x] 实现 `upgrade` 命令（来源识别 + 执行）
+- [x] 增加升级命令测试
+- [x] 执行回归测试
+- [x] 更新结果说明
+
+## 验收记录
+- [x] `npm run --workspace @bububuger/spanory test`
+- [x] `npm run --workspace @bububuger/spanory test:bdd`

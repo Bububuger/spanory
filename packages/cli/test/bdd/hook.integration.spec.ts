@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, existsSync, mkdirSync, cpSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
@@ -47,6 +47,41 @@ describe('BDD hook ingestion', () => {
     expect(() => {
       execFileSync('node', [entry, 'runtime', 'claude-code', 'hook'], { input: '{not-json', env: cleanEnv });
     }).toThrowError();
+  });
+
+  it('Given open stdin without payload, When hook command runs, Then process fails fast without blocking', async () => {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        'node',
+        [entry, 'runtime', 'claude-code', 'hook'],
+        { env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe'] },
+      );
+
+      let stderr = '';
+      child.stderr.on('data', (chunk) => {
+        stderr += String(chunk);
+      });
+
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        reject(new Error('hook command blocked when stdin remained open'));
+      }, 2500);
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('exit', (code) => {
+        clearTimeout(timer);
+        if (code === 0) {
+          reject(new Error('hook command unexpectedly succeeded without payload'));
+          return;
+        }
+        expect(stderr).toContain('hook stdin read timeout');
+        resolve();
+      });
+    });
   });
 
   it('Given a non-existing nested export directory, When hook command runs, Then directory is auto-created and json is written', () => {

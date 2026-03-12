@@ -3,29 +3,28 @@ set -euo pipefail
 
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
-DIST_DIR="$REPO_ROOT/dist"
-BIN_DIR="$PACKAGE_DIR/bin"
+CLI_DIST_SRC="$REPO_ROOT/packages/cli/dist"
+CLI_DIST_DST="$PACKAGE_DIR/dist"
 PLUGIN_DST="$PACKAGE_DIR/opencode-plugin"
 
-# Copy platform binaries (only those that exist)
-for binary in spanory-macos-arm64 spanory-macos-x64 spanory-linux-x64; do
-  src="$DIST_DIR/$binary"
-  if [[ -f "$src" ]]; then
-    cp "$src" "$BIN_DIR/$binary"
-    chmod +x "$BIN_DIR/$binary"
-    xattr -d com.apple.quarantine "$BIN_DIR/$binary" 2>/dev/null || true
-    echo "Copied $binary"
-  else
-    echo "Warning: $src not found, skipping" >&2
-  fi
-done
+# Build JS CLI distribution
+echo "Building @bububuger/spanory dist ..."
+npm run --workspace @bububuger/spanory build --prefix "$REPO_ROOT"
 
-chmod +x "$BIN_DIR/spanory"
+if [[ ! -d "$CLI_DIST_SRC" ]]; then
+  echo "Error: missing CLI dist at $CLI_DIST_SRC" >&2
+  exit 1
+fi
+
+rm -rf "$CLI_DIST_DST"
+cp -r "$CLI_DIST_SRC" "$CLI_DIST_DST"
+chmod +x "$CLI_DIST_DST/index.js"
+echo "Synced CLI dist -> $CLI_DIST_DST"
 
 # Sync opencode-plugin source (needed by opencode at runtime via file:// import)
 rm -rf "$PLUGIN_DST"
 cp -r "$REPO_ROOT/packages/opencode-plugin" "$PLUGIN_DST"
 echo "Synced opencode-plugin"
 
-echo "bin/ ready:"
-ls -lh "$BIN_DIR"
+echo "package payload ready:"
+ls -lh "$CLI_DIST_DST"
