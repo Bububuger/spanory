@@ -43,6 +43,12 @@
                   }
                 },
                 {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "golden-s1"
+                  }
+                },
+                {
                   "key": "langfuse.trace.id",
                   "value": {
                     "stringValue": "276b08911e84e81bb7516e55a63fcc75"
@@ -50,12 +56,6 @@
                 },
                 {
                   "key": "langfuse.session.id",
-                  "value": {
-                    "stringValue": "golden-s1"
-                  }
-                },
-                {
-                  "key": "session.id",
                   "value": {
                     "stringValue": "golden-s1"
                   }
@@ -143,6 +143,12 @@
                   }
                 },
                 {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "golden-s1"
+                  }
+                },
+                {
                   "key": "langfuse.trace.id",
                   "value": {
                     "stringValue": "276b08911e84e81bb7516e55a63fcc75"
@@ -150,12 +156,6 @@
                 },
                 {
                   "key": "langfuse.session.id",
-                  "value": {
-                    "stringValue": "golden-s1"
-                  }
-                },
-                {
-                  "key": "session.id",
                   "value": {
                     "stringValue": "golden-s1"
                   }

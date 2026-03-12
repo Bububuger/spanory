@@ -256,6 +256,7 @@ function similarityScore(a, b) {
 
 const DEFAULT_CONTEXT_WINDOW_TOKENS = 200000;
 const CONTEXT_ENABLED_RUNTIMES = new Set(['claude-code', 'codex', 'openclaw', 'opencode']);
+const CONTEXT_PARSING_ENABLED = process.env.SPANORY_CONTEXT_ENABLED !== '0';
 
 function contextWindowTokens() {
   const raw = Number(process.env.SPANORY_CONTEXT_WINDOW_TOKENS);
@@ -1039,7 +1040,7 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
     previousHash = inputHash;
     events.push(...turnEvents);
 
-    if (CONTEXT_ENABLED_RUNTIMES.has(runtime)) {
+    if (CONTEXT_PARSING_ENABLED && CONTEXT_ENABLED_RUNTIMES.has(runtime)) {
       const contextResult = composeContextEvents({
         runtime,
         projectId,

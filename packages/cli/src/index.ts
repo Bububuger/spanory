@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // @ts-nocheck
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
 import { Command } from 'commander';
@@ -58,13 +58,33 @@ const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
 
 const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
 const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
-const EXECUTION_ENTRY = path.resolve(process.argv[1] ?? process.cwd());
+const EXECUTION_ENTRY = (() => {
+  if (!('pkg' in process)) {
+    return fileURLToPath(import.meta.url);
+  }
+  const candidate = path.resolve(process.argv[1] ?? process.cwd());
+  try {
+    return realpathSync(candidate);
+  } catch {
+    return candidate;
+  }
+})();
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
 const DEFAULT_VERSION = '0.1.1';
 
 function readVersionFromPackageJson() {
+  const packageNameCandidates = ['@bububuger/spanory', '@spanory/cli'];
+  for (const packageName of packageNameCandidates) {
+    try {
+      const pkgJsonPath = requireFromHere.resolve(`${packageName}/package.json`);
+      const parsed = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+      const version = String(parsed?.version ?? '').trim();
+      if (version) return version;
+    } catch {}
+  }
+
   const candidates = [
     path.join(CLI_PACKAGE_DIR, 'package.json'),
     path.resolve(process.cwd(), 'packages', 'cli', 'package.json'),

@@ -43,6 +43,12 @@
                   }
                 },
                 {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "oc-s1"
+                  }
+                },
+                {
                   "key": "langfuse.trace.id",
                   "value": {
                     "stringValue": "fc39b8ce22ff44e5ba4dbbe8510c6acd"
@@ -50,12 +56,6 @@
                 },
                 {
                   "key": "langfuse.session.id",
-                  "value": {
-                    "stringValue": "oc-s1"
-                  }
-                },
-                {
-                  "key": "session.id",
                   "value": {
                     "stringValue": "oc-s1"
                   }
@@ -82,6 +82,12 @@
                   "key": "gen_ai.usage.output_tokens",
                   "value": {
                     "doubleValue": 5
+                  }
+                },
+                {
+                  "key": "langfuse.observation.usage_details",
+                  "value": {
+                    "stringValue": "{\"input\":10,\"output\":5}"
                   }
                 },
                 {
@@ -161,6 +167,12 @@
                   }
                 },
                 {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "oc-s1"
+                  }
+                },
+                {
                   "key": "langfuse.trace.id",
                   "value": {
                     "stringValue": "fc39b8ce22ff44e5ba4dbbe8510c6acd"
@@ -168,12 +180,6 @@
                 },
                 {
                   "key": "langfuse.session.id",
-                  "value": {
-                    "stringValue": "oc-s1"
-                  }
-                },
-                {
-                  "key": "session.id",
                   "value": {
                     "stringValue": "oc-s1"
                   }

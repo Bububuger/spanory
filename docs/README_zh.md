@@ -313,6 +313,8 @@ echo '{"event":"agent-turn-complete","thread_id":"<SESSION_ID>","turn_id":"<TURN
 spanory runtime codex hook --last-turn-only
 ```
 
+> 注：`context` 解析当前默认关闭。仅当显式设置环境变量 `SPANORY_CONTEXT_ENABLED=1` 时，才会产出 `agentic.context.*` 相关事件字段。
+
 说明：
 
 - `thread_id` 作为 `sessionId`
