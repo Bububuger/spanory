@@ -1,6 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -24,11 +24,14 @@ KEY_WITH_COMMENT=value # trailing comment
     expect(parsed.KEY_WITH_COMMENT).toBe('value');
   });
 
-  it('loads ~/.env without overriding already-defined process env', async () => {
+  it('loads ~/.spanory/.env without overriding already-defined process env', async () => {
     const tmp = await mkdtemp(path.join(os.tmpdir(), 'spanory-env-'));
     try {
+      await writeFile(path.join(tmp, '.env'), 'OTEL_EXPORTER_OTLP_ENDPOINT=https://legacy-ignored\n', 'utf-8');
+      const spanoryRoot = path.join(tmp, '.spanory');
+      await mkdir(spanoryRoot, { recursive: true });
       await writeFile(
-        path.join(tmp, '.env'),
+        path.join(spanoryRoot, '.env'),
         [
           'export OTEL_EXPORTER_OTLP_ENDPOINT=https://from-env-file',
           'OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic from-file',

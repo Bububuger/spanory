@@ -47,8 +47,18 @@ function resolveOpencodeHome() {
   return process.env.SPANORY_OPENCODE_HOME ?? path.join(os.homedir(), '.config', 'opencode');
 }
 
+function resolveSpanoryHome() {
+  return process.env.SPANORY_HOME ?? path.join(os.homedir(), '.spanory');
+}
+
+function resolveSpanoryEnvPath() {
+  return path.join(resolveSpanoryHome(), '.env');
+}
+
 function pluginStateRoot() {
-  return path.join(resolveOpencodeHome(), 'state', 'spanory');
+  if (process.env.SPANORY_OPENCODE_STATE_DIR) return process.env.SPANORY_OPENCODE_STATE_DIR;
+  if (process.env.SPANORY_OPENCODE_HOME) return path.join(resolveOpencodeHome(), 'state', 'spanory');
+  return path.join(resolveSpanoryHome(), 'opencode');
 }
 
 function spoolRoot() {
@@ -64,11 +74,13 @@ function pluginLogFilePath() {
 }
 
 function userEnvPath() {
-  return path.join(os.homedir(), '.env');
+  return resolveSpanoryEnvPath();
 }
 
 function sanitizeLogValue(value) {
   return String(value)
+    .replace(/(authorization\s*[:=]\s*)(basic|bearer)\s+[^\s"']+/ig, '$1[REDACTED]')
+    .replace(/\b(sk|pk)_[a-z0-9_-]{8,}\b/ig, '[REDACTED]')
     .replace(/\s+/g, ' ')
     .replace(/[^ -~]/g, '')
     .slice(0, 320);

@@ -73,7 +73,7 @@ npm install -g packages/cli
 spanory --help
 ```
 
-### 2) 配置 OTLP 环境变量（建议放到 `~/.env`）
+### 2) 配置 OTLP 环境变量（建议放到 `~/.spanory/.env`）
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/api/public/otel/v1/traces"
@@ -104,7 +104,7 @@ spanory hook
 - 可通过 `--runtime` 切换 runtime（默认 `claude-code`）：
   - `spanory hook --runtime claude-code`
   - `spanory hook --runtime openclaw`
-- CLI 会自动读取 `~/.env`（若变量未在当前进程定义）。
+- CLI 会自动读取 `~/.spanory/.env`（若变量未在当前进程定义）。
 - 默认导出目录：`~/.claude/state/spanory-json`（可用 `SPANORY_HOOK_EXPORT_JSON_DIR` 覆盖）。
 
 ### 4) 验证 Hook 是否生效
@@ -238,7 +238,7 @@ spanory runtime opencode plugin doctor
 
 - `install` 会写入 loader 文件到 `~/.config/opencode/plugin/spanory-opencode-plugin.js`。
 - OpenCode 会自动加载该目录下插件文件。
-- 插件运行时会自动尝试读取 `~/.env`（仅补齐缺失变量），用于 GUI 启动 OpenCode 时继承不到 shell 环境的场景。
+- 插件运行时会自动尝试读取 `~/.spanory/.env`（仅补齐缺失变量），用于 GUI 启动 OpenCode 时继承不到 shell 环境的场景。
 
 ### 2) 配置 OTLP 环境变量
 
@@ -250,7 +250,7 @@ export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(printf '%s' '<LANGFUSE_
 插件可靠性相关（可选）：
 
 ```bash
-export SPANORY_OPENCODE_SPOOL_DIR="$HOME/.config/opencode/state/spanory/spool"
+export SPANORY_OPENCODE_SPOOL_DIR="$HOME/.spanory/opencode/spool"
 export SPANORY_OPENCODE_RETRY_MAX="6"
 
 # 触发模式：默认按每轮完成事件实时 flush（推荐）
@@ -270,10 +270,10 @@ spanory runtime opencode plugin doctor
 
 ```bash
 # 最近一次发送状态
-cat ~/.config/opencode/state/spanory/plugin-status.json
+cat ~/.spanory/opencode/plugin-status.json
 
 # 插件详细诊断日志
-tail -n 120 ~/.config/opencode/state/spanory/plugin.log
+tail -n 120 ~/.spanory/opencode/plugin.log
 
 # 结构化健康检查（含 endpointConfigured 提示）
 spanory runtime opencode plugin doctor

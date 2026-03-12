@@ -1,9 +1,25 @@
 // @ts-nocheck
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
-function resolveUserHome() {
+export function resolveUserHome() {
   return process.env.HOME || process.env.USERPROFILE || '';
+}
+
+export function resolveSpanoryHome() {
+  if (process.env.SPANORY_HOME) return process.env.SPANORY_HOME;
+  const home = resolveUserHome();
+  return home ? path.join(home, '.spanory') : '';
+}
+
+export function resolveSpanoryEnvPath() {
+  const root = resolveSpanoryHome();
+  return root ? path.join(root, '.env') : '';
+}
+
+export function resolveLegacyUserEnvPath() {
+  const home = resolveUserHome();
+  return home ? path.join(home, '.env') : '';
 }
 
 export function parseSimpleDotEnv(raw) {
@@ -42,18 +58,30 @@ export function parseSimpleDotEnv(raw) {
 }
 
 export async function loadUserEnv() {
-  const home = resolveUserHome();
-  if (!home) return;
+  const spanoryHome = resolveSpanoryHome();
+  const envPath = resolveSpanoryEnvPath();
+  const legacyEnvPath = resolveLegacyUserEnvPath();
+  if (!spanoryHome || !envPath) return;
 
-  const envPath = path.join(home, '.env');
   try {
-    const raw = await readFile(envPath, 'utf-8');
-    const parsed = parseSimpleDotEnv(raw);
-    for (const [k, v] of Object.entries(parsed)) {
-      if (process.env[k] === undefined) process.env[k] = v;
-    }
+    await mkdir(spanoryHome, { recursive: true });
+    await writeFile(envPath, '', { flag: 'a' });
   } catch {
-    // ignore missing ~/.env
+    // best effort only
+  }
+
+  const candidates = [envPath, legacyEnvPath].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      const raw = await readFile(candidate, 'utf-8');
+      const parsed = parseSimpleDotEnv(raw);
+      if (Object.keys(parsed).length === 0) continue;
+      for (const [k, v] of Object.entries(parsed)) {
+        if (process.env[k] === undefined) process.env[k] = v;
+      }
+      return;
+    } catch {
+      // try next candidate
+    }
   }
 }
-

@@ -228,7 +228,7 @@ spanory runtime opencode plugin install
 spanory runtime opencode plugin doctor
 ```
 
-The plugin auto-loads `~/.env` at runtime (only fills missing env vars), so GUI-launched OpenCode can still pick up:
+The plugin auto-loads `~/.spanory/.env` at runtime (only fills missing env vars), so GUI-launched OpenCode can still pick up:
 
 - `OTEL_EXPORTER_OTLP_ENDPOINT`
 - `OTEL_EXPORTER_OTLP_HEADERS`
@@ -247,10 +247,10 @@ Diagnostics (when "triggered but not reported"):
 
 ```bash
 # latest plugin status
-cat ~/.config/opencode/state/spanory/plugin-status.json
+cat ~/.spanory/opencode/plugin-status.json
 
 # detailed plugin runtime logs
-tail -n 120 ~/.config/opencode/state/spanory/plugin.log
+tail -n 120 ~/.spanory/opencode/plugin.log
 
 # structured doctor checks (includes endpointConfigured hint)
 spanory runtime opencode plugin doctor

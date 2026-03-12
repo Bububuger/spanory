@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { createOpencodeSpanoryPluginRuntime } from '../../../opencode-plugin/src/index.ts';
+import { loadUserEnv } from '../../src/env.ts';
 
 async function loadFixture(name) {
   const fixturePath = path.resolve('test/fixtures/opencode', name);
@@ -35,7 +36,7 @@ function readOtlpAttr(span, key) {
 }
 
 describe('opencode plugin runtime', () => {
-  it('env: auto loads ~/.env and sends OTLP when process env is missing', async () => {
+  it('env: auto loads ~/.spanory/.env and sends OTLP when process env is missing', async () => {
     const prevHome = process.env.HOME;
     const prevOpencodeHome = process.env.SPANORY_OPENCODE_HOME;
     const prevSpool = process.env.SPANORY_OPENCODE_SPOOL_DIR;
@@ -52,8 +53,9 @@ describe('opencode plugin runtime', () => {
     delete process.env.OTEL_EXPORTER_OTLP_HEADERS;
     delete process.env.SPANORY_OPENCODE_FLUSH_MODE;
 
+    await mkdir(path.join(fakeHome, '.spanory'), { recursive: true });
     await writeFile(
-      path.join(fakeHome, '.env'),
+      path.join(fakeHome, '.spanory', '.env'),
       'OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces\n'
         + 'OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic TEST\n',
       'utf-8',
@@ -69,6 +71,7 @@ describe('opencode plugin runtime', () => {
         logger: { warn: () => {} },
         client: mockClient(fixtures),
         autoLoadUserEnv: true,
+        userEnvLoader: loadUserEnv,
         sendOtlpHttp: async (_endpoint, payload, headers) => {
           sent.push({ payload, headers });
         },

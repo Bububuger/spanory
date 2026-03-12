@@ -14,7 +14,7 @@ import { codexAdapter } from './runtime/codex/adapter.js';
 import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
-import { loadUserEnv } from './env.js';
+import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
 import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
@@ -99,6 +99,23 @@ function parseHookPayload(raw) {
     };
   } catch {
     throw new Error('hook payload is not valid JSON');
+  }
+}
+
+function redactSecretText(value) {
+  return String(value ?? '')
+    .replace(/(authorization\s*[:=]\s*)(basic|bearer)\s+[^\s"']+/ig, '$1[REDACTED]')
+    .replace(/\b(sk|pk)_[a-z0-9_-]{8,}\b/ig, '[REDACTED]');
+}
+
+function maskEndpoint(endpoint) {
+  const raw = String(endpoint ?? '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return redactSecretText(raw);
   }
 }
 
@@ -220,6 +237,14 @@ function resolveRuntimeStateRoot(runtimeName, explicitRuntimeHome) {
   return path.join(resolveRuntimeHome(runtimeName, explicitRuntimeHome), 'state');
 }
 
+function resolveOpencodePluginStateRoot(runtimeHome) {
+  if (process.env.SPANORY_OPENCODE_STATE_DIR) return process.env.SPANORY_OPENCODE_STATE_DIR;
+  if (runtimeHome || process.env.SPANORY_OPENCODE_HOME) {
+    return path.join(runtimeHome ?? resolveRuntimeHome('opencode'), 'state', 'spanory');
+  }
+  return path.join(resolveSpanoryHome(), 'opencode');
+}
+
 function resolveRuntimeExportDir(runtimeName, explicitRuntimeHome) {
   return path.join(resolveRuntimeStateRoot(runtimeName, explicitRuntimeHome), 'spanory-json');
 }
@@ -264,7 +289,7 @@ async function emitSession({ runtimeName, context, events, endpoint, headers, ex
 
   if (endpoint) {
     await sendOtlp(endpoint, payload, headers);
-    console.log(`otlp=sent endpoint=${endpoint}`);
+    console.log(`otlp=sent endpoint=${maskEndpoint(endpoint)}`);
   } else {
     console.log('otlp=skipped endpoint=unset');
   }
@@ -719,7 +744,7 @@ async function runOpenclawPluginDoctor(runtimeHome) {
     id: 'otlp_endpoint',
     ok: Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT),
     detail: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-      ? process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      ? maskEndpoint(process.env.OTEL_EXPORTER_OTLP_ENDPOINT)
       : 'OTEL_EXPORTER_OTLP_ENDPOINT is unset',
   });
 
@@ -780,12 +805,12 @@ async function runOpencodePluginDoctor(runtimeHome) {
     id: 'otlp_endpoint',
     ok: Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT),
     detail: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-      ? process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      ? maskEndpoint(process.env.OTEL_EXPORTER_OTLP_ENDPOINT)
       : 'OTEL_EXPORTER_OTLP_ENDPOINT is unset',
   });
 
   const spoolDir = process.env.SPANORY_OPENCODE_SPOOL_DIR
-    ?? path.join(resolveRuntimeStateRoot('opencode', runtimeHome), 'spanory', 'spool');
+    ?? path.join(resolveOpencodePluginStateRoot(runtimeHome), 'spool');
   try {
     await mkdir(spoolDir, { recursive: true });
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
@@ -793,8 +818,8 @@ async function runOpencodePluginDoctor(runtimeHome) {
     checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
   }
 
-  const statusFile = path.join(resolveRuntimeStateRoot('opencode', runtimeHome), 'spanory', 'plugin-status.json');
-  const logFile = path.join(resolveRuntimeStateRoot('opencode', runtimeHome), 'spanory', 'plugin.log');
+  const statusFile = path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin-status.json');
+  const logFile = path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin.log');
   try {
     await mkdir(path.dirname(logFile), { recursive: true });
     checks.push({ id: 'opencode_plugin_log', ok: true, detail: logFile });
@@ -811,7 +836,7 @@ async function runOpencodePluginDoctor(runtimeHome) {
         checks.push({
           id: 'last_send_endpoint_configured',
           ok: false,
-          detail: 'last send skipped or failed to resolve OTLP endpoint in opencode process; check ~/.env and restart opencode',
+          detail: `last send skipped or failed to resolve OTLP endpoint in opencode process; check ${resolveSpanoryEnvPath()} and restart opencode`,
         });
       } else if (endpointConfigured === true) {
         checks.push({
@@ -978,10 +1003,11 @@ function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile })
 
 async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
   const codexHome = path.join(homeRoot, '.codex');
+  const spanoryHome = process.env.SPANORY_HOME ?? path.join(homeRoot, '.spanory');
   const binDir = path.join(codexHome, 'bin');
   const stateDir = path.join(codexHome, 'state', 'spanory');
   const scriptPath = path.join(binDir, 'spanory-codex-notify.sh');
-  const logFile = path.join(codexHome, 'state', 'spanory-codex-hook.log');
+  const logFile = path.join(spanoryHome, 'logs', 'codex-notify.log');
   const configPath = path.join(codexHome, 'config.toml');
   const notifyScriptRef = scriptPath;
 
@@ -1014,6 +1040,7 @@ async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
   if (changed && !dryRun) {
     await mkdir(binDir, { recursive: true });
     await mkdir(stateDir, { recursive: true });
+    await mkdir(path.dirname(logFile), { recursive: true });
 
     if (configChanged) {
       configBackup = await backupIfExists(configPath);
@@ -1884,7 +1911,7 @@ issue
 
 program
   .command('hook')
-  .description('Minimal hook entrypoint (defaults to runtime payload + ~/.env + default export dir)')
+  .description('Minimal hook entrypoint (defaults to runtime payload + ~/.spanory/.env + default export dir)')
   .option('--runtime <name>', 'Runtime name (default: SPANORY_HOOK_RUNTIME or claude-code)')
   .option('--runtime-home <path>', 'Override runtime home directory')
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')

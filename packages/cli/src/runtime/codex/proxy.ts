@@ -113,7 +113,10 @@ function correlationKeyFromRequest(req, seq) {
 
 export function createCodexProxyServer(options) {
   const upstreamBaseUrl = options?.upstreamBaseUrl ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com';
-  const spoolDir = options?.spoolDir ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR ?? path.join(process.cwd(), '.spanory', 'codex-proxy-spool');
+  const spanoryHome = process.env.SPANORY_HOME ?? path.join(process.env.HOME || '', '.spanory');
+  const spoolDir = options?.spoolDir
+    ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR
+    ?? path.join(spanoryHome, 'spool', 'codex-proxy');
   const maxBodyBytes = Number(options?.maxBodyBytes ?? process.env.SPANORY_CODEX_CAPTURE_MAX_BYTES ?? 131072);
   const logger = options?.logger ?? console;
   const upstream = new URL(upstreamBaseUrl);
