@@ -6,6 +6,8 @@ coverage/
 *.log
 *.png
 .obsidian/
+.claude/
+.placeholder/
 
 # build artifacts
 dist/
@@ -15,3 +17,11 @@ packages/cli/.tmp/
 # telemetry generated artifacts
 telemetry/reports/
 telemetry/spanory-fields.current.yaml
+
+local/
+
+# alipay-cli generated binaries
+packages/alipay-cli/bin/spanory-*
+packages/alipay-cli/opencode-plugin
+
+

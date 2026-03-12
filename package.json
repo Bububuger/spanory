@@ -1,7 +1,7 @@
 {
   "name": "spanory",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.17",
   "description": "Cross-runtime observability toolkit for agent systems",
   "license": "MIT",
   "workspaces": [
@@ -20,10 +20,14 @@
     "telemetry:check": "node scripts/telemetry/check.mjs",
     "issue:status": "node scripts/issues/status-report.mjs summary",
     "build:bin": "bash scripts/release/build-binaries.sh",
-    "package:release-assets": "bash scripts/release/package-release-assets.sh"
+    "package:release-assets": "bash scripts/release/package-release-assets.sh",
+    "version:sync": "node scripts/release/sync-version.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.4.0",
     "typescript": "^5.9.2"
+  },
+  "publishConfig": {
+    "registry": "https://registry.antgroup-inc.cn"
   }
 }

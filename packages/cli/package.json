@@ -1,6 +1,6 @@
 {
   "name": "@bububuger/spanory",
-  "version": "0.1.1",
+  "version": "0.1.17",
   "description": "Spanory CLI for cross-runtime agent observability",
   "license": "MIT",
   "type": "module",
@@ -10,7 +10,8 @@
     "directory": "packages/cli"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "files": [
     "dist"
@@ -24,7 +25,7 @@
     "test": "vitest run test/unit",
     "test:bdd": "npm run build && vitest run test/bdd",
     "test:golden:update": "npm run build && node test/fixtures/golden/otlp/update-golden.mjs && node test/fixtures/golden/codex/update-golden.mjs",
-    "build:bundle": "npm run --workspace @bububuger/backend-langfuse build && npm run --workspace @bububuger/otlp-core build && npm run build && mkdir -p build && esbuild dist/index.js --bundle --platform=node --format=cjs --target=node18 --outfile=build/spanory.cjs",
+    "build:bundle": "npm run --workspace @bububuger/backend-langfuse build && npm run --workspace @bububuger/otlp-core build && npm run build && mkdir -p build && bash ../../scripts/release/bundle.sh dist/index.js --bundle --platform=node --format=cjs --target=node18 --outfile=build/spanory.cjs",
     "build:bin:macos-arm64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-arm64 --output ../../dist/spanory-macos-arm64",
     "build:bin:macos-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-x64 --output ../../dist/spanory-macos-x64",
     "build:bin:linux-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-linux-x64 --output ../../dist/spanory-linux-x64",
