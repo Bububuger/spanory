@@ -1,16 +1,14 @@
-# Plan (2026-03-13) — 修复 npm 全局安装失败（私有依赖泄漏）
+# Plan (2026-03-13) — GitHub Actions Node 24 兼容切换
 
 ## 目标
-1. 保证用户执行 `npm i -g @bububuger/spanory` 后可直接运行 `spanory`。
-2. 消除发布包对私有 workspace 包（`@bububuger/core`、相对路径 workspace dist）的运行时依赖。
+1. 消除 Node 20 deprecation 警告风险。
+2. 在 GitHub Actions 中显式启用 JS actions 的 Node 24 运行时。
 
 ## 执行顺序
-1. 调整 CLI build 产物为自包含可运行入口（bundle）。
-2. 修正 `packages/cli/package.json` 依赖与发布内容。
-3. 增加安装回归测试（pack + 临时安装验证）。
-4. 执行 unit/bdd 与安装验证。
+1. 更新 `ci.yml` 全局环境变量。
+2. 更新 `release.yml` 全局环境变量。
+3. 检查 workflow 语法与 diff。
 
 ## 验收标准
-- `npm pack` 产物在临时目录安装后，`spanory -v` 正常。
-- `spanory -h` 能展示命令列表。
-- 现有 `test:bdd` 全通过。
+- `.github/workflows/ci.yml` 与 `release.yml` 都包含 `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true`。
+- 推送后新 workflow 不再出现 Node 20 deprecation 警告。
