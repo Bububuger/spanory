@@ -4,7 +4,8 @@ import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from '
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { Command } from 'commander';
 
@@ -52,13 +53,24 @@ const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
+function _resolveVersion(): string {
+  if (process.env.SPANORY_VERSION) return process.env.SPANORY_VERSION;
+  try {
+    const pkgPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../package.json');
+    return JSON.parse(readFileSync(pkgPath, 'utf-8')).version;
+  } catch {
+    return '0.0.0';
+  }
+}
+const SPANORY_VERSION = _resolveVersion();
+
 const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
 const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
 
 function getResource() {
   return {
     serviceName: 'spanory',
-    serviceVersion: process.env.SPANORY_VERSION ?? '0.1.1',
+    serviceVersion: SPANORY_VERSION,
     environment: process.env.SPANORY_ENV ?? 'development',
   };
 }
@@ -657,6 +669,10 @@ function resolveOpencodePluginDir() {
   if (process.env.SPANORY_OPENCODE_PLUGIN_DIR) {
     return process.env.SPANORY_OPENCODE_PLUGIN_DIR;
   }
+  // When running as a pkg binary, resolve relative to the binary's directory
+  if ((process as any).pkg) {
+    return path.resolve(path.dirname(process.execPath), '..', 'opencode-plugin');
+  }
   return path.resolve(process.cwd(), 'packages/opencode-plugin');
 }
 
@@ -741,6 +757,23 @@ async function runOpencodePluginDoctor(runtimeHome) {
     checks.push({ id: 'plugin_installed', ok: true, detail: loaderFile });
   } catch {
     checks.push({ id: 'plugin_installed', ok: false, detail: `plugin loader missing: ${loaderFile}` });
+  }
+
+  try {
+    const loaderUrl = pathToFileURL(loaderFile).href;
+    const mod = await import(loaderUrl);
+    const hasDefault = typeof mod.default === 'function' || typeof mod.SpanoryOpencodePlugin === 'function';
+    checks.push({
+      id: 'plugin_loadable',
+      ok: hasDefault,
+      detail: hasDefault ? 'plugin module loaded and exports a register function' : 'plugin module loaded but missing default export function',
+    });
+  } catch (err) {
+    checks.push({
+      id: 'plugin_loadable',
+      ok: false,
+      detail: `plugin import failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
   }
 
   checks.push({
@@ -1044,7 +1077,7 @@ function installOpenclawPlugin(runtimeHome) {
 
 async function installOpencodePlugin(runtimeHome) {
   const pluginDir = path.resolve(resolveOpencodePluginDir());
-  const pluginEntry = path.join(pluginDir, 'src', 'index.js');
+  const pluginEntry = path.join(pluginDir, 'dist', 'index.js');
   await stat(pluginEntry);
 
   const installDir = resolveOpencodePluginInstallDir(runtimeHome);
@@ -1631,7 +1664,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
       .action(async (options) => {
         const pluginDir = path.resolve(options.pluginDir ?? resolveOpencodePluginDir());
-        const pluginEntry = path.join(pluginDir, 'src', 'index.js');
+        const pluginEntry = path.join(pluginDir, 'dist', 'index.js');
         await stat(pluginEntry);
 
         const installDir = resolveOpencodePluginInstallDir(options.runtimeHome);
@@ -1674,7 +1707,7 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version('0.1.1');
+  .version(SPANORY_VERSION);
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
 for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
