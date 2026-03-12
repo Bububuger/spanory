@@ -12,6 +12,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 - `spanory doctor`: new `plugin_loadable` check that dynamically imports the opencode plugin module to verify all dependencies resolve correctly.
 
+## [0.1.19] - 2026-03-13
+
+### Fixed
+- npm global installation now works for end users (`npm i -g @bububuger/spanory`) without requiring local monorepo sources.
+- CLI publish artifact is now self-contained and no longer relies on private workspace packages at runtime.
+
+### Changed
+- `@bububuger/spanory` publish payload narrowed to runtime entry files only (`dist/index.js`, `dist/index.d.ts`).
+- Added package-level install regression check: `npm run --workspace @bububuger/spanory pack:test-install`.
+
 ## [Unreleased]
 
 ### Added

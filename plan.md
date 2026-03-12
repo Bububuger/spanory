@@ -1,16 +1,16 @@
-# Plan (2026-03-12) — 增加 spanory upgrade 命令
+# Plan (2026-03-13) — 修复 npm 全局安装失败（私有依赖泄漏）
 
 ## 目标
-1. 为 spanory CLI 增加统一的 `upgrade` 命令。
-2. 支持根据安装包来源执行升级（npm / tnpm），并提供 dry-run。
-3. 输出明确的升级结果与失败信息。
+1. 保证用户执行 `npm i -g @bububuger/spanory` 后可直接运行 `spanory`。
+2. 消除发布包对私有 workspace 包（`@bububuger/core`、相对路径 workspace dist）的运行时依赖。
 
 ## 执行顺序
-1. 在 `packages/cli/src/index.ts` 增加升级命令与来源识别逻辑。
-2. 补充单测覆盖 upgrade 核心路径。
-3. 执行 unit/bdd 回归。
+1. 调整 CLI build 产物为自包含可运行入口（bundle）。
+2. 修正 `packages/cli/package.json` 依赖与发布内容。
+3. 增加安装回归测试（pack + 临时安装验证）。
+4. 执行 unit/bdd 与安装验证。
 
 ## 验收标准
-- `spanory upgrade --dry-run` 能输出计划执行命令
-- `spanory upgrade` 能调用包管理器并返回成功/失败状态
-- 相关测试通过
+- `npm pack` 产物在临时目录安装后，`spanory -v` 正常。
+- `spanory -h` 能展示命令列表。
+- 现有 `test:bdd` 全通过。
