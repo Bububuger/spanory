@@ -16,7 +16,9 @@
     "spanory": "dist/index.js"
   },
   "scripts": {
+    "check": "node -e \"console.log('alipay-cli:check:noop')\"",
     "build": "npm run prepare-js",
+    "test": "node -e \"console.log('alipay-cli:test:noop')\"",
     "prepare-js": "bash scripts/prepare-bin.sh",
     "prepare-bin": "bash scripts/prepare-bin.sh",
     "prepublishOnly": "npm run prepare-js"
