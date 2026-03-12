@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning for the public CLI contract.
 
+## [0.1.17] - 2026-03-12
+
+### Fixed
+- opencode-plugin: bundle all dependencies with esbuild into a single file, fixing import failures when installed via npm (relative path `../../backend-langfuse/...` etc. could not resolve outside monorepo).
+
+### Added
+- `spanory doctor`: new `plugin_loadable` check that dynamically imports the opencode plugin module to verify all dependencies resolve correctly.
+
 ## [Unreleased]
 
 ### Added

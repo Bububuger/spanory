@@ -41,10 +41,13 @@
    - `npm run telemetry:check`
    - `npm test`
    - `npm run test:bdd`
-2. Create and push a semver tag from `main`:
+2. Create a semver tag from `main`:
    - `git tag vX.Y.Z`
-   - `git push origin vX.Y.Z`
-3. GitHub Actions will run `.github/workflows/release.yml`:
-   - verify gates
-   - build `linux/macos/windows` binaries
-   - publish GitHub Release and upload binaries
+3. Sync version and build:
+   - `npm run version:sync` (reads tag, updates all package.json)
+   - `npm run build`
+4. Publish:
+   - **GitHub (public)**: `git push origin vX.Y.Z`, GitHub Actions runs `.github/workflows/release.yml` to build binaries and publish GitHub Release.
+   - **Internal registry**: `cd packages/alipay-cli && tnpm publish`
+5. Update global install to verify:
+   - `tnpm install -g @alipay/spanory@latest`
