@@ -1,7 +1,9 @@
-# Todo (2026-03-14) — BUB-29 installOpencodePlugin 非 ENOENT 错误处理
+# Todo (2026-03-14) — BUB-32 隐藏内部 issue 命令
 
-- [x] 1. 复现现状：构造非 `ENOENT` 读取错误并确认当前命令错误被吞。
-- [x] 2. Red：新增/调整测试，断言非 `ENOENT` 时安装命令应失败。
-- [x] 3. Green：修改 `installOpencodePlugin` 错误处理逻辑，仅忽略 `ENOENT`。
-- [x] 4. 回归：运行目标测试并确认 `ENOENT` 与非 `ENOENT` 分支都满足预期。
-- [ ] 5. 更新 workpad、提交变更并准备 PR 元数据。
+- [x] 归档上一阶段 `plan.md/todo.md`
+- [x] 新增独立 issue 脚本入口（支持 `sync/list/set-status`）
+- [x] 在 `package.json` 增加 `issue:sync/list/set-status` 脚本
+- [x] 从公开 CLI 入口移除 `issue` 命令
+- [x] 更新 issue 使用文档到 `npm run issue:*`
+- [x] 增加回归测试（公开 help 不显示 issue 命令）
+- [x] 完成最小验证并更新 workpad

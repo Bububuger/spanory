@@ -11,16 +11,16 @@
 ## 命令
 ```bash
 # 从 todo.md 同步未完成项
-spanory issue sync
+npm run issue:sync
 
 # 查看全部 issue
-spanory issue list
+npm run issue:list
 
 # 只看进行中 issue
-spanory issue list --status in_progress
+npm run issue:list -- --status in_progress
 
 # 更新状态
-spanory issue set-status --id T2 --status in_progress --note "开始处理"
+npm run issue:set-status -- --id T2 --status in_progress --note "开始处理"
 ```
 
 ## 存储
