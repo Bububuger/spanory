@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { readFile } from 'node:fs/promises';
+import { parseJsonObject } from '@bububuger/core';
 
 import {
   summarizeAgents,
@@ -54,17 +55,6 @@ function getMetricFromSessionRow(row, metric, refs = {}) {
     default:
       return 0;
   }
-}
-
-function parseJsonObject(value) {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try {
-    const parsed = JSON.parse(value);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  } catch {
-    // ignore parse errors
-  }
-  return null;
 }
 
 function parseJsonArray(value) {

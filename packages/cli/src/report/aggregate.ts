@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { parseJsonObject } from '@bububuger/core';
 
 function toNumber(value) {
   const n = Number(value);
@@ -29,17 +30,6 @@ function usageFromEvent(event) {
   const output = toNumber(attrs['gen_ai.usage.output_tokens']);
   const total = toNumber(attrs['gen_ai.usage.total_tokens']) || input + output;
   return { input, output, total };
-}
-
-function parseJsonObject(value) {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  try {
-    const parsed = JSON.parse(value);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  } catch {
-    // ignore parse errors
-  }
-  return null;
 }
 
 function parseJsonArray(value) {
