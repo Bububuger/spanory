@@ -1,25 +1,17 @@
-# Plan (2026-03-14) — BUB-23 JSONL 流式解析降内存峰值
+# Plan (2026-03-14) — BUB-27 teardown 清理 codex config.toml 改动
 
 ## 目标
-1. 消除运行时 adapter 对 JSONL 的整文件 `readFile + split` 读取路径，避免双份内存拷贝峰值。
-2. 在 `claude/openclaw/codex` 三个 adapter 统一采用 `createReadStream + readline` 逐行解析。
-3. 在保持行为兼容（空行/坏行忽略）的前提下补齐测试证据。
+1. `setup apply --runtimes codex` 删除的 `~/.codex/config.toml` 中 `notify` 配置可在 `setup teardown --runtimes codex` 恢复。
+2. 修复保持幂等：未发生 apply 改动时 teardown 不应写入无关配置。
+3. 为该行为补充自动化测试，防止回归。
 
 ## 执行顺序
-1. 新增共享的 JSONL 流式读取工具（异步逐行、可复用、可测试）。
-2. 将 `packages/cli/src/runtime/claude/adapter.ts` 改为调用流式读取工具。
-3. 将 `packages/cli/src/runtime/openclaw/adapter.ts` 改为调用流式读取工具。
-4. 将 `packages/cli/src/runtime/codex/adapter.ts` 改为调用流式读取工具。
-5. 更新/新增单测，覆盖三 adapter 读取路径行为一致性。
-6. 运行针对性测试与 `npm run check`，完成提交与 PR 元数据更新。
-
-## 风险与约束
-- 读取顺序必须稳定，不能改变后续 `messages.sort` 与 parent-link 推断行为。
-- 解析容错行为必须维持：空行忽略、坏 JSON 行忽略。
-- 仅做最小差异改造，不扩展到非 JSONL 读取逻辑。
+1. 在 `packages/cli/src/index.ts` 为 codex apply 增加 `notify` 备份写入逻辑（写到 `~/.codex/spanory-notify.backup.json`）。
+2. 在 `teardownCodexSetup` 读取备份并恢复 `config.toml` 的 `notify` 行，恢复后清理备份。
+3. 扩展 `packages/cli/test/bdd/setup.integration.spec.ts`，覆盖 apply 后 teardown 恢复 notify 的端到端场景。
+4. 运行最小 BDD 验证并确认通过。
 
 ## 验收标准
-- `packages/cli/src/runtime/{claude,openclaw,codex}/adapter.ts` 不再出现 `const raw = await readFile(...); raw.split('\n')` 组合。
-- 三个 adapter 均通过流式逐行解析并维持既有容错行为。
-- 相关 unit tests 通过，且覆盖改造路径。
-- `npm run check` 通过。
+- apply 之后 `config.toml` 的 `notify` 行被移除。
+- teardown 之后 `config.toml` 恢复到 apply 前的 `notify` 值（若有备份）。
+- 新增/更新 BDD 用例通过。

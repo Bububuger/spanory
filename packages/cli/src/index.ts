@@ -1108,19 +1108,39 @@ async function applyCodexWatchSetup({ homeRoot, dryRun }) {
 
   // Remove notify lines from config.toml
   const configPath = path.join(homeRoot, '.codex', 'config.toml');
+  const notifyBackupPath = path.join(homeRoot, '.codex', 'spanory-notify.backup.json');
+  let notifyBackup = null;
   if (existsSync(configPath)) {
     const content = await readFile(configPath, 'utf-8');
+    const notifyLines = content
+      .split('\n')
+      .filter((line) => /^\s*notify\s*=/.test(line))
+      .map((line) => line.trimEnd());
     const cleaned = content
       .split('\n')
       .filter((line) => !/^\s*notify\s*=/.test(line))
       .join('\n');
     if (cleaned !== content && !dryRun) {
+      await mkdir(path.dirname(notifyBackupPath), { recursive: true });
+      await writeFile(
+        notifyBackupPath,
+        `${JSON.stringify({ notifyLines }, null, 2)}\n`,
+        'utf-8',
+      );
       await writeFile(configPath, cleaned, 'utf-8');
       changed = true;
     }
+    if (cleaned !== content) {
+      notifyBackup = {
+        saved: !dryRun,
+        dryRun,
+        backupPath: notifyBackupPath,
+        notifyLineCount: notifyLines.length,
+      };
+    }
   }
 
-  return { runtime: 'codex', ok: true, changed, dryRun, mode: 'watch' };
+  return { runtime: 'codex', ok: true, changed, dryRun, mode: 'watch', notifyBackup };
 }
 
 
@@ -1220,10 +1240,86 @@ async function teardownClaudeSetup({ homeRoot, dryRun }) {
   return { runtime: 'claude-code', ok: true, changed, dryRun, settingsPath, backup };
 }
 
-async function teardownCodexSetup({ dryRun }) {
+async function teardownCodexSetup({ homeRoot, dryRun }) {
   let watchStopped = null;
   if (!dryRun) watchStopped = await stopCodexWatch();
-  return { runtime: 'codex', ok: true, dryRun, watchStopped };
+  const notifyBackupPath = path.join(homeRoot, '.codex', 'spanory-notify.backup.json');
+  const configPath = path.join(homeRoot, '.codex', 'config.toml');
+  let notifyRestore = {
+    restored: false,
+    changed: false,
+    dryRun,
+    backupPath: notifyBackupPath,
+    configPath,
+    detail: 'no notify backup found; nothing to restore',
+  };
+  try {
+    const backupRaw = await readFile(notifyBackupPath, 'utf-8');
+    const parsed = JSON.parse(backupRaw);
+    const notifyLines = Array.isArray(parsed?.notifyLines)
+      ? parsed.notifyLines
+        .filter((line) => typeof line === 'string')
+        .map((line) => line.trimEnd())
+        .filter(Boolean)
+      : [];
+    if (notifyLines.length > 0) {
+      let current = '';
+      try {
+        current = await readFile(configPath, 'utf-8');
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+      const cleaned = current
+        .split('\n')
+        .filter((line) => !/^\s*notify\s*=/.test(line))
+        .join('\n');
+      let restored = cleaned;
+      if (restored && !restored.endsWith('\n')) restored += '\n';
+      restored += notifyLines.join('\n');
+      if (!restored.endsWith('\n')) restored += '\n';
+      const changed = restored !== current;
+      if (!dryRun) {
+        await mkdir(path.dirname(configPath), { recursive: true });
+        if (changed) await writeFile(configPath, restored, 'utf-8');
+        await rm(notifyBackupPath, { force: true });
+      }
+      notifyRestore = {
+        restored: true,
+        changed,
+        dryRun,
+        backupPath: notifyBackupPath,
+        configPath,
+        notifyLineCount: notifyLines.length,
+        detail: changed
+          ? (dryRun
+            ? `would restore ${notifyLines.length} notify line(s) from setup backup`
+            : `restored ${notifyLines.length} notify line(s) from setup backup`)
+          : (dryRun
+            ? 'notify lines already match setup backup; no config changes in dry-run'
+            : 'notify lines already match setup backup; backup cleaned'),
+      };
+    } else {
+      if (!dryRun) {
+        await rm(notifyBackupPath, { force: true });
+      }
+      notifyRestore = {
+        ...notifyRestore,
+        detail: dryRun
+          ? 'notify backup is empty; no changes in dry-run'
+          : 'notify backup is empty; backup cleaned without config changes',
+      };
+    }
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      notifyRestore = {
+        ...notifyRestore,
+        detail: 'no notify backup found; this teardown cannot restore notify from older apply runs',
+      };
+    } else {
+      throw new Error(`failed to restore codex notify config: ${error?.message ?? String(error)}`);
+    }
+  }
+  return { runtime: 'codex', ok: true, dryRun, watchStopped, notifyRestore };
 }
 
 async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) {
@@ -1273,7 +1369,7 @@ async function runSetupTeardown(options) {
     catch (error) { results.push({ runtime: 'claude-code', ok: false, error: String(error?.message ?? error) }); }
   }
   if (selected.includes('codex')) {
-    try { results.push(await teardownCodexSetup({ dryRun })); }
+    try { results.push(await teardownCodexSetup({ homeRoot, dryRun })); }
     catch (error) { results.push({ runtime: 'codex', ok: false, error: String(error?.message ?? error) }); }
   }
   if (selected.includes('openclaw')) {
