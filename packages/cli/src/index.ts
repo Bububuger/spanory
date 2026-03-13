@@ -1014,18 +1014,6 @@ async function backupIfExists(filePath) {
   return backupPath;
 }
 
-function isSpanoryCodexNotifyConfigured(configText) {
-  return /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(String(configText ?? ''));
-}
-
-function stripSpanoryCodexNotifyConfig(configText) {
-  const next = String(configText ?? '')
-    .replace(/^notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]\s*$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  return next ? `${next}\n` : '';
-}
-
 function isSpanoryHookCommand(command) {
   const text = String(command ?? '');
   return /\bspanory\b/.test(text) && /\bhook\b/.test(text);
@@ -1088,52 +1076,7 @@ async function applyClaudeSetup({ homeRoot, spanoryBin, dryRun }) {
 }
 
 async function applyCodexWatchSetup({ homeRoot, dryRun }) {
-  const codexHome = path.join(homeRoot, '.codex');
-  const scriptPath = path.join(codexHome, 'bin', 'spanory-codex-notify.sh');
-  const configPath = path.join(codexHome, 'config.toml');
-
-  let currentConfig = '';
-  try {
-    currentConfig = await readFile(configPath, 'utf-8');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  const nextConfig = stripSpanoryCodexNotifyConfig(currentConfig);
-  const configChanged = currentConfig !== nextConfig;
-
-  let scriptPresent = false;
-  try {
-    await stat(scriptPath);
-    scriptPresent = true;
-  } catch {
-    // keep false
-  }
-
-  const changed = configChanged || scriptPresent;
-  let configBackup = null;
-  if (changed && !dryRun) {
-    if (configChanged) {
-      await mkdir(path.dirname(configPath), { recursive: true });
-      configBackup = await backupIfExists(configPath);
-      await writeFile(configPath, nextConfig, 'utf-8');
-    }
-    if (scriptPresent) {
-      await rm(scriptPath, { force: true });
-    }
-  }
-
-  return {
-    runtime: 'codex',
-    ok: true,
-    changed,
-    dryRun,
-    mode: 'watch',
-    configPath,
-    scriptPath,
-    configBackup,
-    notifyConfigured: isSpanoryCodexNotifyConfigured(nextConfig),
-    scriptPresent: false,
-  };
+  return { runtime: 'codex', ok: true, changed: false, dryRun, mode: 'watch' };
 }
 
 
@@ -1231,32 +1174,10 @@ async function teardownClaudeSetup({ homeRoot, dryRun }) {
   return { runtime: 'claude-code', ok: true, changed, dryRun, settingsPath, backup };
 }
 
-async function teardownCodexSetup({ homeRoot, dryRun }) {
-  const codexHome = path.join(homeRoot, '.codex');
-  const configPath = path.join(codexHome, 'config.toml');
-  const scriptPath = path.join(codexHome, 'bin', 'spanory-codex-notify.sh');
-  let currentConfig = '';
-  try {
-    currentConfig = await readFile(configPath, 'utf-8');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  const nextConfig = stripSpanoryCodexNotifyConfig(currentConfig);
-  const configChanged = currentConfig !== nextConfig;
-  let scriptPresent = false;
-  try { await stat(scriptPath); scriptPresent = true; } catch { /* not present */ }
-  const changed = configChanged || scriptPresent;
-  let configBackup = null;
-  if (changed && !dryRun) {
-    if (configChanged) {
-      configBackup = await backupIfExists(configPath);
-      await writeFile(configPath, nextConfig, 'utf-8');
-    }
-    if (scriptPresent) await rm(scriptPath, { force: true });
-  }
+async function teardownCodexSetup({ dryRun }) {
   let watchStopped = null;
   if (!dryRun) watchStopped = await stopCodexWatch();
-  return { runtime: 'codex', ok: true, changed, dryRun, configPath, scriptPath, configBackup, scriptRemoved: scriptPresent, watchStopped };
+  return { runtime: 'codex', ok: true, dryRun, watchStopped };
 }
 
 async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) {
@@ -1291,7 +1212,7 @@ async function runSetupTeardown(options) {
     catch (error) { results.push({ runtime: 'claude-code', ok: false, error: String(error?.message ?? error) }); }
   }
   if (selected.includes('codex')) {
-    try { results.push(await teardownCodexSetup({ homeRoot, dryRun })); }
+    try { results.push(await teardownCodexSetup({ dryRun })); }
     catch (error) { results.push({ runtime: 'codex', ok: false, error: String(error?.message ?? error) }); }
   }
   if (selected.includes('openclaw')) {
@@ -1537,32 +1458,11 @@ async function runSetupDetect(options) {
     },
   });
 
-  const codexConfigPath = path.join(homeRoot, '.codex', 'config.toml');
-  const codexScriptPath = path.join(homeRoot, '.codex', 'bin', 'spanory-codex-notify.sh');
-  let codexNotifyConfigured = false;
-  try {
-    const config = await readFile(codexConfigPath, 'utf-8');
-    codexNotifyConfigured = isSpanoryCodexNotifyConfigured(config);
-  } catch {
-    // keep false
-  }
-  let codexScriptPresent = true;
-  try {
-    await stat(codexScriptPath);
-  } catch {
-    codexScriptPresent = false;
-  }
   report.runtimes.push({
     runtime: 'codex',
     available: commandExists('codex'),
-    configured: !codexNotifyConfigured,
-    details: {
-      configPath: codexConfigPath,
-      scriptPath: codexScriptPath,
-      mode: 'watch',
-      notifyConfigured: codexNotifyConfigured,
-      scriptPresent: codexScriptPresent,
-    },
+    configured: isCodexWatchRunning(),
+    details: { mode: 'watch', watchRunning: isCodexWatchRunning() },
   });
 
   report.runtimes.push({
@@ -1618,33 +1518,12 @@ async function runSetupDoctor(options) {
   }
 
   if (selected.includes('codex')) {
-    const configPath = path.join(homeRoot, '.codex', 'config.toml');
-    const scriptPath = path.join(homeRoot, '.codex', 'bin', 'spanory-codex-notify.sh');
-    let notifyConfigured = false;
-    try {
-      const config = await readFile(configPath, 'utf-8');
-      notifyConfigured = isSpanoryCodexNotifyConfigured(config);
-    } catch {
-      // keep default false
-    }
-    let scriptPresent = false;
-    try {
-      await stat(scriptPath);
-      scriptPresent = true;
-    } catch {
-      // keep default false
-    }
+    const watchRunning = isCodexWatchRunning();
     checks.push({
-      id: 'codex_watch_mode',
+      id: 'codex_watch_running',
       runtime: 'codex',
-      ok: !notifyConfigured,
-      detail: configPath,
-    });
-    checks.push({
-      id: 'codex_notify_script_absent',
-      runtime: 'codex',
-      ok: !scriptPresent,
-      detail: scriptPath,
+      ok: watchRunning,
+      detail: watchRunning ? codexWatchPidFile() : 'codex watch process not running',
     });
   }
 
