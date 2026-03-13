@@ -1,6 +1,6 @@
 {
   "name": "@bububuger/spanory",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "description": "Spanory CLI for cross-runtime agent observability",
   "license": "MIT",
   "type": "module",
