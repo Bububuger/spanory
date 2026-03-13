@@ -1871,6 +1871,8 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
         }
 
         console.log(`backfill=selected count=${candidates.length}`);
+        let exportedCount = 0;
+        let skippedCount = 0;
 
         for (const candidate of candidates) {
           const context = {
@@ -1884,17 +1886,30 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
             continue;
           }
 
-          const events = await adapter.collectEvents(context);
-          const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
+          try {
+            const events = await adapter.collectEvents(context);
+            const exportJsonPath = options.exportJsonDir
+              ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`)
+              : undefined;
 
-          await emitSession({
-            runtimeName: adapter.runtimeName,
-            context,
-            events,
-            endpoint,
-            headers,
-            exportJsonPath,
-          });
+            await emitSession({
+              runtimeName: adapter.runtimeName,
+              context,
+              events,
+              endpoint,
+              headers,
+              exportJsonPath,
+            });
+            exportedCount += 1;
+          } catch (error) {
+            skippedCount += 1;
+            const message = error?.message ? String(error.message).replace(/\s+/g, ' ') : 'unknown-error';
+            console.log(`backfill=error sessionId=${candidate.sessionId} error=${message}`);
+          }
+        }
+
+        if (!options.dryRun) {
+          console.log(`backfill=done selected=${candidates.length} exported=${exportedCount} skipped=${skippedCount}`);
         }
       });
   }
