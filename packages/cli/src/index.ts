@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-nocheck
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
