@@ -1543,20 +1543,35 @@ async function runSetupDetect(options) {
     details: { mode: 'watch', watchRunning: isCodexWatchRunning() },
   });
 
+  const openclawRuntimeHome = openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome);
+  const opencodeRuntimeHome = opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome);
+  const [openclawDoctor, opencodeDoctor] = await Promise.all([
+    runOpenclawPluginDoctor(openclawRuntimeHome).catch((error) => ({
+      ok: false,
+      error: String(error?.message ?? error),
+    })),
+    runOpencodePluginDoctor(opencodeRuntimeHome).catch((error) => ({
+      ok: false,
+      error: String(error?.message ?? error),
+    })),
+  ]);
+
   report.runtimes.push({
     runtime: 'openclaw',
     available: commandExists('openclaw'),
-    configured: undefined,
+    configured: Boolean(openclawDoctor.ok),
     details: {
-      runtimeHome: openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome),
+      runtimeHome: openclawRuntimeHome,
+      ...(openclawDoctor.error ? { doctorError: openclawDoctor.error } : {}),
     },
   });
   report.runtimes.push({
     runtime: 'opencode',
     available: commandExists('opencode'),
-    configured: undefined,
+    configured: Boolean(opencodeDoctor.ok),
     details: {
-      runtimeHome: opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome),
+      runtimeHome: opencodeRuntimeHome,
+      ...(opencodeDoctor.error ? { doctorError: opencodeDoctor.error } : {}),
     },
   });
 
