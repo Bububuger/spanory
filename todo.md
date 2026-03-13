@@ -15,5 +15,5 @@
 - [x] 任务 5：清理 `normalize.ts` 与 `index.ts` 并完成全量验证
   - 验收检查：`npm run check`、`npm test`、`npm run telemetry:check`
 
-- [ ] 任务 6：整理提交与 PR 元数据（含 `symphony` 标签）并更新 workpad
+- [x] 任务 6：整理提交与 PR 元数据（含 `symphony` 标签）并更新 workpad
   - 验收检查：workpad 清单全部勾选且验证结果完整
