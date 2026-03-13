@@ -1,8 +1,12 @@
 // @ts-nocheck
 import { appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '../../otlp-core/dist/index.js';
@@ -10,7 +14,64 @@ import { loadUserEnv } from '../../cli/dist/env.js';
 import { normalizeTranscriptMessages, pickUsage } from '../../cli/dist/runtime/shared/normalize.js';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
+const EXECUTION_ENTRY = (() => {
+  const candidate = fileURLToPath(import.meta.url);
+  try {
+    return realpathSync(candidate);
+  } catch {
+    return candidate;
+  }
+})();
+const requireFromHere = createRequire(EXECUTION_ENTRY);
+const PLUGIN_FILE_DIR = path.dirname(EXECUTION_ENTRY);
+const DEFAULT_SPANORY_VERSION = '0.1.1';
 const DEFAULT_FLUSH_MODE = 'turn';
+
+function readSpanoryVersionFromBinary() {
+  try {
+    const stdout = execFileSync('spanory', ['-v'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const version = String(stdout ?? '').trim();
+    return version || null;
+  } catch {
+    return null;
+  }
+}
+
+function readSpanoryVersionFromPackageJson() {
+  for (const packageName of ['@bububuger/spanory', '@alipay/spanory']) {
+    try {
+      const pkgJsonPath = requireFromHere.resolve(`${packageName}/package.json`);
+      const parsed = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+      const version = String(parsed?.version ?? '').trim();
+      if (version) return version;
+    } catch {}
+  }
+
+  const candidates = [
+    path.resolve(PLUGIN_FILE_DIR, '..', '..', 'package.json'),
+    path.resolve(PLUGIN_FILE_DIR, '..', '..', '..', 'package.json'),
+    path.resolve(PLUGIN_FILE_DIR, '..', '..', 'cli', 'package.json'),
+    path.resolve(process.cwd(), 'packages', 'cli', 'package.json'),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(file, 'utf8'));
+      const version = String(parsed?.version ?? '').trim();
+      if (version) return version;
+    } catch {}
+  }
+  return null;
+}
+
+const SPANORY_SERVICE_VERSION = process.env.SPANORY_VERSION
+  ?? readSpanoryVersionFromBinary()
+  ?? readSpanoryVersionFromPackageJson()
+  ?? DEFAULT_SPANORY_VERSION;
+
 const SESSION_FLUSH_EVENTS = new Set([
   'session.idle',
   'session.deleted',
@@ -449,7 +510,9 @@ export function createOpencodeSpanoryPluginRuntime(options) {
   function submit(events, sessionId, fingerprint, triggerType) {
     pipeline = pipeline.then(async () => {
       const mapped = langfuseBackendAdapter.mapEvents(events);
-      const payload = compileOtlpSpans(mapped, buildResource());
+      const payload = compileOtlpSpans(mapped, buildResource({
+        serviceVersion: SPANORY_SERVICE_VERSION,
+      }));
 
       try {
         const result = await sendWithRetry(payload, {

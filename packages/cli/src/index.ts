@@ -1091,6 +1091,18 @@ function escapeTomlBasicString(value) {
     .replaceAll('"', '\\"');
 }
 
+function isSpanoryCodexNotifyConfigured(configText) {
+  return /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(String(configText ?? ''));
+}
+
+function stripSpanoryCodexNotifyConfig(configText) {
+  const next = String(configText ?? '')
+    .replace(/^notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return next ? `${next}\n` : '';
+}
+
 function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile }) {
   return '#!/usr/bin/env bash\n'
     + 'set -euo pipefail\n'
@@ -1183,6 +1195,55 @@ async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
   };
 }
 
+async function applyCodexWatchSetup({ homeRoot, dryRun }) {
+  const codexHome = path.join(homeRoot, '.codex');
+  const scriptPath = path.join(codexHome, 'bin', 'spanory-codex-notify.sh');
+  const configPath = path.join(codexHome, 'config.toml');
+
+  let currentConfig = '';
+  try {
+    currentConfig = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const nextConfig = stripSpanoryCodexNotifyConfig(currentConfig);
+  const configChanged = currentConfig !== nextConfig;
+
+  let scriptPresent = false;
+  try {
+    await stat(scriptPath);
+    scriptPresent = true;
+  } catch {
+    // keep false
+  }
+
+  const changed = configChanged || scriptPresent;
+  let configBackup = null;
+  if (changed && !dryRun) {
+    if (configChanged) {
+      await mkdir(path.dirname(configPath), { recursive: true });
+      configBackup = await backupIfExists(configPath);
+      await writeFile(configPath, nextConfig, 'utf-8');
+    }
+    if (scriptPresent) {
+      await rm(scriptPath, { force: true });
+    }
+  }
+
+  return {
+    runtime: 'codex',
+    ok: true,
+    changed,
+    dryRun,
+    mode: 'watch',
+    configPath,
+    scriptPath,
+    configBackup,
+    notifyConfigured: isSpanoryCodexNotifyConfigured(nextConfig),
+    scriptPresent: false,
+  };
+}
+
 function commandExists(command) {
   const result = runSystemCommand('which', [command], { env: process.env });
   return result.code === 0;
@@ -1229,7 +1290,108 @@ function opencodeRuntimeHomeForSetup(homeRoot, explicitRuntimeHome) {
   return explicitRuntimeHome || path.join(homeRoot, '.config', 'opencode');
 }
 
-function installOpenclawPlugin(runtimeHome) {
+function resolveOpenclawConfigPath(runtimeHome) {
+  return path.join(runtimeHome, 'openclaw.json');
+}
+
+function canonicalPath(input) {
+  const resolved = path.resolve(String(input ?? ''));
+  try {
+    return realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+function readOpenclawPluginNameFromDir(dirPath) {
+  const pkgPath = path.join(dirPath, 'package.json');
+  if (!existsSync(pkgPath)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    const name = String(parsed?.name ?? '').trim();
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
+function isSpanoryOpenclawPluginPath(candidatePath) {
+  const text = String(candidatePath ?? '').trim();
+  if (!text) return false;
+
+  const normalized = text.replaceAll('\\', '/').toLowerCase();
+  if (normalized.includes('spanory') && normalized.includes('openclaw-plugin')) {
+    return true;
+  }
+
+  const canonical = canonicalPath(text);
+  const pluginName = readOpenclawPluginNameFromDir(canonical);
+  return pluginName === '@bububuger/spanory-openclaw-plugin' || pluginName === '@alipay/spanory-openclaw-plugin';
+}
+
+async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun) {
+  const configPath = resolveOpenclawConfigPath(runtimeHome);
+  let configRaw = '';
+  try {
+    configRaw = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+    throw error;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(configRaw);
+  } catch (error) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    parsed = {};
+  }
+  if (!parsed.plugins || typeof parsed.plugins !== 'object' || Array.isArray(parsed.plugins)) {
+    parsed.plugins = {};
+  }
+  if (!parsed.plugins.load || typeof parsed.plugins.load !== 'object' || Array.isArray(parsed.plugins.load)) {
+    parsed.plugins.load = {};
+  }
+
+  const target = path.resolve(pluginDir);
+  const targetCanonical = canonicalPath(target);
+  const currentPaths = Array.isArray(parsed.plugins.load.paths) ? parsed.plugins.load.paths : [];
+  const nonSpanoryPaths = [];
+  const seen = new Set();
+
+  for (const item of currentPaths) {
+    if (typeof item !== 'string') continue;
+    const text = item.trim();
+    if (!text) continue;
+    if (isSpanoryOpenclawPluginPath(text)) continue;
+    const key = canonicalPath(text);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    nonSpanoryPaths.push(text);
+  }
+
+  if (!seen.has(targetCanonical)) {
+    nonSpanoryPaths.push(target);
+  }
+  parsed.plugins.load.paths = nonSpanoryPaths;
+
+  const nextRaw = `${JSON.stringify(parsed, null, 2)}\n`;
+  if (nextRaw === configRaw) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  let backup = null;
+  if (!dryRun) {
+    backup = await backupIfExists(configPath);
+    await writeFile(configPath, nextRaw, 'utf-8');
+  }
+  return { changed: true, configPath, backup };
+}
+
+async function installOpenclawPlugin(runtimeHome, dryRun) {
   const pluginDir = path.resolve(resolveOpenclawPluginDir());
   const installResult = runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
     env: {
@@ -1249,9 +1411,12 @@ function installOpenclawPlugin(runtimeHome) {
   if (enableResult.code !== 0) {
     throw new Error(enableResult.stderr || enableResult.error || 'openclaw plugins enable failed');
   }
+  const pathNormalizeResult = await normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun);
   return {
+    pluginDir,
     installStdout: installResult.stdout.trim(),
     enableStdout: enableResult.stdout.trim(),
+    pathNormalizeResult,
   };
 }
 
@@ -1316,7 +1481,7 @@ async function runSetupDetect(options) {
   let codexNotifyConfigured = false;
   try {
     const config = await readFile(codexConfigPath, 'utf-8');
-    codexNotifyConfigured = /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(config);
+    codexNotifyConfigured = isSpanoryCodexNotifyConfigured(config);
   } catch {
     // keep false
   }
@@ -1329,10 +1494,11 @@ async function runSetupDetect(options) {
   report.runtimes.push({
     runtime: 'codex',
     available: commandExists('codex'),
-    configured: codexNotifyConfigured && codexScriptPresent,
+    configured: !codexNotifyConfigured,
     details: {
       configPath: codexConfigPath,
       scriptPath: codexScriptPath,
+      mode: 'watch',
       notifyConfigured: codexNotifyConfigured,
       scriptPresent: codexScriptPresent,
     },
@@ -1396,7 +1562,7 @@ async function runSetupDoctor(options) {
     let notifyConfigured = false;
     try {
       const config = await readFile(configPath, 'utf-8');
-      notifyConfigured = /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(config);
+      notifyConfigured = isSpanoryCodexNotifyConfigured(config);
     } catch {
       // keep default false
     }
@@ -1408,15 +1574,15 @@ async function runSetupDoctor(options) {
       // keep default false
     }
     checks.push({
-      id: 'codex_notify_configured',
+      id: 'codex_watch_mode',
       runtime: 'codex',
-      ok: notifyConfigured,
+      ok: !notifyConfigured,
       detail: configPath,
     });
     checks.push({
-      id: 'codex_notify_script',
+      id: 'codex_notify_script_absent',
       runtime: 'codex',
-      ok: scriptPresent,
+      ok: !scriptPresent,
       detail: scriptPath,
     });
   }
@@ -1463,7 +1629,7 @@ async function runSetupApply(options) {
   const selected = parseSetupRuntimes(options.runtimes);
   const spanoryBin = options.spanoryBin ?? 'spanory';
   const dryRun = Boolean(options.dryRun);
-  const codexMode = options.codexMode ?? 'notify';
+  const codexMode = options.codexMode ?? process.env.SPANORY_CODEX_MODE ?? 'watch';
   const results = [];
 
   if (selected.includes('claude-code')) {
@@ -1480,14 +1646,7 @@ async function runSetupApply(options) {
   }
 
   if (selected.includes('codex')) {
-    if (codexMode !== 'notify') {
-      results.push({
-        runtime: 'codex',
-        ok: true,
-        skipped: true,
-        detail: `codex mode "${codexMode}" skips notify setup`,
-      });
-    } else {
+    if (codexMode === 'notify') {
       try {
         const result = await applyCodexSetup({ homeRoot, spanoryBin, dryRun });
         results.push(result);
@@ -1498,6 +1657,24 @@ async function runSetupApply(options) {
           error: String(error?.message ?? error),
         });
       }
+    } else if (codexMode === 'watch') {
+      try {
+        const result = await applyCodexWatchSetup({ homeRoot, dryRun });
+        results.push(result);
+      } catch (error) {
+        results.push({
+          runtime: 'codex',
+          ok: false,
+          error: String(error?.message ?? error),
+        });
+      }
+    } else {
+      results.push({
+        runtime: 'codex',
+        ok: true,
+        skipped: true,
+        detail: `codex mode "${codexMode}" has no setup action`,
+      });
     }
   }
 
@@ -1512,7 +1689,7 @@ async function runSetupApply(options) {
     } else {
       const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome);
       try {
-        if (!dryRun) installOpenclawPlugin(runtimeHome);
+        if (!dryRun) await installOpenclawPlugin(runtimeHome, dryRun);
         const doctor = await runOpenclawPluginDoctor(runtimeHome);
         results.push({
           runtime: 'openclaw',
@@ -2121,7 +2298,6 @@ setup
   )
   .option('--home <path>', 'Home directory root override (default: $HOME)')
   .option('--spanory-bin <path>', 'Spanory binary/command to write into runtime configs', 'spanory')
-  .option('--codex-mode <mode>', 'Codex setup mode: notify | proxy (default: notify)', 'notify')
   .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
   .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
   .option('--dry-run', 'Only print planned changes without writing files', false)

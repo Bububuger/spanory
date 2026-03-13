@@ -1,14 +1,16 @@
-# Plan (2026-03-13) — GitHub Actions Node 24 兼容切换
+# Plan (2026-03-13) — OpenClaw 插件多路径冲突规避
 
 ## 目标
-1. 消除 Node 20 deprecation 警告风险。
-2. 在 GitHub Actions 中显式启用 JS actions 的 Node 24 运行时。
+1. `spanory setup apply` 在 openclaw 插件模式下自动清理 `plugins.load.paths` 的 spanory 多路径冲突。
+2. 安装后仅保留一个有效 spanory 插件路径，避免重复加载旧路径。
 
 ## 执行顺序
-1. 更新 `ci.yml` 全局环境变量。
-2. 更新 `release.yml` 全局环境变量。
-3. 检查 workflow 语法与 diff。
+1. 在 `packages/cli/src/index.ts` 增加 openclaw 配置归一化函数。
+2. 在 `installOpenclawPlugin` 前执行归一化并写回 `openclaw.json`（支持备份）。
+3. 增加 BDD 覆盖：构造冲突路径，执行 setup apply 后断言只剩一个目标路径。
+4. 运行最小测试与 BDD 全量回归。
 
 ## 验收标准
-- `.github/workflows/ci.yml` 与 `release.yml` 都包含 `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true`。
-- 推送后新 workflow 不再出现 Node 20 deprecation 警告。
+- `openclaw.json` 中 `plugins.load.paths` 不再包含多个 spanory 路径。
+- `setup apply --runtimes openclaw` 后保留路径为当前插件目录。
+- 相关 BDD 通过。

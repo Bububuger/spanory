@@ -1,14 +1,14 @@
-import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
 const entry = path.resolve('dist/index.js');
 
 describe('BDD setup command', () => {
-  it('Given fake home, When setup apply runs for claude+codex twice, Then config is idempotent and doctor passes', async () => {
+  it('Given fake home with stale codex notify setup, When setup apply runs for claude+codex twice, Then watch mode is idempotent and doctor passes', async () => {
     const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-setup-home-'));
     const spanoryBin = '/tmp/spanory-bin';
 
@@ -24,6 +24,17 @@ describe('BDD setup command', () => {
       spanoryBin,
     ];
 
+    const codexConfig = path.join(fakeHome, '.codex', 'config.toml');
+    const codexScript = path.join(fakeHome, '.codex', 'bin', 'spanory-codex-notify.sh');
+    const escapedScriptPath = codexScript
+      .replaceAll('\\', '\\\\')
+      .replaceAll('"', '\\"');
+    mkdirSync(path.dirname(codexScript), { recursive: true });
+    mkdirSync(path.dirname(codexConfig), { recursive: true });
+    writeFileSync(codexScript, '#!/usr/bin/env bash\necho stale\n', 'utf-8');
+    chmodSync(codexScript, 0o755);
+    writeFileSync(codexConfig, `notify = ["${escapedScriptPath}"]\n`, 'utf-8');
+
     const first = execFileSync(
       'node',
       baseArgs,
@@ -33,12 +44,10 @@ describe('BDD setup command', () => {
     expect(firstReport.ok).toBe(true);
 
     const claudeSettings = path.join(fakeHome, '.claude', 'settings.json');
-    const codexConfig = path.join(fakeHome, '.codex', 'config.toml');
-    const codexScript = path.join(fakeHome, '.codex', 'bin', 'spanory-codex-notify.sh');
 
     expect(existsSync(claudeSettings)).toBe(true);
     expect(existsSync(codexConfig)).toBe(true);
-    expect(existsSync(codexScript)).toBe(true);
+    expect(existsSync(codexScript)).toBe(false);
 
     const second = execFileSync(
       'node',
@@ -58,50 +67,8 @@ describe('BDD setup command', () => {
 
     const codexConfigRaw = readFileSync(codexConfig, 'utf-8');
     const notifyMatches = codexConfigRaw.match(/^notify\s*=.*$/gm) ?? [];
-    expect(notifyMatches).toHaveLength(1);
-    const escapedScriptPath = codexScript
-      .replaceAll('\\', '\\\\')
-      .replaceAll('"', '\\"');
-    expect(notifyMatches[0]).toBe(`notify = ["${escapedScriptPath}"]`);
-
-    const codexScriptRaw = readFileSync(codexScript, 'utf-8');
-    expect(codexScriptRaw).toContain('runtime codex hook');
-    expect(codexScriptRaw).toContain('--last-turn-only');
-    expect(codexScriptRaw).toContain('--force');
-    expect(codexScriptRaw).toContain('sleep 2');
-    expect(codexScriptRaw).toContain('payload_file="$(mktemp');
-    expect(codexScriptRaw).toContain('[[ ! -t 0 ]]');
-    expect(codexScriptRaw).toContain('read -r -t 0 payload');
-    expect(codexScriptRaw).toContain('skip=empty-payload');
-    const mode = statSync(codexScript).mode;
-    expect((mode & 0o111) > 0).toBe(true);
-
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(
-        'bash',
-        [codexScript],
-        { env: { ...process.env, HOME: fakeHome }, stdio: ['pipe', 'pipe', 'pipe'] },
-      );
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL');
-        reject(new Error('codex notify script blocked on stdin'));
-      }, 1500);
-
-      child.on('error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-
-      child.on('exit', (code) => {
-        clearTimeout(timer);
-        if (code === 0) resolve();
-        else reject(new Error(`codex notify script exited with code ${code}`));
-      });
-    });
-
-    const notifyLog = path.join(fakeHome, '.spanory', 'logs', 'codex-notify.log');
-    const notifyLogRaw = readFileSync(notifyLog, 'utf-8');
-    expect(notifyLogRaw).toContain('skip=empty-payload source=codex-notify');
+    expect(notifyMatches).toHaveLength(0);
+    expect(codexConfigRaw).not.toContain('spanory-codex-notify.sh');
 
     const doctor = execFileSync(
       'node',
@@ -119,6 +86,7 @@ describe('BDD setup command', () => {
     const doctorReport = JSON.parse(doctor);
     expect(doctorReport.ok).toBe(true);
     expect(doctorReport.checks.some((check) => check.id === 'claude_hook_stop' && check.ok)).toBe(true);
-    expect(doctorReport.checks.some((check) => check.id === 'codex_notify_script' && check.ok)).toBe(true);
+    expect(doctorReport.checks.some((check) => check.id === 'codex_watch_mode' && check.ok)).toBe(true);
+    expect(doctorReport.checks.some((check) => check.id === 'codex_notify_script_absent' && check.ok)).toBe(true);
   });
 });
