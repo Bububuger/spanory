@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/dist/index.js';
+import { loadUserEnv } from '../../cli/dist/env.js';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
 const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
@@ -872,6 +873,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
 }
 
 export default function register(api) {
+  loadUserEnv();
   const runtime = createOpenclawSpanoryPluginRuntime(api.logger);
   api.on('session_start', runtime.onSessionStart);
   api.on('llm_input', runtime.onLlmInput);
