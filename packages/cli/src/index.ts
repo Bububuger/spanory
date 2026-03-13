@@ -921,6 +921,21 @@ async function runOpencodePluginDoctor(runtimeHome) {
     });
   }
 
+  const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  try {
+    const raw = await readFile(opencodeConfigPath, 'utf-8');
+    const config = JSON.parse(raw);
+    const plugins = Array.isArray(config.plugin) ? config.plugin : [];
+    const registered = plugins.includes(OPENCODE_SPANORY_PLUGIN_ID);
+    checks.push({
+      id: 'plugin_registered',
+      ok: registered,
+      detail: registered ? opencodeConfigPath : `${OPENCODE_SPANORY_PLUGIN_ID} not in plugin array of ${opencodeConfigPath}`,
+    });
+  } catch {
+    checks.push({ id: 'plugin_registered', ok: false, detail: `cannot read ${opencodeConfigPath}` });
+  }
+
   checks.push({
     id: 'otlp_endpoint',
     ok: Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT),
@@ -1199,7 +1214,22 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) 
   let present = false;
   try { await stat(loaderFile); present = true; } catch { /* not present */ }
   if (present && !dryRun) await rm(loaderFile, { force: true });
-  return { runtime: 'opencode', ok: true, changed: present, dryRun, loaderFile };
+
+  let unregistered = false;
+  if (!dryRun) {
+    const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+    try {
+      const raw = await readFile(opencodeConfigPath, 'utf-8');
+      const config = JSON.parse(raw);
+      if (Array.isArray(config.plugin) && config.plugin.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
+        config.plugin = config.plugin.filter((p) => p !== OPENCODE_SPANORY_PLUGIN_ID);
+        await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+        unregistered = true;
+      }
+    } catch { /* no config to clean */ }
+  }
+
+  return { runtime: 'opencode', ok: true, changed: present || unregistered, dryRun, loaderFile, unregistered };
 }
 
 async function runSetupTeardown(options) {
@@ -1424,6 +1454,22 @@ async function installOpencodePlugin(runtimeHome, pluginDirOverride) {
     + 'export default SpanoryOpencodePlugin;\n';
   await writeFile(path.join(installDir, 'package.json'), '{"type":"module"}\n', 'utf-8');
   await writeFile(loaderFile, loader, 'utf-8');
+
+  const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  try {
+    const raw = await readFile(opencodeConfigPath, 'utf-8');
+    const config = JSON.parse(raw);
+    const plugins = Array.isArray(config.plugin) ? config.plugin : [];
+    if (!plugins.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
+      config.plugin = [...plugins, OPENCODE_SPANORY_PLUGIN_ID];
+      await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    }
+  } catch (err) {
+    if (err?.code === 'ENOENT') {
+      await writeFile(opencodeConfigPath, JSON.stringify({ plugin: [OPENCODE_SPANORY_PLUGIN_ID] }, null, 2) + '\n', 'utf-8');
+    }
+  }
+
   return { loaderFile };
 }
 
