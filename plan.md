@@ -1,17 +1,25 @@
-# Plan (2026-03-14) — BUB-19 backfill 逐会话错误隔离
+# Plan (2026-03-14) — BUB-23 JSONL 流式解析降内存峰值
 
 ## 目标
-1. 修复 `runtime <name> backfill` 在单会话异常时中断全流程的问题。
-2. 对齐 `runCodexWatch` 的逐会话隔离语义：记录错误并继续处理后续会话。
-3. 以 BDD 场景覆盖“坏会话 + 好会话”顺序，确保行为可回归验证。
+1. 消除运行时 adapter 对 JSONL 的整文件 `readFile + split` 读取路径，避免双份内存拷贝峰值。
+2. 在 `claude/openclaw/codex` 三个 adapter 统一采用 `createReadStream + readline` 逐行解析。
+3. 在保持行为兼容（空行/坏行忽略）的前提下补齐测试证据。
 
 ## 执行顺序
-1. 在 `packages/cli/src/index.ts` 的 backfill 循环引入逐会话 `try/catch`。
-2. 统一错误日志格式，至少包含 `sessionId` 与简化错误信息。
-3. 在 `packages/cli/test/bdd/codex.backfill.integration.spec.ts` 增加失败隔离测试。
-4. 运行目标 BDD 与 `check` 验证。
+1. 新增共享的 JSONL 流式读取工具（异步逐行、可复用、可测试）。
+2. 将 `packages/cli/src/runtime/claude/adapter.ts` 改为调用流式读取工具。
+3. 将 `packages/cli/src/runtime/openclaw/adapter.ts` 改为调用流式读取工具。
+4. 将 `packages/cli/src/runtime/codex/adapter.ts` 改为调用流式读取工具。
+5. 更新/新增单测，覆盖三 adapter 读取路径行为一致性。
+6. 运行针对性测试与 `npm run check`，完成提交与 PR 元数据更新。
+
+## 风险与约束
+- 读取顺序必须稳定，不能改变后续 `messages.sort` 与 parent-link 推断行为。
+- 解析容错行为必须维持：空行忽略、坏 JSON 行忽略。
+- 仅做最小差异改造，不扩展到非 JSONL 读取逻辑。
 
 ## 验收标准
-- 单个会话 `collectEvents`/`emitSession` 失败不会中断剩余会话处理。
-- 控制台输出包含 `backfill=error sessionId=<id> error=<message>`。
-- 新增 BDD 用例通过，且 `check` 通过。
+- `packages/cli/src/runtime/{claude,openclaw,codex}/adapter.ts` 不再出现 `const raw = await readFile(...); raw.split('\n')` 组合。
+- 三个 adapter 均通过流式逐行解析并维持既有容错行为。
+- 相关 unit tests 通过，且覆盖改造路径。
+- `npm run check` 通过。

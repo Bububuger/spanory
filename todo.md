@@ -1,7 +1,11 @@
-# Todo (2026-03-14) — BUB-19 backfill 逐会话错误隔离
+# Todo (2026-03-14) — BUB-23 JSONL 流式解析降内存峰值
 
-- [x] 在 backfill 循环加入逐会话 try/catch 隔离
-- [x] 对齐并输出可诊断错误日志（含 sessionId）
-- [x] 新增 BDD：坏会话失败不影响后续好会话
-- [x] 运行目标 BDD 验证
-- [x] 运行 `npm run --workspace @bububuger/spanory check`
+- [x] 归档上一阶段 `plan.md/todo.md`
+- [x] 新增共享 JSONL 流式读取工具
+- [x] 将 claude adapter 改为流式读取
+- [x] 将 openclaw adapter 改为流式读取
+- [x] 将 codex adapter 改为流式读取
+- [x] 更新/新增 adapter 单测覆盖改造路径
+- [x] 运行针对性测试
+- [x] 运行 `npm run check`
+- [ ] 提交、推送、创建 PR 并回填工单元数据

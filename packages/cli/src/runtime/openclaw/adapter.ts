@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
+import { forEachJsonlEntry } from '../shared/jsonl.js';
 import { normalizeTranscriptMessages, parseProjectIdFromTranscriptPath, pickUsage } from '../shared/normalize.js';
 
 const INFER_WINDOW_EPSILON_MS = 1200;
@@ -290,51 +291,44 @@ async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) 
 }
 
 async function readOpenclawTranscript(transcriptPath) {
-  const raw = await readFile(transcriptPath, 'utf-8');
-  const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
   const messages = [];
   let runtimeVersion;
-  for (const line of lines) {
-    try {
-      const entry = JSON.parse(line);
-      if (entry?.type === 'session') {
-        runtimeVersion = entry?.runtimeVersion
-          ?? entry?.runtime_version
-          ?? entry?.openclawVersion
-          ?? entry?.openclaw_version
-          ?? entry?.version
-          ?? runtimeVersion;
-        continue;
-      }
-      const role = normalizeRole(entry);
-      if (!role) continue;
-      messages.push({
-        role,
-        isMeta: entry?.isMeta ?? entry?.is_meta ?? false,
-        isSidechain: normalizeIsSidechain(entry),
-        agentId: normalizeAgentId(entry),
-        parentSessionId: entry?.parentSessionId ?? entry?.parent_session_id,
-        parentTurnId: entry?.parentTurnId ?? entry?.parent_turn_id,
-        parentToolCallId: entry?.parentToolCallId ?? entry?.parent_tool_call_id,
-        content: normalizeContent(entry),
-        model: normalizeModel(entry),
-        usage: normalizeUsage(entry),
-        messageId: normalizeMessageId(entry),
-        toolUseResult: normalizeToolUseResult(entry),
-        sourceToolUseId: normalizeSourceToolUseId(entry),
-        runtimeVersion:
-          entry?.runtimeVersion
-          ?? entry?.runtime_version
-          ?? entry?.version
-          ?? entry?.app_version
-          ?? entry?.appVersion
-          ?? runtimeVersion,
-        timestamp: parseTimestamp(entry),
-      });
-    } catch {
-      // ignore malformed lines
+  await forEachJsonlEntry(transcriptPath, (entry) => {
+    if (entry?.type === 'session') {
+      runtimeVersion = entry?.runtimeVersion
+        ?? entry?.runtime_version
+        ?? entry?.openclawVersion
+        ?? entry?.openclaw_version
+        ?? entry?.version
+        ?? runtimeVersion;
+      return;
     }
-  }
+    const role = normalizeRole(entry);
+    if (!role) return;
+    messages.push({
+      role,
+      isMeta: entry?.isMeta ?? entry?.is_meta ?? false,
+      isSidechain: normalizeIsSidechain(entry),
+      agentId: normalizeAgentId(entry),
+      parentSessionId: entry?.parentSessionId ?? entry?.parent_session_id,
+      parentTurnId: entry?.parentTurnId ?? entry?.parent_turn_id,
+      parentToolCallId: entry?.parentToolCallId ?? entry?.parent_tool_call_id,
+      content: normalizeContent(entry),
+      model: normalizeModel(entry),
+      usage: normalizeUsage(entry),
+      messageId: normalizeMessageId(entry),
+      toolUseResult: normalizeToolUseResult(entry),
+      sourceToolUseId: normalizeSourceToolUseId(entry),
+      runtimeVersion:
+        entry?.runtimeVersion
+        ?? entry?.runtime_version
+        ?? entry?.version
+        ?? entry?.app_version
+        ?? entry?.appVersion
+        ?? runtimeVersion,
+      timestamp: parseTimestamp(entry),
+    });
+  });
   messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   return messages;
 }
