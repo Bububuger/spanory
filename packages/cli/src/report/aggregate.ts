@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseJsonObject } from '@bububuger/core';

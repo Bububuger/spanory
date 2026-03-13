@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -81,7 +80,9 @@ export function createCodexProxyServer(options) {
     const correlationKey = correlationKeyFromRequest(req, seq);
     const method = req.method ?? 'GET';
     const targetUrl = new URL(req.url ?? '/', upstream);
-    const requestHeaders = { ...req.headers };
+    const requestHeaders = Object.fromEntries(
+      Object.entries(req.headers).map(([key, value]) => [key, normalizeHeaderValue(value)]),
+    );
     delete requestHeaders.host;
     delete requestHeaders['content-length'];
 
@@ -150,7 +151,9 @@ export function createCodexProxyServer(options) {
 
   return {
     async start({ host = '127.0.0.1', port = 8787 } = {}) {
-      await new Promise((resolve) => server.listen(port, host, resolve));
+      await new Promise<void>((resolve) => {
+        server.listen(port, host, () => resolve());
+      });
     },
     async stop() {
       if (!server.listening) return;

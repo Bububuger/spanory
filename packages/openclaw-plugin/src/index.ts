@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -106,7 +105,7 @@ function usageToAttributes(usage) {
   return attrs;
 }
 
-function mergeUsage(target = {}, usage) {
+function mergeUsage(target: Record<string, number> = {}, usage: any) {
   if (!usage || typeof usage !== 'object') return target;
   const next = { ...target };
   const input = toNumber(usage.input ?? usage.input_tokens ?? usage.prompt_tokens);
@@ -282,7 +281,7 @@ function extractAssistantToolCalls(message) {
   return out;
 }
 
-function sessionIdsFromContext(ctx = {}) {
+function sessionIdsFromContext(ctx: any = {}) {
   const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? 'unknown-session';
   const sessionId = ctx.sessionId ?? sessionKey;
   const projectId = ctx.agentId ?? sessionKey.split(':')[1] ?? 'openclaw';
@@ -466,7 +465,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     return { stateKey: ids.stateKey, ids };
   };
 
-  const getState = (ctx, options = {}) => {
+  const getState = (ctx: any, options: { requireResolved?: boolean } = {}) => {
     const { requireResolved = false } = options;
     const hasResolvedAlias = Boolean(ctx?.sessionId) || (ctx?.sessionKey && sessionAliases.has(ctx.sessionKey));
     if (requireResolved && !hasResolvedAlias) return null;
@@ -570,7 +569,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     state.pendingInputAttributes = {};
   };
 
-  const finalizePendingTurn = (state, options = {}) => {
+  const finalizePendingTurn = (state: any, options: { force?: boolean; requireOutput?: boolean } = {}) => {
     const { force = false, requireOutput = false } = options;
     if (!state.pendingTurnId) return false;
     const output = state.pendingOutputParts.map((part) => String(part ?? '')).filter(Boolean).join('\n').trim();

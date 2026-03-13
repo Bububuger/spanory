@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { extractToolUses } from '@bububuger/core';
