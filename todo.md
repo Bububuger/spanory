@@ -1,7 +1,6 @@
-# Todo (2026-03-13) — OpenClaw 插件多路径冲突规避
+# Todo (2026-03-14) — BUB-8 strict/noImplicitAny 恢复
 
-- [x] 归档上一阶段 `plan.md/todo.md`
-- [x] 增加 openclaw `plugins.load.paths` 归一化逻辑
-- [x] 将归一化接入 `setup apply` openclaw 插件安装流程
-- [x] 增加冲突场景 BDD 用例
-- [x] 通过最小测试与 BDD 全量回归
+- [x] 1. 归档旧版 `plan.md/todo.md` 并写入本轮计划文件（验收：归档文件存在且新计划已生成）
+- [x] 2. 修改命中的 tsconfig，移除 `strict:false` 与 `noImplicitAny:false`（验收：`rg -n --glob '**/tsconfig*.json' '"strict"\\s*:\\s*false|"noImplicitAny"\\s*:\\s*false' .` 仅剩非本票范围或为 0）
+- [x] 3. 运行 `npm run check`（验收：命令退出码 0）
+- [ ] 4. 更新 workpad、提交推送、创建/更新 PR 并关联 Linear（验收：远端分支与 PR 就绪，workpad 全勾选）

@@ -1,16 +1,18 @@
-# Plan (2026-03-13) — OpenClaw 插件多路径冲突规避
+# Plan (2026-03-14) — BUB-8 strict/noImplicitAny 恢复
 
 ## 目标
-1. `spanory setup apply` 在 openclaw 插件模式下自动清理 `plugins.load.paths` 的 spanory 多路径冲突。
-2. 安装后仅保留一个有效 spanory 插件路径，避免重复加载旧路径。
+1. 恢复受影响包对 `tsconfig.base.json` 的严格模式继承，移除本地覆盖的 `strict:false` 与 `noImplicitAny:false`。
+2. 保持改动最小，仅变更工单范围内 tsconfig 文件。
+3. 用快速检索与全仓 check 验证回归风险可控。
 
 ## 执行顺序
-1. 在 `packages/cli/src/index.ts` 增加 openclaw 配置归一化函数。
-2. 在 `installOpenclawPlugin` 前执行归一化并写回 `openclaw.json`（支持备份）。
-3. 增加 BDD 覆盖：构造冲突路径，执行 setup apply 后断言只剩一个目标路径。
-4. 运行最小测试与 BDD 全量回归。
+1. 确认受影响文件清单（复现命令）。
+2. 修改各 tsconfig 删除禁用项，不改其它 `compilerOptions`。
+3. 运行 targeted grep 验证覆盖已清除。
+4. 运行 `npm run check` 验证类型与 lint。
+5. 整理 workpad、提交、推送并创建 PR。
 
 ## 验收标准
-- `openclaw.json` 中 `plugins.load.paths` 不再包含多个 spanory 路径。
-- `setup apply --runtimes openclaw` 后保留路径为当前插件目录。
-- 相关 BDD 通过。
+- 目标文件不再显式声明 `strict:false` 或 `noImplicitAny:false`。
+- `npm run check` 通过。
+- Workpad 记录复现、同步、验证证据。
