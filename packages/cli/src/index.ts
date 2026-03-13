@@ -2388,6 +2388,21 @@ program
     }, null, 2));
   });
 
+const formatUnhandledRejection = (reason: unknown): string => {
+  if (reason instanceof Error) return reason.stack ?? reason.message;
+  if (typeof reason === 'string') return reason;
+  try {
+    return JSON.stringify(reason);
+  } catch {
+    return String(reason);
+  }
+};
+
+process.on('unhandledRejection', (reason) => {
+  console.error(`[spanory] Unhandled promise rejection: ${formatUnhandledRejection(reason)}`);
+  process.exitCode = 1;
+});
+
 loadUserEnv()
   .then(() => program.parseAsync(process.argv))
   .catch((error) => {
