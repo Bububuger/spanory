@@ -30,9 +30,19 @@ function truncateText(text, maxBytes) {
   const raw = String(text ?? '');
   if (!Number.isFinite(maxBytes) || maxBytes <= 0) return raw;
   if (Buffer.byteLength(raw, 'utf8') <= maxBytes) return raw;
-  let end = raw.length;
-  while (end > 0 && Buffer.byteLength(raw.slice(0, end), 'utf8') > maxBytes) end -= 1;
-  return `${raw.slice(0, Math.max(0, end))}...[truncated]`;
+
+  let low = 0;
+  let high = raw.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (Buffer.byteLength(raw.slice(0, mid), 'utf8') <= maxBytes) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return `${raw.slice(0, Math.max(0, low))}...[truncated]`;
 }
 
 function redactBody(value, maxBytes) {
