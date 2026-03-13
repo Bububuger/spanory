@@ -7,4 +7,4 @@
 - [x] 5. 提取 CLI 命令注册到 `src/cli/commands.ts` 并精简 `index.ts`
 - [x] 6. 执行 `npm run -w packages/cli check`
 - [x] 7. 执行目标 BDD 并记录结果
-- [ ] 8. 自检 diff、提交、推送与 PR 元数据同步
+- [x] 8. 自检 diff、提交、推送与 PR 元数据同步
