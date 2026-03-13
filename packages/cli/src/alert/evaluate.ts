@@ -211,31 +211,56 @@ function compare(value, op, threshold) {
   throw new Error(`unsupported operator: ${op}`);
 }
 
-function evaluateSessionRule(rule, sessions) {
-  const rows = summarizeSessions(sessions);
-  const cacheBySessionId = new Map(summarizeCache(sessions).map((row) => [row.sessionId, row]));
-  const agentBySessionId = new Map(summarizeAgents(sessions).map((row) => [row.sessionId, row]));
+function buildTurnDiffBySessionId(rows) {
   const turnDiffBySessionId = new Map();
-  for (const row of summarizeTurnDiff(sessions)) {
+  for (const row of rows) {
     const key = row.sessionId;
     const list = turnDiffBySessionId.get(key) ?? [];
     list.push(row);
     turnDiffBySessionId.set(key, list);
   }
-  const contextBySessionId = new Map(
-    sessions.map((session) => [
-      session.context?.sessionId ?? session.events?.[0]?.sessionId,
-      summarizeContextForSession(session.events ?? []),
-    ]),
-  );
+  return turnDiffBySessionId;
+}
 
-  const matched = rows
+function buildEvaluationContext(rules, sessions) {
+  const scopes = new Set(rules.map((rule) => rule.scope));
+  const needsSession = scopes.has('session');
+  const needsAgent = scopes.has('agent');
+  const needsMcp = scopes.has('mcp');
+  const needsCommand = scopes.has('command');
+
+  const agentRows = needsSession || needsAgent ? summarizeAgents(sessions) : [];
+  const contextBySessionId = needsSession
+    ? new Map(
+      sessions.map((session) => [
+        session.context?.sessionId ?? session.events?.[0]?.sessionId,
+        summarizeContextForSession(session.events ?? []),
+      ]),
+    )
+    : new Map();
+
+  return {
+    sessionRows: needsSession ? summarizeSessions(sessions) : [],
+    cacheBySessionId: needsSession
+      ? new Map(summarizeCache(sessions).map((row) => [row.sessionId, row]))
+      : new Map(),
+    agentRows,
+    agentBySessionId: needsSession ? new Map(agentRows.map((row) => [row.sessionId, row])) : new Map(),
+    turnDiffBySessionId: needsSession ? buildTurnDiffBySessionId(summarizeTurnDiff(sessions)) : new Map(),
+    contextBySessionId,
+    mcpRows: needsMcp ? summarizeMcp(sessions) : [],
+    commandRows: needsCommand ? summarizeCommands(sessions) : [],
+  };
+}
+
+function evaluateSessionRule(rule, context) {
+  const matched = context.sessionRows
     .map((row) => {
       const value = getMetricFromSessionRow(row, rule.metric, {
-        cacheBySessionId,
-        agentBySessionId,
-        turnDiffBySessionId,
-        contextBySessionId,
+        cacheBySessionId: context.cacheBySessionId,
+        agentBySessionId: context.agentBySessionId,
+        turnDiffBySessionId: context.turnDiffBySessionId,
+        contextBySessionId: context.contextBySessionId,
       });
       return { row, value };
     })
@@ -257,9 +282,8 @@ function evaluateSessionRule(rule, sessions) {
   }));
 }
 
-function evaluateAgentRule(rule, sessions) {
-  const rows = summarizeAgents(sessions);
-  const matched = rows
+function evaluateAgentRule(rule, context) {
+  const matched = context.agentRows
     .map((row) => {
       const value = getMetricFromAgentRow(row, rule.metric);
       return { row, value };
@@ -282,9 +306,8 @@ function evaluateAgentRule(rule, sessions) {
   }));
 }
 
-function evaluateMcpRule(rule, sessions) {
-  const rows = summarizeMcp(sessions);
-  const matched = rows.filter((row) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
+function evaluateMcpRule(rule, context) {
+  const matched = context.mcpRows.filter((row) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
   return matched.map((row) => ({
     ruleId: rule.id,
     severity: rule.severity ?? 'warning',
@@ -299,9 +322,8 @@ function evaluateMcpRule(rule, sessions) {
   }));
 }
 
-function evaluateCommandRule(rule, sessions) {
-  const rows = summarizeCommands(sessions);
-  const matched = rows.filter((row) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
+function evaluateCommandRule(rule, context) {
+  const matched = context.commandRows.filter((row) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
   return matched.map((row) => ({
     ruleId: rule.id,
     severity: rule.severity ?? 'warning',
@@ -326,34 +348,38 @@ export async function loadAlertRules(path) {
 }
 
 export function evaluateRules(rules, sessions) {
-  const alerts = [];
-
   for (const rule of rules) {
     if (!rule.id || !rule.scope || !rule.metric || !rule.op) {
       throw new Error(`invalid rule: ${JSON.stringify(rule)}`);
     }
+    if (!['session', 'agent', 'mcp', 'command'].includes(rule.scope)) {
+      throw new Error(`unsupported rule scope: ${rule.scope}`);
+    }
+  }
 
+  const context = buildEvaluationContext(rules, sessions);
+  const alerts = [];
+
+  for (const rule of rules) {
     if (rule.scope === 'session') {
-      alerts.push(...evaluateSessionRule(rule, sessions));
+      alerts.push(...evaluateSessionRule(rule, context));
       continue;
     }
 
     if (rule.scope === 'agent') {
-      alerts.push(...evaluateAgentRule(rule, sessions));
+      alerts.push(...evaluateAgentRule(rule, context));
       continue;
     }
 
     if (rule.scope === 'mcp') {
-      alerts.push(...evaluateMcpRule(rule, sessions));
+      alerts.push(...evaluateMcpRule(rule, context));
       continue;
     }
 
     if (rule.scope === 'command') {
-      alerts.push(...evaluateCommandRule(rule, sessions));
+      alerts.push(...evaluateCommandRule(rule, context));
       continue;
     }
-
-    throw new Error(`unsupported rule scope: ${rule.scope}`);
   }
 
   return alerts;
