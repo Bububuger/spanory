@@ -1,6 +1,6 @@
 {
   "name": "@alipay/spanory",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Spanory CLI for cross-runtime agent observability",
   "type": "module",
   "license": "MIT",
@@ -22,5 +22,8 @@
     "prepare-js": "bash scripts/prepare-bin.sh",
     "prepare-bin": "bash scripts/prepare-bin.sh",
     "prepublishOnly": "npm run prepare-js"
+  },
+  "dependencies": {
+    "commander": "^14.0.1"
   }
 }
