@@ -1014,6 +1014,18 @@ async function backupIfExists(filePath) {
   return backupPath;
 }
 
+function isSpanoryCodexNotifyConfigured(configText) {
+  return /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(String(configText ?? ''));
+}
+
+function stripSpanoryCodexNotifyConfig(configText) {
+  const next = String(configText ?? '')
+    .replace(/^notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return next ? `${next}\n` : '';
+}
+
 function isSpanoryHookCommand(command) {
   const text = String(command ?? '');
   return /\bspanory\b/.test(text) && /\bhook\b/.test(text);
