@@ -18,5 +18,5 @@
 - [x] 运行测试与检查
   - 验收：`npm run --workspace @bububuger/spanory test -- normalize.spec.ts`、`npm run check`、`npm test`
 
-- [ ] 提交并推送
+- [x] 提交并推送
   - 验收：`git status --short`
