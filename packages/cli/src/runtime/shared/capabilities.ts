@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const CAPABILITY_KEYS = [
   'turnDetection',
   'toolCallAttribution',

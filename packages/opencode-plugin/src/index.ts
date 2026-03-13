@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -448,7 +447,10 @@ export function createOpencodeSpanoryPluginRuntime(options) {
     await envLoadPromise;
   }
 
-  async function sendWithRetry(payload, meta = {}) {
+  async function sendWithRetry(
+    payload: unknown,
+    meta: { source?: string; sessionId?: string; triggerType?: string } = {},
+  ) {
     await ensureUserEnvLoaded();
     const endpoint = otlpEndpoint();
     if (!endpoint) {

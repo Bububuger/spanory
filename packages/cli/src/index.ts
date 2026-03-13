@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -289,7 +288,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
+function resolveRuntimeHome(runtimeName: string, explicitRuntimeHome?: string) {
   if (explicitRuntimeHome) return explicitRuntimeHome;
   if (runtimeName === 'codex') {
     return process.env.SPANORY_CODEX_HOME ?? path.join(process.env.HOME || '', '.codex');
@@ -306,15 +305,15 @@ function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
   return path.join(process.env.HOME || '', '.claude');
 }
 
-function resolveRuntimeProjectRoot(runtimeName, explicitRuntimeHome) {
+function resolveRuntimeProjectRoot(runtimeName: string, explicitRuntimeHome?: string) {
   return path.join(resolveRuntimeHome(runtimeName, explicitRuntimeHome), 'projects');
 }
 
-function resolveRuntimeStateRoot(runtimeName, explicitRuntimeHome) {
+function resolveRuntimeStateRoot(runtimeName: string, explicitRuntimeHome?: string) {
   return path.join(resolveRuntimeHome(runtimeName, explicitRuntimeHome), 'state');
 }
 
-function resolveOpencodePluginStateRoot(runtimeHome) {
+function resolveOpencodePluginStateRoot(runtimeHome?: string) {
   if (process.env.SPANORY_OPENCODE_STATE_DIR) return process.env.SPANORY_OPENCODE_STATE_DIR;
   if (runtimeHome || process.env.SPANORY_OPENCODE_HOME) {
     return path.join(runtimeHome ?? resolveRuntimeHome('opencode'), 'state', 'spanory');
@@ -322,7 +321,7 @@ function resolveOpencodePluginStateRoot(runtimeHome) {
   return path.join(resolveSpanoryHome(), 'opencode');
 }
 
-function resolveRuntimeExportDir(runtimeName, explicitRuntimeHome) {
+function resolveRuntimeExportDir(runtimeName: string, explicitRuntimeHome?: string) {
   return path.join(resolveRuntimeStateRoot(runtimeName, explicitRuntimeHome), 'spanory-json');
 }
 
@@ -558,7 +557,13 @@ function normalizePositiveInt(raw, fallback, label) {
   return Math.floor(parsed);
 }
 
-async function listCodexSessions(runtimeHome, options = {}) {
+type ListCodexSessionsOptions = {
+  since?: string;
+  until?: string;
+  limit?: number;
+};
+
+async function listCodexSessions(runtimeHome: string, options: ListCodexSessionsOptions = {}) {
   const sessionsRoot = path.join(runtimeHome, 'sessions');
   const files = await listJsonlFilesRecursively(sessionsRoot);
   const withStat = await Promise.all(
@@ -1583,7 +1588,7 @@ async function installOpenclawPlugin(runtimeHome, dryRun, pluginDirOverride) {
   };
 }
 
-async function installOpencodePlugin(runtimeHome, pluginDirOverride) {
+async function installOpencodePlugin(runtimeHome: string, pluginDirOverride?: string) {
   const pluginDir = path.resolve(pluginDirOverride ?? resolveOpencodePluginDir());
   let pluginEntry;
   try {
@@ -1879,7 +1884,7 @@ async function runSetupApply(options) {
 
   if (selected.includes('codex')) {
     try {
-      const result = await applyCodexWatchSetup({ homeRoot, dryRun });
+      const result: any = await applyCodexWatchSetup({ homeRoot, dryRun });
       if (!dryRun) {
         const watch = await startCodexWatch(spanoryBin);
         result.watch = watch;
@@ -2144,7 +2149,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
         });
         await proxy.start({ host, port });
         console.log(`proxy=listening url=${proxy.url()} upstream=${options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com'}`);
-        await new Promise((resolve) => {
+        await new Promise<void>((resolve) => {
           const stop = async () => {
             process.off('SIGINT', stop);
             process.off('SIGTERM', stop);

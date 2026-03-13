@@ -1,4 +1,3 @@
-// @ts-nocheck
 function defaultObservationType(category) {
   switch (category) {
     case 'turn':
