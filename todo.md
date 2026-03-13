@@ -1,7 +1,10 @@
-# Todo (2026-03-13) — OpenClaw 插件多路径冲突规避
+# Todo (2026-03-14) — BUB-12 `index.ts` god file 拆分
 
-- [x] 归档上一阶段 `plan.md/todo.md`
-- [x] 增加 openclaw `plugins.load.paths` 归一化逻辑
-- [x] 将归一化接入 `setup apply` openclaw 插件安装流程
-- [x] 增加冲突场景 BDD 用例
-- [x] 通过最小测试与 BDD 全量回归
+- [x] 1. 归档上一阶段 `plan.md/todo.md` 并创建本阶段计划
+- [x] 2. 提取 OpenClaw/OpenCode plugin 逻辑到独立模块并接入
+- [x] 3. 提取 Codex watch 逻辑到 `src/codex/watch.ts` 并接入
+- [x] 4. 提取 setup apply/detect/teardown 逻辑到独立模块并接入
+- [x] 5. 提取 CLI 命令注册到 `src/cli/commands.ts` 并精简 `index.ts`
+- [x] 6. 执行 `npm run -w packages/cli check`
+- [x] 7. 执行目标 BDD 并记录结果
+- [ ] 8. 自检 diff、提交、推送与 PR 元数据同步

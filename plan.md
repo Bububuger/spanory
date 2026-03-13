@@ -1,16 +1,32 @@
-# Plan (2026-03-13) — OpenClaw 插件多路径冲突规避
+# Plan (2026-03-14) — BUB-12 `index.ts` god file 拆分
 
 ## 目标
-1. `spanory setup apply` 在 openclaw 插件模式下自动清理 `plugins.load.paths` 的 spanory 多路径冲突。
-2. 安装后仅保留一个有效 spanory 插件路径，避免重复加载旧路径。
+1. 将 `packages/cli/src/index.ts` 中 setup / plugin / codex watch / command registration 逻辑拆分到独立模块。
+2. 保持 CLI 行为兼容，不改变现有命令输入输出语义。
+3. 通过最小相关检查与 BDD，形成可回归验证证据。
+
+## 约束与策略
+- 小步迁移：先迁函数，再接线，最后删旧代码。
+- 保持现有实现语义，不引入新行为。
+- 每个阶段完成后立刻执行对应 acceptance check。
 
 ## 执行顺序
-1. 在 `packages/cli/src/index.ts` 增加 openclaw 配置归一化函数。
-2. 在 `installOpenclawPlugin` 前执行归一化并写回 `openclaw.json`（支持备份）。
-3. 增加 BDD 覆盖：构造冲突路径，执行 setup apply 后断言只剩一个目标路径。
-4. 运行最小测试与 BDD 全量回归。
+1. 归档旧版 `plan.md/todo.md`，生成本阶段计划与待办。
+2. 拆分 plugin 逻辑到 `src/plugin/openclaw.ts` 与 `src/plugin/opencode.ts`。
+3. 拆分 codex watch 逻辑到 `src/codex/watch.ts`。
+4. 拆分 setup 编排到 `src/setup/apply.ts`、`src/setup/detect.ts`、`src/setup/teardown.ts`。
+5. 拆分命令注册到 `src/cli/commands.ts`，并在 `src/index.ts` 完成依赖注入接线。
+6. 运行 `packages/cli` 检查与目标 BDD，修复后提交。
 
 ## 验收标准
-- `openclaw.json` 中 `plugins.load.paths` 不再包含多个 spanory 路径。
-- `setup apply --runtimes openclaw` 后保留路径为当前插件目录。
-- 相关 BDD 通过。
+- `index.ts` 不再包含 setup/plugin/watch/commands 主要实现。
+- 新文件路径存在且被实际调用：
+  - `src/setup/apply.ts`
+  - `src/setup/teardown.ts`
+  - `src/setup/detect.ts`
+  - `src/plugin/openclaw.ts`
+  - `src/plugin/opencode.ts`
+  - `src/codex/watch.ts`
+  - `src/cli/commands.ts`
+- `npm run -w packages/cli check` 通过。
+- 目标 BDD 通过：setup/openclaw/opencode/codex watch。

@@ -75,14 +75,13 @@ describe('BDD openclaw setup path normalization', () => {
 
     const nextConfig = JSON.parse(readFileSync(openclawConfigPath, 'utf-8'));
     const paths = Array.isArray(nextConfig?.plugins?.load?.paths) ? nextConfig.plugins.load.paths : [];
-    const spanoryPaths = paths.filter((item) => {
+    const pluginPaths = paths.filter((item) => {
       const text = String(item ?? '').toLowerCase();
-      return text.includes('spanory') && text.includes('openclaw-plugin');
+      return text.includes('openclaw-plugin');
     });
 
-    expect(spanoryPaths).toHaveLength(1);
-    expect(spanoryPaths[0]).toBe(targetPluginDir);
+    expect(pluginPaths).toHaveLength(1);
+    expect(pluginPaths[0]).toBe(targetPluginDir);
     expect(paths.filter((item) => item === '/tmp/other-plugin')).toHaveLength(1);
   });
 });
-

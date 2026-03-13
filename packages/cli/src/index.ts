@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 // @ts-nocheck
 import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-
-import { Command } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { codexAdapter } from './runtime/codex/adapter.js';
@@ -39,6 +37,35 @@ import {
   setIssueStatus,
   syncIssueState,
 } from './issue/state.js';
+import { createProgram } from './cli/commands.js';
+import {
+  CODEX_WATCH_DEFAULT_POLL_MS,
+  CODEX_WATCH_DEFAULT_SETTLE_MS,
+  listCodexSessions,
+  runCodexWatch as runCodexWatchModule,
+  sessionIdFromFilename,
+} from './codex/watch.js';
+import {
+  OPENCLAW_SPANORY_PLUGIN_ID,
+  installOpenclawPlugin as installOpenclawPluginModule,
+  openclawRuntimeHomeForSetup as openclawRuntimeHomeForSetupModule,
+  resolveOpenclawPluginDir as resolveOpenclawPluginDirModule,
+  runOpenclawPluginDoctor as runOpenclawPluginDoctorModule,
+} from './plugin/openclaw.js';
+import {
+  OPENCODE_SPANORY_PLUGIN_ID,
+  installOpencodePlugin as installOpencodePluginModule,
+  opencodePluginLoaderPath as opencodePluginLoaderPathModule,
+  opencodeRuntimeHomeForSetup as opencodeRuntimeHomeForSetupModule,
+  resolveOpencodePluginDir as resolveOpencodePluginDirModule,
+  runOpencodePluginDoctor as runOpencodePluginDoctorModule,
+} from './plugin/opencode.js';
+import { runSetupApply as runSetupApplyModule } from './setup/apply.js';
+import {
+  runSetupDetect as runSetupDetectModule,
+  runSetupDoctor as runSetupDoctorModule,
+} from './setup/detect.js';
+import { runSetupTeardown as runSetupTeardownModule } from './setup/teardown.js';
 
 const runtimeAdapters = {
   'claude-code': claudeCodeAdapter,
@@ -50,17 +77,12 @@ const backendAdapters = {
   langfuse: langfuseBackendAdapter,
 };
 
-const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
-const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
 const SPANORY_NPM_PACKAGE = '@bububuger/spanory';
 const HOOK_STDIN_IDLE_MS = 200;
 const HOOK_STDIN_TIMEOUT_MS = 1500;
-
-const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
-const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
 const EXECUTION_ENTRY = (() => {
   if (!('pkg' in process)) {
     return fileURLToPath(import.meta.url);
@@ -530,149 +552,6 @@ async function runContextExportMode(options) {
   return { status: 'sent', sessionId: contextWithRuntimeHome.sessionId, turnId: selectedTurnId };
 }
 
-function sessionIdFromFilename(filename) {
-  return filename.endsWith('.jsonl') ? filename.slice(0, -6) : filename;
-}
-
-async function listJsonlFilesRecursively(rootDir) {
-  const out = [];
-  const stack = [rootDir];
-  while (stack.length > 0) {
-    const dir = stack.pop();
-    let names = [];
-    try {
-      names = await readdir(dir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const name of names) {
-      const fullPath = path.join(dir, name.name);
-      if (name.isDirectory()) {
-        stack.push(fullPath);
-        continue;
-      }
-      if (name.isFile() && name.name.endsWith('.jsonl')) {
-        out.push(fullPath);
-      }
-    }
-  }
-  return out;
-}
-
-function normalizePositiveInt(raw, fallback, label) {
-  const value = raw ?? fallback;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`invalid ${label}: ${value}`);
-  }
-  return Math.floor(parsed);
-}
-
-async function listCodexSessions(runtimeHome, options = {}) {
-  const sessionsRoot = path.join(runtimeHome, 'sessions');
-  const files = await listJsonlFilesRecursively(sessionsRoot);
-  const withStat = await Promise.all(
-    files.map(async (fullPath) => {
-      const fileStat = await stat(fullPath);
-      return {
-        transcriptPath: fullPath,
-        sessionId: sessionIdFromFilename(path.basename(fullPath)),
-        mtimeMs: fileStat.mtimeMs,
-      };
-    }),
-  );
-
-  const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
-  const untilMs = options.until ? new Date(options.until).getTime() : undefined;
-  const filtered = withStat.filter((item) => {
-    if (Number.isFinite(sinceMs) && item.mtimeMs < sinceMs) return false;
-    if (Number.isFinite(untilMs) && item.mtimeMs > untilMs) return false;
-    return true;
-  });
-
-  const sorted = filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  if (!Number.isFinite(options.limit)) return sorted;
-  return sorted.slice(0, Number(options.limit));
-}
-
-async function runCodexWatch(options) {
-  const runtimeName = 'codex';
-  const runtimeHome = resolveRuntimeHome(runtimeName, options.runtimeHome);
-  const pollMs = normalizePositiveInt(options.pollMs, CODEX_WATCH_DEFAULT_POLL_MS, '--poll-ms');
-  const settleMs = normalizePositiveInt(options.settleMs, CODEX_WATCH_DEFAULT_SETTLE_MS, '--settle-ms');
-  const includeExisting = Boolean(options.includeExisting);
-  const processedMtimeByPath = new Map();
-
-  if (!includeExisting) {
-    const baseline = await listCodexSessions(runtimeHome);
-    for (const session of baseline) {
-      processedMtimeByPath.set(session.transcriptPath, session.mtimeMs);
-    }
-    console.log(`watch=baseline files=${baseline.length}`);
-  }
-
-  let stopped = false;
-  const stop = () => {
-    stopped = true;
-  };
-  process.on('SIGINT', stop);
-  process.on('SIGTERM', stop);
-
-  try {
-    do {
-      const nowMs = Date.now();
-      const sessions = await listCodexSessions(runtimeHome);
-      let exportedCount = 0;
-      let skippedCount = 0;
-
-      for (const session of sessions) {
-        const prevProcessedMtime = processedMtimeByPath.get(session.transcriptPath);
-        if (prevProcessedMtime !== undefined && session.mtimeMs <= prevProcessedMtime) {
-          continue;
-        }
-        if (nowMs - session.mtimeMs < settleMs) {
-          continue;
-        }
-
-        const context = {
-          projectId: options.projectId ?? 'codex',
-          sessionId: session.sessionId,
-          transcriptPath: session.transcriptPath,
-          runtimeHome,
-        };
-
-        try {
-          const result = await runContextExportMode({
-            runtimeName,
-            context,
-            runtimeHome,
-            endpoint: options.endpoint,
-            headers: options.headers,
-            exportJsonDir: options.exportJsonDir,
-            force: options.force,
-            lastTurnOnly: options.lastTurnOnly,
-          });
-          if (result?.status === 'sent') exportedCount += 1;
-          else skippedCount += 1;
-        } catch (error) {
-          skippedCount += 1;
-          const message = error?.message ? String(error.message).replace(/\s+/g, ' ') : 'unknown-error';
-          console.log(`watch=error sessionId=${session.sessionId} error=${message}`);
-        } finally {
-          processedMtimeByPath.set(session.transcriptPath, session.mtimeMs);
-        }
-      }
-
-      console.log(`watch=scan files=${sessions.length} exported=${exportedCount} skipped=${skippedCount}`);
-      if (options.once) break;
-      if (!stopped) await sleep(pollMs);
-    } while (!stopped);
-  } finally {
-    process.off('SIGINT', stop);
-    process.off('SIGTERM', stop);
-  }
-}
-
 async function listCandidateSessions(runtimeName, projectId, options) {
   if (options.sessionIds) {
     return options.sessionIds
@@ -733,17 +612,6 @@ async function listCandidateSessions(runtimeName, projectId, options) {
 
   const sorted = filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
   return sorted.slice(0, Number(options.limit)).map(({ sessionId }) => ({ sessionId }));
-}
-
-function runtimeDisplayName(runtimeName) {
-  if (runtimeName === 'codex') return 'Codex';
-  if (runtimeName === 'openclaw') return 'OpenClaw';
-  if (runtimeName === 'opencode') return 'OpenCode';
-  return 'Claude Code';
-}
-
-function runtimeDescription(runtimeName) {
-  return `${runtimeDisplayName(runtimeName)} transcript runtime`;
 }
 
 function runSystemCommand(command, args, options = {}) {
@@ -1747,647 +1615,153 @@ async function runSetupApply(options) {
   };
 }
 
-function registerRuntimeCommands(runtimeRoot, runtimeName) {
-  const runtimeCmd = runtimeRoot.command(runtimeName).description(runtimeDescription(runtimeName));
-  const displayName = runtimeDisplayName(runtimeName);
-  const hasTranscriptAdapter = Boolean(runtimeAdapters[runtimeName]);
 
-  if (hasTranscriptAdapter) {
-    const exportCmd = runtimeCmd
-      .command('export')
-      .description(`Export one ${displayName} session as OTLP spans`);
+const program = createProgram({
+  cliVersion: CLI_VERSION,
+  runtimeAdapters,
+  codexWatchDefaultPollMs: CODEX_WATCH_DEFAULT_POLL_MS,
+  codexWatchDefaultSettleMs: CODEX_WATCH_DEFAULT_SETTLE_MS,
+  defaultSetupRuntimes: DEFAULT_SETUP_RUNTIMES,
+  openclawPluginId: OPENCLAW_SPANORY_PLUGIN_ID,
+  opencodePluginId: OPENCODE_SPANORY_PLUGIN_ID,
 
-    if (runtimeName !== 'codex') {
-      exportCmd.requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`);
-    } else {
-      exportCmd.option('--project-id <id>', 'Project id override (optional; defaults to cwd-derived id)');
-    }
+  getRuntimeAdapter,
+  emitSession,
+  resolveEndpoint,
+  resolveHeaders,
+  resolveRuntimeExportDir,
+  runHookMode,
+  listCandidateSessions,
+  runContextExportMode,
+  parseListenAddress,
+  createCodexProxyServer,
+  runSystemCommand,
+  resolveRuntimeHome,
+  resolveRuntimeStateRoot,
+  resolveOpencodePluginStateRoot,
+  resolveSpanoryEnvPath,
+  resolveOpenclawPluginDir,
+  resolveOpencodePluginDir,
+  openclawRuntimeHomeForSetup,
+  opencodeRuntimeHomeForSetup,
+  commandExists,
+  isCodexWatchRunning,
+  codexWatchPidFile,
+  backupIfExists,
+  startCodexWatch,
+  stopCodexWatch,
+  sleep,
+  maskEndpoint,
+  detectUpgradePackageManager,
+  detectUpgradeScope,
+  resolveUpgradeInvocation,
 
-    exportCmd
-      .requiredOption('--session-id <id>', `${displayName} session id (jsonl filename without extension)`)
-      .option('--transcript-path <path>', 'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-      .option('--export-json <path>', 'Write parsed events and OTLP payload to a local JSON file')
-      .addHelpText(
-        'after',
-        '\nExamples:\n'
-          + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n`
-          + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
-      )
-      .action(async (options) => {
-        const adapter = getRuntimeAdapter(runtimeName);
-        const context = {
-          projectId: options.projectId ?? 'codex',
-          sessionId: options.sessionId,
-          ...(options.transcriptPath ? { transcriptPath: options.transcriptPath } : {}),
-          ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
-        };
-        const events = await adapter.collectEvents(context);
-        await emitSession({
-          runtimeName: adapter.runtimeName,
-          context,
-          events,
-          endpoint: resolveEndpoint(options.endpoint),
-          headers: resolveHeaders(options.headers),
-          exportJsonPath: options.exportJson,
-        });
-      });
+  runCodexWatch: (options) => runCodexWatchModule(options, {
+    resolveRuntimeHome,
+    runContextExportMode,
+    sleep,
+  }),
+  installOpenclawPlugin: (runtimeHome, dryRun, deps) => installOpenclawPluginModule(runtimeHome, dryRun, deps),
+  runOpenclawPluginDoctor: (runtimeHome, deps) => runOpenclawPluginDoctorModule(
+    runtimeHome,
+    deps ?? {
+      runSystemCommand,
+      resolveRuntimeHome,
+      resolveRuntimeStateRoot,
+      maskEndpoint,
+    },
+  ),
+  installOpencodePlugin: (runtimeHome, pluginDirOverride, deps) => {
+    return installOpencodePluginModule(runtimeHome, pluginDirOverride, deps);
+  },
+  opencodePluginLoaderPath: (runtimeHome) => opencodePluginLoaderPathModule(runtimeHome, resolveRuntimeHome),
+  runOpencodePluginDoctor: (runtimeHome, deps) => runOpencodePluginDoctorModule(
+    runtimeHome,
+    deps ?? {
+      resolveRuntimeHome,
+      resolveOpencodePluginStateRoot,
+      maskEndpoint,
+      resolveSpanoryEnvPath,
+    },
+  ),
 
-    runtimeCmd
-      .command('hook')
-      .description(`Read ${displayName} hook payload from stdin and export the matched session`)
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-      .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
-      .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
-      .addHelpText(
-        'after',
-        '\nExamples:\n'
-          + `  echo "{...}" | spanory runtime ${runtimeName} hook\n`
-          + `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${resolveRuntimeExportDir(runtimeName)}\n`,
-      )
-      .action(async (options) => runHookMode({
-        runtimeName,
-        runtimeHome: options.runtimeHome,
-        endpoint: options.endpoint,
-        headers: options.headers,
-        lastTurnOnly: options.lastTurnOnly,
-        force: options.force,
-        exportJsonDir: options.exportJsonDir,
-      }));
+  runSetupDetect: (options) => runSetupDetectModule(options, {
+    commandExists,
+    isCodexWatchRunning,
+    openclawRuntimeHomeForSetup,
+    opencodeRuntimeHomeForSetup,
+  }),
+  runSetupApply: (options) => runSetupApplyModule(options, {
+    defaultSetupRuntimes: DEFAULT_SETUP_RUNTIMES,
+    backupIfExists,
+    startCodexWatch,
+    commandExists,
+    openclawRuntimeHomeForSetup,
+    opencodeRuntimeHomeForSetup,
+    installOpenclawPlugin: installOpenclawPluginModule,
+    installOpencodePlugin: installOpencodePluginModule,
+    runOpenclawPluginDoctor: runOpenclawPluginDoctorModule,
+    runOpencodePluginDoctor: runOpencodePluginDoctorModule,
+    resolveRuntimeHome,
+    resolveRuntimeStateRoot,
+    resolveOpencodePluginStateRoot,
+    resolveSpanoryEnvPath,
+    resolveOpenclawPluginDir,
+    resolveOpencodePluginDir,
+    runSystemCommand,
+    maskEndpoint,
+  }),
+  runSetupDoctor: (options) => runSetupDoctorModule(options, {
+    defaultSetupRuntimes: DEFAULT_SETUP_RUNTIMES,
+    isCodexWatchRunning,
+    codexWatchPidFile,
+    commandExists,
+    openclawRuntimeHomeForSetup,
+    opencodeRuntimeHomeForSetup,
+    runOpenclawPluginDoctor: runOpenclawPluginDoctorModule,
+    runOpencodePluginDoctor: runOpencodePluginDoctorModule,
+    runSystemCommand,
+    resolveRuntimeHome,
+    resolveRuntimeStateRoot,
+    resolveOpencodePluginStateRoot,
+    maskEndpoint,
+    resolveSpanoryEnvPath,
+  }),
+  runSetupTeardown: (options) => runSetupTeardownModule(options, {
+    defaultSetupRuntimes: DEFAULT_SETUP_RUNTIMES,
+    backupIfExists,
+    stopCodexWatch,
+    commandExists,
+    openclawRuntimeHomeForSetup,
+    openclawPluginId: OPENCLAW_SPANORY_PLUGIN_ID,
+    runSystemCommand,
+    resolveRuntimeHome,
+    opencodeRuntimeHomeForSetup,
+    opencodePluginLoaderPath: opencodePluginLoaderPathModule,
+    opencodePluginId: OPENCODE_SPANORY_PLUGIN_ID,
+  }),
 
-    const backfillCmd = runtimeCmd
-      .command('backfill')
-      .description(`Batch export historical ${displayName} sessions for one project`);
-    if (runtimeName !== 'codex') {
-      backfillCmd.requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`);
-    } else {
-      backfillCmd.option('--project-id <id>', 'Project id override (optional; defaults to cwd-derived id)');
-    }
-    backfillCmd
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .option('--session-ids <csv>', 'Comma-separated session ids; if set, since/until/limit are ignored')
-      .option('--since <iso>', 'Only include sessions with transcript file mtime >= this ISO timestamp')
-      .option('--until <iso>', 'Only include sessions with transcript file mtime <= this ISO timestamp')
-      .option('--limit <n>', 'Max number of sessions when auto-selecting by mtime', '50')
-      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-      .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per session into this directory')
-      .option('--dry-run', 'Print selected sessions without sending OTLP', false)
-      .addHelpText(
-        'after',
-        '\nExamples:\n'
-          + `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n`
-          + `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
-      )
-      .action(async (options) => {
-        const adapter = getRuntimeAdapter(runtimeName);
-        const endpoint = resolveEndpoint(options.endpoint);
-        const headers = resolveHeaders(options.headers);
-
-        const candidates = await listCandidateSessions(runtimeName, options.projectId ?? 'codex', options);
-        if (!candidates.length) {
-          console.log('backfill=empty selected=0');
-          return;
-        }
-
-        console.log(`backfill=selected count=${candidates.length}`);
-
-        for (const candidate of candidates) {
-          const context = {
-            projectId: options.projectId ?? 'codex',
-            sessionId: candidate.sessionId,
-            ...(candidate.transcriptPath ? { transcriptPath: candidate.transcriptPath } : {}),
-            ...(options.runtimeHome ? { runtimeHome: options.runtimeHome } : {}),
-          };
-          if (options.dryRun) {
-            console.log(`dry-run sessionId=${candidate.sessionId}`);
-            continue;
-          }
-
-          const events = await adapter.collectEvents(context);
-          const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
-
-          await emitSession({
-            runtimeName: adapter.runtimeName,
-            context,
-            events,
-            endpoint,
-            headers,
-            exportJsonPath,
-          });
-        }
-      });
-  }
-
-  if (runtimeName === 'codex') {
-    runtimeCmd
-      .command('watch')
-      .description('Poll Codex session transcripts and export newly updated sessions (notify fallback)')
-      .option('--project-id <id>', 'Project id override (optional; defaults to cwd-derived id)')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .option('--poll-ms <n>', `Polling interval in milliseconds (default: ${CODEX_WATCH_DEFAULT_POLL_MS})`)
-      .option('--settle-ms <n>', `Minimum file age before parsing (default: ${CODEX_WATCH_DEFAULT_SETTLE_MS})`)
-      .option('--include-existing', 'Also process existing sessions on startup', false)
-      .option('--once', 'Run one scan cycle and exit', false)
-      .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-      .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-      .option('--export-json-dir <dir>', 'Write one <sessionId>.json file per exported session into this directory')
-      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
-      .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
-      .addHelpText(
-        'after',
-        '\nExamples:\n'
-          + '  spanory runtime codex watch\n'
-          + '  spanory runtime codex watch --include-existing --once --settle-ms 0\n',
-      )
-      .action(async (options) => {
-        await runCodexWatch(options);
-      });
-
-    runtimeCmd
-      .command('proxy')
-      .description('Run OpenAI-compatible proxy capture for Codex traffic with full redaction')
-      .option('--listen <host:port>', 'Listen address (default: 127.0.0.1:8787)', '127.0.0.1:8787')
-      .option('--upstream <url>', 'Upstream OpenAI-compatible base URL')
-      .option('--spool-dir <path>', 'Capture spool directory')
-      .option('--max-body-bytes <n>', 'Maximum bytes to keep per redacted body', '131072')
-      .action(async (options) => {
-        const { host, port } = parseListenAddress(options.listen);
-        if (!Number.isFinite(port) || port <= 0) {
-          throw new Error(`invalid --listen port: ${options.listen}`);
-        }
-        const proxy = createCodexProxyServer({
-          upstreamBaseUrl: options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL,
-          spoolDir: options.spoolDir
-            ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR
-            ?? path.join(resolveRuntimeStateRoot('codex'), 'spanory', 'proxy-spool'),
-          maxBodyBytes: Number(options.maxBodyBytes),
-          logger: console,
-        });
-        await proxy.start({ host, port });
-        console.log(`proxy=listening url=${proxy.url()} upstream=${options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com'}`);
-        await new Promise((resolve) => {
-          const stop = async () => {
-            process.off('SIGINT', stop);
-            process.off('SIGTERM', stop);
-            await proxy.stop();
-            resolve();
-          };
-          process.on('SIGINT', stop);
-          process.on('SIGTERM', stop);
-        });
-      });
-  }
-
-  if (runtimeName === 'openclaw') {
-    const plugin = runtimeCmd
-      .command('plugin')
-      .description('Manage Spanory OpenClaw plugin runtime integration');
-
-    plugin
-      .command('install')
-      .description('Install Spanory OpenClaw plugin using openclaw plugins install -l')
-      .option('--plugin-dir <path>', 'Plugin directory path (default: packages/openclaw-plugin)')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const pluginDir = path.resolve(options.pluginDir ?? resolveOpenclawPluginDir());
-        const result = runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins install failed');
-        }
-      });
-
-    plugin
-      .command('enable')
-      .description('Enable Spanory OpenClaw plugin')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const result = runSystemCommand('openclaw', ['plugins', 'enable', OPENCLAW_SPANORY_PLUGIN_ID], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins enable failed');
-        }
-      });
-
-    plugin
-      .command('disable')
-      .description('Disable Spanory OpenClaw plugin')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const result = runSystemCommand('openclaw', ['plugins', 'disable', OPENCLAW_SPANORY_PLUGIN_ID], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins disable failed');
-        }
-      });
-
-    plugin
-      .command('uninstall')
-      .description('Uninstall Spanory OpenClaw plugin')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const result = runSystemCommand('openclaw', ['plugins', 'uninstall', OPENCLAW_SPANORY_PLUGIN_ID], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
-        }
-      });
-
-    plugin
-      .command('doctor')
-      .description('Run local diagnostic checks for Spanory OpenClaw plugin')
-      .option('--runtime-home <path>', 'Override runtime home directory')
-      .action(async (options) => {
-        const report = await runOpenclawPluginDoctor(options.runtimeHome);
-        console.log(JSON.stringify(report, null, 2));
-        if (!report.ok) process.exitCode = 2;
-      });
-  }
-
-  if (runtimeName === 'opencode') {
-    const plugin = runtimeCmd
-      .command('plugin')
-      .description('Manage Spanory OpenCode plugin runtime integration');
-
-    plugin
-      .command('install')
-      .description('Install Spanory OpenCode plugin loader into ~/.config/opencode/plugin')
-      .option('--plugin-dir <path>', 'Plugin directory path (default: packages/opencode-plugin)')
-      .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-      .action(async (options) => {
-        const result = await installOpencodePlugin(options.runtimeHome, options.pluginDir);
-        console.log(`installed=${result.loaderFile}`);
-      });
-
-    plugin
-      .command('uninstall')
-      .description('Remove Spanory OpenCode plugin loader')
-      .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-      .action(async (options) => {
-        const loaderFile = opencodePluginLoaderPath(options.runtimeHome);
-        await rm(loaderFile, { force: true });
-        console.log(`removed=${loaderFile}`);
-      });
-
-    plugin
-      .command('doctor')
-      .description('Run local diagnostic checks for Spanory OpenCode plugin')
-      .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-      .action(async (options) => {
-        const report = await runOpencodePluginDoctor(options.runtimeHome);
-        console.log(JSON.stringify(report, null, 2));
-        if (!report.ok) process.exitCode = 2;
-      });
-  }
-}
-
-const program = new Command();
-program
-  .name('spanory')
-  .description('Cross-runtime observability CLI for agent sessions')
-  .showHelpAfterError()
-  .showSuggestionAfterError(true)
-  .version(CLI_VERSION, '-v, --version');
-
-const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
-for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
-  registerRuntimeCommands(runtime, runtimeName);
-}
-
-const report = program.command('report').description('Aggregate exported session JSON into infra-level views');
-
-report
-  .command('session')
-  .description('Session-level summary view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'session-summary', rows: summarizeSessions(sessions) }, null, 2));
-  });
-
-report
-  .command('mcp')
-  .description('MCP server aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'mcp-summary', rows: summarizeMcp(sessions) }, null, 2));
-  });
-
-report
-  .command('command')
-  .description('Agent command aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'command-summary', rows: summarizeCommands(sessions) }, null, 2));
-  });
-
-report
-  .command('agent')
-  .description('Agent activity summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'agent-summary', rows: summarizeAgents(sessions) }, null, 2));
-  });
-
-report
-  .command('cache')
-  .description('Cache usage summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'cache-summary', rows: summarizeCache(sessions) }, null, 2));
-  });
-
-report
-  .command('tool')
-  .description('Tool usage aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'tool-summary', rows: summarizeTools(sessions) }, null, 2));
-  });
-
-report
-  .command('context')
-  .description('Context observability summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'context-summary', rows: summarizeContext(sessions) }, null, 2));
-  });
-
-report
-  .command('turn-diff')
-  .description('Turn input diff summary view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    console.log(JSON.stringify({ view: 'turn-diff-summary', rows: summarizeTurnDiff(sessions) }, null, 2));
-  });
-
-const alert = program.command('alert').description('Evaluate alert rules against exported telemetry data');
-
-alert
-  .command('eval')
-  .description('Run threshold rules and emit alert events')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
-  .requiredOption('--rules <path>', 'Path to alert rules JSON file')
-  .option('--webhook-url <url>', 'Optional webhook URL to post alert payload')
-  .option('--webhook-headers <kv>', 'Webhook headers, comma-separated k=v')
-  .option('--fail-on-alert', 'Exit with non-zero code when alert count > 0', false)
-  .addHelpText(
-    'after',
-    '\nRule file format:\n'
-      + '  {\n'
-      + '    "rules": [\n'
-      + '      {"id":"high-token","scope":"session","metric":"usage.total","op":"gt","threshold":10000}\n'
-      + '    ]\n'
-      + '  }\n',
-  )
-  .action(async (options) => {
-    const sessions = await loadExportedEvents(options.inputJson);
-    const rules = await loadAlertRules(options.rules);
-    const alerts = evaluateRules(rules, sessions);
-
-    const result = {
-      evaluatedAt: new Date().toISOString(),
-      sessions: sessions.length,
-      rules: rules.length,
-      alerts,
-    };
-    console.log(JSON.stringify(result, null, 2));
-
-    if (options.webhookUrl) {
-      await sendAlertWebhook(options.webhookUrl, result, parseHeaders(options.webhookHeaders));
-      console.log(`webhook=sent url=${options.webhookUrl}`);
-    }
-
-    if (options.failOnAlert && alerts.length > 0) {
-      process.exitCode = 2;
-    }
-  });
-
-const issue = program.command('issue').description('Manage local issue status for automation巡检');
-
-issue
-  .command('sync')
-  .description('Sync pending items from todo.md into issue state file')
-  .option('--todo-file <path>', 'Path to todo markdown file (default: ./todo.md)')
-  .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
-  .action(async (options) => {
-    const todoFile = resolveTodoPath(options.todoFile);
-    const stateFile = resolveIssueStatePath(options.stateFile);
-    const todoRaw = await readFile(todoFile, 'utf-8');
-    const pending = parsePendingTodoItems(todoRaw, 'todo.md');
-    const prev = await loadIssueState(stateFile);
-    const result = syncIssueState(prev, pending);
-    await saveIssueState(stateFile, result.state);
-    console.log(JSON.stringify({
-      stateFile,
-      todoFile,
-      pending: pending.length,
-      added: result.added,
-      reopened: result.reopened,
-      autoClosed: result.autoClosed,
-      total: result.state.issues.length,
-    }, null, 2));
-  });
-
-issue
-  .command('list')
-  .description('List issues from state file')
-  .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
-  .option('--status <status>', 'Filter by status: open,in_progress,blocked,done')
-  .action(async (options) => {
-    const stateFile = resolveIssueStatePath(options.stateFile);
-    const state = await loadIssueState(stateFile);
-    const statusFilter = options.status ? String(options.status).trim() : '';
-    const rows = statusFilter
-      ? state.issues.filter((item) => item.status === statusFilter)
-      : state.issues;
-    console.log(JSON.stringify({ stateFile, total: rows.length, issues: rows }, null, 2));
-  });
-
-issue
-  .command('set-status')
-  .description('Update one issue status in state file')
-  .requiredOption('--id <id>', 'Issue id, e.g. T2')
-  .requiredOption('--status <status>', 'Target status: open|in_progress|blocked|done')
-  .option('--note <text>', 'Optional status note')
-  .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
-  .action(async (options) => {
-    const stateFile = resolveIssueStatePath(options.stateFile);
-    const prev = await loadIssueState(stateFile);
-    const next = setIssueStatus(prev, {
-      id: options.id,
-      status: options.status,
-      note: options.note,
-    });
-    await saveIssueState(stateFile, next);
-    const issueItem = next.issues.find((item) => item.id === options.id);
-    console.log(JSON.stringify({ stateFile, issue: issueItem }, null, 2));
-  });
-
-program
-  .command('hook')
-  .description('Minimal hook entrypoint (defaults to runtime payload + ~/.spanory/.env + default export dir)')
-  .option('--runtime <name>', 'Runtime name (default: SPANORY_HOOK_RUNTIME or claude-code)')
-  .option('--runtime-home <path>', 'Override runtime home directory')
-  .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
-  .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
-  .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-  .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
-  .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
-  .addHelpText(
-    'after',
-    '\nMinimal usage in SessionEnd hook command:\n'
-      + '  spanory hook\n'
-      + '  spanory hook --runtime openclaw\n',
-  )
-  .action(async (options) => {
-    const runtimeName = options.runtime ?? process.env.SPANORY_HOOK_RUNTIME ?? 'claude-code';
-    await runHookMode({
-      runtimeName,
-      runtimeHome: options.runtimeHome,
-      endpoint: options.endpoint,
-      headers: options.headers,
-      lastTurnOnly: options.lastTurnOnly,
-      force: options.force,
-      exportJsonDir:
-        options.exportJsonDir
-        ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR
-        ?? resolveRuntimeExportDir(runtimeName, options.runtimeHome),
-    });
-  });
-
-const setup = program.command('setup').description('One-command local runtime integration setup and diagnostics');
-
-setup
-  .command('detect')
-  .description('Detect local runtime availability and setup status')
-  .option('--home <path>', 'Home directory root override (default: $HOME)')
-  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home for reporting')
-  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home for reporting')
-  .action(async (options) => {
-    const report = await runSetupDetect(options);
-    console.log(JSON.stringify(report, null, 2));
-  });
-
-setup
-  .command('apply')
-  .description('Apply idempotent local setup for selected runtimes')
-  .option(
-    '--runtimes <csv>',
-    `Comma-separated runtimes (default: ${DEFAULT_SETUP_RUNTIMES.join(',')})`,
-    DEFAULT_SETUP_RUNTIMES.join(','),
-  )
-  .option('--home <path>', 'Home directory root override (default: $HOME)')
-  .option('--spanory-bin <path>', 'Spanory binary/command to write into runtime configs', 'spanory')
-  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
-  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-  .option('--dry-run', 'Only print planned changes without writing files', false)
-  .action(async (options) => {
-    const report = await runSetupApply(options);
-    console.log(JSON.stringify(report, null, 2));
-    if (!report.ok) process.exitCode = 2;
-  });
-
-setup
-  .command('doctor')
-  .description('Run setup diagnostics for selected runtimes')
-  .option(
-    '--runtimes <csv>',
-    `Comma-separated runtimes (default: ${DEFAULT_SETUP_RUNTIMES.join(',')})`,
-    DEFAULT_SETUP_RUNTIMES.join(','),
-  )
-  .option('--home <path>', 'Home directory root override (default: $HOME)')
-  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
-  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-  .action(async (options) => {
-    const report = await runSetupDoctor(options);
-    console.log(JSON.stringify(report, null, 2));
-    if (!report.ok) process.exitCode = 2;
-  });
-
-setup
-  .command('teardown')
-  .description('Remove all Spanory integration from local runtimes')
-  .option(
-    '--runtimes <csv>',
-    `Comma-separated runtimes (default: ${DEFAULT_SETUP_RUNTIMES.join(',')})`,
-    DEFAULT_SETUP_RUNTIMES.join(','),
-  )
-  .option('--home <path>', 'Home directory root override (default: $HOME)')
-  .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
-  .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-  .option('--dry-run', 'Only print planned changes without writing files', false)
-  .action(async (options) => {
-    const report = await runSetupTeardown(options);
-    console.log(JSON.stringify(report, null, 2));
-    if (!report.ok) process.exitCode = 2;
-  });
-
-
-program
-  .command('upgrade')
-  .description('Upgrade spanory CLI from npm registry')
-  .option('--dry-run', 'Print upgrade command without executing', false)
-  .option('--manager <name>', 'Package manager override: npm|tnpm')
-  .option('--scope <scope>', 'Install scope override: global|local')
-  .action(async (options) => {
-    const manager = options.manager === 'tnpm' ? 'tnpm' : detectUpgradePackageManager();
-    const scope = options.scope === 'local' ? 'local' : options.scope === 'global' ? 'global' : detectUpgradeScope();
-    const invocation = resolveUpgradeInvocation(scope, manager);
-
-    if (options.dryRun) {
-      console.log(JSON.stringify({ dryRun: true, ...invocation }, null, 2));
-      return;
-    }
-
-    const result = runSystemCommand(invocation.command, invocation.args, { env: process.env });
-    const output = (result.stdout || result.stderr || '').trim();
-    if (result.code !== 0) {
-      console.error(output || result.error || 'upgrade failed');
-      process.exitCode = 2;
-      return;
-    }
-
-    console.log(JSON.stringify({
-      ok: true,
-      ...invocation,
-      output,
-    }, null, 2));
-  });
-
+  loadExportedEvents,
+  summarizeSessions,
+  summarizeMcp,
+  summarizeCommands,
+  summarizeAgents,
+  summarizeCache,
+  summarizeTools,
+  summarizeContext,
+  summarizeTurnDiff,
+  loadAlertRules,
+  evaluateRules,
+  sendAlertWebhook,
+  parseHeaders,
+  resolveTodoPath,
+  resolveIssueStatePath,
+  parsePendingTodoItems,
+  loadIssueState,
+  syncIssueState,
+  saveIssueState,
+  setIssueStatus,
+});
 loadUserEnv()
   .then(() => program.parseAsync(process.argv))
   .catch((error) => {
