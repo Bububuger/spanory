@@ -1,22 +1,29 @@
-# Todo (2026-03-14) — BUB-13 normalize.ts 拆分治理
+# Todo (2026-03-14) — BUB-15 去除 5 包 `test:noop`
 
 - [x] 归档上一阶段 `plan.md/todo.md`
-  - 验收：`ls docs/plans/archive | tail -n 3 && ls docs/todos/archive | tail -n 3`
 
-- [x] 新建 `usage.ts` 并迁移 usage 相关函数
-  - 验收：`rg -n "export function pickUsage|function usageAttributes|function modelAttributes" packages/cli/src/runtime/shared/usage.ts`
+- [x] 1. 复现并记录 5 包 `test:noop` 现状
+  - 验收：`rg -n "test:noop" packages/{backend-langfuse,otlp-core,openclaw-plugin,opencode-plugin,alipay-cli}/package.json`
 
-- [x] 新建 `content.ts` 与 `gateway.ts` 并迁移消息解析/输入归一化函数
-  - 验收：`rg -n "export function extractText|export function isPromptUserMessage|export function normalizeUserInput" packages/cli/src/runtime/shared/content.ts packages/cli/src/runtime/shared/gateway.ts`
+- [x] 2. 为 `otlp-core` 增加 golden 测试并替换测试脚本
+  - 验收：`npm -w packages/otlp-core test`
 
-- [x] 新建 `turn.ts` 并迁移 `createTurn` 及其辅助函数
-  - 验收：`rg -n "export function createTurn" packages/cli/src/runtime/shared/turn.ts`
+- [x] 3. 为 `backend-langfuse` 增加最小行为断言并替换测试脚本
+  - 验收：`npm -w packages/backend-langfuse test`
 
-- [x] 精简 `normalize.ts`：保留 pipeline/context，改用模块导入并维持 `pickUsage` 导出
-  - 验收：`wc -l packages/cli/src/runtime/shared/normalize.ts && rg -n "createTurn|export \{ pickUsage \}" packages/cli/src/runtime/shared/normalize.ts`
+- [x] 4. 为 `openclaw-plugin` 增加合约级冒烟测试并替换测试脚本
+  - 验收：`npm -w packages/openclaw-plugin test`
 
-- [x] 运行测试与检查
-  - 验收：`npm run --workspace @bububuger/spanory test -- normalize.spec.ts`、`npm run check`、`npm test`
+- [x] 5. 为 `opencode-plugin` 增加合约级冒烟测试并替换测试脚本
+  - 验收：`npm -w packages/opencode-plugin test`
 
-- [x] 提交并推送
-  - 验收：`git status --short`
+- [x] 6. 为 `alipay-cli` 增加包级断言测试并替换测试脚本
+  - 验收：`npm -w packages/alipay-cli test`
+
+- [x] 7. 执行全目标包回归验证并整理提交
+  - 验收：
+    - `npm -w packages/otlp-core test`
+    - `npm -w packages/backend-langfuse test`
+    - `npm -w packages/openclaw-plugin test`
+    - `npm -w packages/opencode-plugin test`
+    - `npm -w packages/alipay-cli test`
