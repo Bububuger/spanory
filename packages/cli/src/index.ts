@@ -1075,126 +1075,6 @@ async function applyClaudeSetup({ homeRoot, spanoryBin, dryRun }) {
   };
 }
 
-function upsertCodexNotifyConfig(configText, notifyScriptRef) {
-  const notifyLine = `notify = ["${escapeTomlBasicString(notifyScriptRef)}"]`;
-  if (/^notify\s*=.*$/m.test(configText)) {
-    return configText.replace(/^notify\s*=.*$/m, notifyLine);
-  }
-  const withNewline = configText.trimEnd();
-  if (!withNewline) return `${notifyLine}\n`;
-  return `${withNewline}\n\n${notifyLine}\n`;
-}
-
-function escapeTomlBasicString(value) {
-  return String(value)
-    .replaceAll('\\', '\\\\')
-    .replaceAll('"', '\\"');
-}
-
-function isSpanoryCodexNotifyConfigured(configText) {
-  return /notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]/m.test(String(configText ?? ''));
-}
-
-function stripSpanoryCodexNotifyConfig(configText) {
-  const next = String(configText ?? '')
-    .replace(/^notify\s*=\s*\[[^\]]*spanory-codex-notify\.sh[^\]]*\]\s*$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  return next ? `${next}\n` : '';
-}
-
-function codexNotifyScriptContent({ spanoryBin, codexHome, exportDir, logFile }) {
-  return '#!/usr/bin/env bash\n'
-    + 'set -euo pipefail\n'
-    + 'payload="${1:-}"\n'
-    + 'if [[ -z "$payload" ]] && [[ ! -t 0 ]]; then\n'
-    + '  IFS= read -r -t 0 payload || true\n'
-    + 'fi\n'
-    + 'if [[ -z "${payload//[$\'\\t\\r\\n \']/}" ]]; then\n'
-    + `  echo "skip=empty-payload source=codex-notify args=$#" >> "${logFile}"\n`
-    + '  exit 0\n'
-    + 'fi\n'
-    + 'payload_file="$(mktemp "${TMPDIR:-/tmp}/spanory-codex-notify.XXXXXX")"\n'
-    + 'printf \'%s\' "$payload" > "$payload_file"\n'
-    + `echo "$payload" | "${spanoryBin}" runtime codex hook \\\n`
-    + '  --last-turn-only \\\n'
-    + `  --runtime-home "${codexHome}" \\\n`
-    + `  --export-json-dir "${exportDir}" \\\n`
-    + `  >> "${logFile}" 2>&1 || true\n`
-    + '(\n'
-    + '  sleep 2\n'
-    + `  cat "$payload_file" | "${spanoryBin}" runtime codex hook \\\n`
-    + '    --last-turn-only \\\n'
-    + '    --force \\\n'
-    + `    --runtime-home "${codexHome}" \\\n`
-    + `    --export-json-dir "${exportDir}" \\\n`
-    + `    >> "${logFile}" 2>&1 || true\n`
-    + '  rm -f "$payload_file"\n'
-    + ') >/dev/null 2>&1 &\n';
-}
-
-async function applyCodexSetup({ homeRoot, spanoryBin, dryRun }) {
-  const codexHome = path.join(homeRoot, '.codex');
-  const spanoryHome = process.env.SPANORY_HOME ?? path.join(homeRoot, '.spanory');
-  const binDir = path.join(codexHome, 'bin');
-  const stateDir = path.join(codexHome, 'state', 'spanory');
-  const scriptPath = path.join(binDir, 'spanory-codex-notify.sh');
-  const logFile = path.join(spanoryHome, 'logs', 'codex-notify.log');
-  const configPath = path.join(codexHome, 'config.toml');
-  const notifyScriptRef = scriptPath;
-
-  const scriptContent = codexNotifyScriptContent({
-    spanoryBin,
-    codexHome,
-    exportDir: stateDir,
-    logFile,
-  });
-
-  let currentConfig = '';
-  try {
-    currentConfig = await readFile(configPath, 'utf-8');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  const nextConfig = upsertCodexNotifyConfig(currentConfig, notifyScriptRef);
-  const configChanged = currentConfig !== nextConfig;
-
-  let currentScript = '';
-  try {
-    currentScript = await readFile(scriptPath, 'utf-8');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  const scriptChanged = currentScript !== scriptContent;
-  const changed = configChanged || scriptChanged;
-
-  let configBackup = null;
-  if (changed && !dryRun) {
-    await mkdir(binDir, { recursive: true });
-    await mkdir(stateDir, { recursive: true });
-    await mkdir(path.dirname(logFile), { recursive: true });
-
-    if (configChanged) {
-      configBackup = await backupIfExists(configPath);
-      await writeFile(configPath, nextConfig, 'utf-8');
-    }
-    if (scriptChanged) {
-      await writeFile(scriptPath, scriptContent, 'utf-8');
-      await chmod(scriptPath, 0o755);
-    }
-  }
-
-  return {
-    runtime: 'codex',
-    ok: true,
-    changed,
-    dryRun,
-    configPath,
-    scriptPath,
-    configBackup,
-  };
-}
-
 async function applyCodexWatchSetup({ homeRoot, dryRun }) {
   const codexHome = path.join(homeRoot, '.codex');
   const scriptPath = path.join(codexHome, 'bin', 'spanory-codex-notify.sh');
@@ -1742,7 +1622,6 @@ async function runSetupApply(options) {
   const selected = parseSetupRuntimes(options.runtimes);
   const spanoryBin = options.spanoryBin ?? 'spanory';
   const dryRun = Boolean(options.dryRun);
-  const codexMode = options.codexMode ?? process.env.SPANORY_CODEX_MODE ?? 'watch';
   const results = [];
 
   if (selected.includes('claude-code')) {
@@ -1759,35 +1638,11 @@ async function runSetupApply(options) {
   }
 
   if (selected.includes('codex')) {
-    if (codexMode === 'notify') {
-      try {
-        const result = await applyCodexSetup({ homeRoot, spanoryBin, dryRun });
-        results.push(result);
-      } catch (error) {
-        results.push({
-          runtime: 'codex',
-          ok: false,
-          error: String(error?.message ?? error),
-        });
-      }
-    } else if (codexMode === 'watch') {
-      try {
-        const result = await applyCodexWatchSetup({ homeRoot, dryRun });
-        results.push(result);
-      } catch (error) {
-        results.push({
-          runtime: 'codex',
-          ok: false,
-          error: String(error?.message ?? error),
-        });
-      }
-    } else {
-      results.push({
-        runtime: 'codex',
-        ok: true,
-        skipped: true,
-        detail: `codex mode "${codexMode}" has no setup action`,
-      });
+    try {
+      const result = await applyCodexWatchSetup({ homeRoot, dryRun });
+      results.push(result);
+    } catch (error) {
+      results.push({ runtime: 'codex', ok: false, error: String(error?.message ?? error) });
     }
   }
 
