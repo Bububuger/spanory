@@ -777,6 +777,7 @@ function resolveOpenclawPluginDir() {
   const candidates = [
     resolveInstalledPackageDir('@bububuger/spanory-openclaw-plugin'),
     path.resolve(CLI_PACKAGE_DIR, '..', 'openclaw-plugin'),
+    path.resolve(CLI_PACKAGE_DIR, 'openclaw-plugin'),
     path.resolve(process.cwd(), 'packages/openclaw-plugin'),
   ].filter(Boolean);
   const hit = candidates.find((dir) => existsSync(path.join(dir, 'package.json')));
@@ -794,6 +795,7 @@ function resolveOpencodePluginDir() {
     resolveInstalledPackageDir('@bububuger/spanory-opencode-plugin'),
     pkgCandidate,
     path.resolve(CLI_PACKAGE_DIR, '..', 'opencode-plugin'),
+    path.resolve(CLI_PACKAGE_DIR, 'opencode-plugin'),
     path.resolve(process.cwd(), 'packages/opencode-plugin'),
   ].filter(Boolean);
   const hit = candidates.find((dir) => existsSync(path.join(dir, 'package.json')));
