@@ -1,0 +1,18 @@
+{
+  "name": "@bububuger/spanory-openclaw-plugin",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && npx esbuild dist/index.js --bundle --platform=node --format=esm --outfile=dist/index.bundle.js --external:node:* && node -e \"require('node:fs').renameSync('dist/index.bundle.js','dist/index.js')\"",
+    "test": "node -e \"console.log('openclaw-plugin:test:noop')\""
+  }
+}
