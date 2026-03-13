@@ -835,6 +835,34 @@ function opencodePluginLoaderPath(runtimeHome) {
   return path.join(resolveOpencodePluginInstallDir(runtimeHome), `${OPENCODE_SPANORY_PLUGIN_ID}.js`);
 }
 
+function resolveOpenclawPluginSpoolDir(runtimeHome) {
+  return process.env.SPANORY_OPENCLAW_SPOOL_DIR
+    ?? path.join(resolveRuntimeStateRoot('openclaw', runtimeHome), 'spanory', 'spool');
+}
+
+function resolveOpencodePluginSpoolDir(runtimeHome) {
+  return process.env.SPANORY_OPENCODE_SPOOL_DIR
+    ?? path.join(resolveOpencodePluginStateRoot(runtimeHome), 'spool');
+}
+
+function resolveOpencodePluginLogFile(runtimeHome) {
+  return path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin.log');
+}
+
+async function ensureOpenclawPluginRuntimeDirs(runtimeHome) {
+  const spoolDir = resolveOpenclawPluginSpoolDir(runtimeHome);
+  await mkdir(spoolDir, { recursive: true });
+  return { spoolDir };
+}
+
+async function ensureOpencodePluginRuntimeDirs(runtimeHome) {
+  const spoolDir = resolveOpencodePluginSpoolDir(runtimeHome);
+  const logFile = resolveOpencodePluginLogFile(runtimeHome);
+  await mkdir(spoolDir, { recursive: true });
+  await mkdir(path.dirname(logFile), { recursive: true });
+  return { spoolDir, logFile };
+}
+
 function parsePluginEnabledFromInfoOutput(output) {
   if (!output) return undefined;
   const yes = /enabled\s*[:=]\s*(true|yes|1)/i.test(output);
@@ -874,10 +902,9 @@ async function runOpenclawPluginDoctor(runtimeHome) {
       : 'OTEL_EXPORTER_OTLP_ENDPOINT is unset',
   });
 
-  const spoolDir = process.env.SPANORY_OPENCLAW_SPOOL_DIR
-    ?? path.join(resolveRuntimeStateRoot('openclaw', runtimeHome), 'spanory', 'spool');
+  const spoolDir = resolveOpenclawPluginSpoolDir(runtimeHome);
   try {
-    await mkdir(spoolDir, { recursive: true });
+    await stat(spoolDir);
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
   } catch (err) {
     checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
@@ -950,19 +977,18 @@ async function runOpencodePluginDoctor(runtimeHome) {
       : 'OTEL_EXPORTER_OTLP_ENDPOINT is unset',
   });
 
-  const spoolDir = process.env.SPANORY_OPENCODE_SPOOL_DIR
-    ?? path.join(resolveOpencodePluginStateRoot(runtimeHome), 'spool');
+  const spoolDir = resolveOpencodePluginSpoolDir(runtimeHome);
   try {
-    await mkdir(spoolDir, { recursive: true });
+    await stat(spoolDir);
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
   } catch (err) {
     checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
   }
 
   const statusFile = path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin-status.json');
-  const logFile = path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin.log');
+  const logFile = resolveOpencodePluginLogFile(runtimeHome);
   try {
-    await mkdir(path.dirname(logFile), { recursive: true });
+    await stat(path.dirname(logFile));
     checks.push({ id: 'opencode_plugin_log', ok: true, detail: logFile });
   } catch (err) {
     checks.push({ id: 'opencode_plugin_log', ok: false, detail: String(err) });
@@ -1551,11 +1577,13 @@ async function installOpenclawPlugin(runtimeHome, dryRun) {
     throw new Error(enableResult.stderr || enableResult.error || 'openclaw plugins enable failed');
   }
   const pathNormalizeResult = await normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun);
+  const runtimeDirs = await ensureOpenclawPluginRuntimeDirs(runtimeHome);
   return {
     pluginDir,
     installStdout: installResult.stdout.trim(),
     enableStdout: enableResult.stdout.trim(),
     pathNormalizeResult,
+    runtimeDirs,
   };
 }
 
@@ -1597,7 +1625,8 @@ async function installOpencodePlugin(runtimeHome, pluginDirOverride) {
     }
   }
 
-  return { loaderFile };
+  const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome);
+  return { loaderFile, runtimeDirs };
 }
 
 async function runSetupDetect(options) {
