@@ -1,25 +1,17 @@
-# Plan (2026-03-14) — BUB-15 去除 5 包 `test:noop`
+# Plan (2026-03-13) — BUB-16 覆盖率度量与阈值门禁
 
 ## 目标
-1. 将 `backend-langfuse`、`otlp-core`、`openclaw-plugin`、`opencode-plugin`、`alipay-cli` 的 `test` 从零断言 `console.log(...:test:noop)` 升级为可验证行为。
-2. 在 `otlp-core` 引入 golden 测试夹具，稳定断言 OTLP 编译输出。
-3. 为 plugin 包补齐合约级冒烟测试，至少覆盖导出契约与最小注册/调用路径。
+1. 为 CLI 测试引入 Vitest v8 覆盖率采集能力。
+2. 配置覆盖率阈值：行覆盖率不低于 70%。
+3. 在 CI/Release 验证阶段新增覆盖率门禁，避免仅 test-pass。
 
 ## 执行顺序
-1. 复现并记录当前 `test:noop` 信号，确认 5 包脚本与测试资产现状。
-2. 迁移 `otlp-core` golden 测试（含 fixture + runner），将 `test` 脚本切换到真实断言。
-3. 为 `backend-langfuse` 增加最小行为断言测试，并切换 `test` 脚本。
-4. 为 `openclaw-plugin`、`opencode-plugin` 增加合约级冒烟测试，并切换 `test` 脚本。
-5. 为 `alipay-cli` 增加包级完整性断言测试并切换 `test` 脚本；随后执行分包验收。
+1. 归档旧版 `plan.md`/`todo.md` 并生成本阶段计划。
+2. 在 `packages/cli` 增加 coverage provider 依赖与 Vitest coverage 配置（70% line）。
+3. 在工作流中加入 Coverage Gate（执行 `--coverage`）。
+4. 运行定向验证并记录结果。
 
 ## 验收标准
-- 5 个目标包 `package.json` 的 `test` 不再是 `console.log(...:test:noop)`。
-- `otlp-core` 的 golden 测试可稳定通过，且对 fixture 输入输出做等值断言。
-- `openclaw-plugin`、`opencode-plugin` 各至少有 1 个合约级冒烟测试并含明确断言。
-- `backend-langfuse`、`alipay-cli` 至少各有 1 个实际断言测试。
-- 下列命令全部通过：
-  - `npm -w packages/otlp-core test`
-  - `npm -w packages/backend-langfuse test`
-  - `npm -w packages/openclaw-plugin test`
-  - `npm -w packages/opencode-plugin test`
-  - `npm -w packages/alipay-cli test`
+- `packages/cli` 可执行 `vitest --coverage` 且不再缺失 `@vitest/coverage-v8`。
+- 覆盖率阈值存在且行覆盖率阈值为 70%。
+- CI 与 Release verify 阶段包含覆盖率门禁步骤。
