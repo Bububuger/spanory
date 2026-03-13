@@ -4,8 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
 
-const REDACTED = '[REDACTED]';
-const SENSITIVE_KEY_RE = /(authorization|cookie|set-cookie|x-api-key|api[-_]?key|token|password|secret)/i;
+import { REDACTED, SENSITIVE_KEY_RE, redactBody, truncateText } from '../shared/redaction.js';
 
 function isSensitiveKey(key) {
   return SENSITIVE_KEY_RE.test(String(key ?? ''));
@@ -24,63 +23,6 @@ function redactHeaders(headers) {
     out[lowerKey] = isSensitiveKey(lowerKey) ? REDACTED : normalizeHeaderValue(value);
   }
   return out;
-}
-
-function truncateText(text, maxBytes) {
-  const raw = String(text ?? '');
-  if (!Number.isFinite(maxBytes) || maxBytes <= 0) return raw;
-  if (Buffer.byteLength(raw, 'utf8') <= maxBytes) return raw;
-
-  let low = 0;
-  let high = raw.length;
-  while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
-    if (Buffer.byteLength(raw.slice(0, mid), 'utf8') <= maxBytes) {
-      low = mid;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  return `${raw.slice(0, Math.max(0, low))}...[truncated]`;
-}
-
-function redactBody(value, maxBytes) {
-  function walk(current, keyHint = '') {
-    if (current === null || current === undefined) return current;
-    if (typeof current === 'string') {
-      if (isSensitiveKey(keyHint)) return REDACTED;
-      return truncateText(current, maxBytes);
-    }
-    if (typeof current === 'number' || typeof current === 'boolean') {
-      if (isSensitiveKey(keyHint)) return REDACTED;
-      return current;
-    }
-    if (Array.isArray(current)) {
-      return current.map((item) => walk(item, keyHint));
-    }
-    if (typeof current === 'object') {
-      const out = {};
-      for (const [key, val] of Object.entries(current)) {
-        if (isSensitiveKey(key)) {
-          out[key] = REDACTED;
-        } else {
-          out[key] = walk(val, key);
-        }
-      }
-      return out;
-    }
-    return truncateText(String(current), maxBytes);
-  }
-
-  const redacted = walk(value);
-  if (!Number.isFinite(maxBytes) || maxBytes <= 0) return redacted;
-  const serialized = JSON.stringify(redacted);
-  if (Buffer.byteLength(serialized, 'utf8') <= maxBytes) return redacted;
-  return {
-    __truncated__: true,
-    preview: truncateText(serialized, maxBytes),
-  };
 }
 
 function parseBodyFromBuffer(buffer, contentType, maxBytes) {
