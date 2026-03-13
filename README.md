@@ -374,7 +374,7 @@ spanory runtime claude-code export \
 
 ### 3) Hook runs but no data
 
-- Ensure Claude Code hook command is exactly `spanory hook`.
+- Ensure Claude Code hook command is exactly `spanory hook --last-turn-only`.
 - Prefer binding both `Stop` and `SessionEnd`.
 - Check local hook log:
 ```bash
