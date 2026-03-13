@@ -4,7 +4,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -1137,6 +1137,60 @@ async function applyCodexWatchSetup({ homeRoot, dryRun }) {
 }
 
 
+function codexWatchPidFile() {
+  return path.join(resolveSpanoryHome(), 'codex-watch.pid');
+}
+
+function isCodexWatchRunning() {
+  try {
+    const pid = Number(readFileSync(codexWatchPidFile(), 'utf-8').trim());
+    if (!pid || !Number.isFinite(pid)) return false;
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function startCodexWatch(spanoryBin) {
+  if (isCodexWatchRunning()) return { started: false, reason: 'already running' };
+  const logDir = path.join(resolveSpanoryHome(), 'logs');
+  await mkdir(logDir, { recursive: true });
+  const logFile = path.join(logDir, 'codex-watch.log');
+  const out = openSync(logFile, 'a');
+  const child = spawn(spanoryBin, ['runtime', 'codex', 'watch', '--last-turn-only'], {
+    detached: true,
+    stdio: ['ignore', out, out],
+    env: process.env,
+  });
+  child.unref();
+  const pidFile = codexWatchPidFile();
+  await mkdir(path.dirname(pidFile), { recursive: true });
+  await writeFile(pidFile, String(child.pid), 'utf-8');
+  return { started: true, pid: child.pid, logFile, pidFile };
+}
+
+async function stopCodexWatch() {
+  const pidFile = codexWatchPidFile();
+  let pid;
+  try {
+    pid = Number((await readFile(pidFile, 'utf-8')).trim());
+  } catch {
+    return { stopped: false, reason: 'no pid file' };
+  }
+  if (!pid || !Number.isFinite(pid)) {
+    await rm(pidFile, { force: true });
+    return { stopped: false, reason: 'invalid pid' };
+  }
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {
+    // already dead
+  }
+  await rm(pidFile, { force: true });
+  return { stopped: true, pid };
+}
+
 function removeClaudeHooks(settings) {
   if (!settings.hooks || typeof settings.hooks !== 'object') return;
   for (const eventName of Object.keys(settings.hooks)) {
@@ -1200,7 +1254,9 @@ async function teardownCodexSetup({ homeRoot, dryRun }) {
     }
     if (scriptPresent) await rm(scriptPath, { force: true });
   }
-  return { runtime: 'codex', ok: true, changed, dryRun, configPath, scriptPath, configBackup, scriptRemoved: scriptPresent };
+  let watchStopped = null;
+  if (!dryRun) watchStopped = await stopCodexWatch();
+  return { runtime: 'codex', ok: true, changed, dryRun, configPath, scriptPath, configBackup, scriptRemoved: scriptPresent, watchStopped };
 }
 
 async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) {
@@ -1652,6 +1708,10 @@ async function runSetupApply(options) {
   if (selected.includes('codex')) {
     try {
       const result = await applyCodexWatchSetup({ homeRoot, dryRun });
+      if (!dryRun) {
+        const watch = await startCodexWatch(spanoryBin);
+        result.watch = watch;
+      }
       results.push(result);
     } catch (error) {
       results.push({ runtime: 'codex', ok: false, error: String(error?.message ?? error) });
