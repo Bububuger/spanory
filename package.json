@@ -1,7 +1,7 @@
 {
   "name": "spanory",
   "private": true,
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Cross-runtime observability toolkit for agent systems",
   "license": "MIT",
   "workspaces": [
