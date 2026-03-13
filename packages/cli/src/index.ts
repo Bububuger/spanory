@@ -1422,6 +1422,7 @@ async function installOpencodePlugin(runtimeHome, pluginDirOverride) {
   const loader = `import plugin from ${JSON.stringify(importUrl)};\n`
     + 'export const SpanoryOpencodePlugin = plugin;\n'
     + 'export default SpanoryOpencodePlugin;\n';
+  await writeFile(path.join(installDir, 'package.json'), '{"type":"module"}\n', 'utf-8');
   await writeFile(loaderFile, loader, 'utf-8');
   return { loaderFile };
 }
