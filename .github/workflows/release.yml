@@ -46,6 +46,9 @@ jobs:
       - name: Unit Tests
         run: npm test
 
+      - name: Coverage Gate
+        run: npm run --workspace @bububuger/spanory test:coverage
+
       - name: BDD Tests
         run: npm run test:bdd
 
