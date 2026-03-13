@@ -1,0 +1,9 @@
+type: directory
+summary: "执行计划生命周期管理：活跃计划、已完成归档、技术债追踪"
+created: 2026-03-13T22:00:00+08:00
+modified: 2026-03-13T22:00:00+08:00
+tags: [plans, execution, tech-debt]
+index:
+  - active/: "当前执行中的计划"
+  - completed/: "已完成计划归档"
+  - tech-debt-tracker.md: "技术债台账"

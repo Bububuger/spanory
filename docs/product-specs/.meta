@@ -1,0 +1,8 @@
+type: directory
+summary: "产品规格文档：功能定义、用户流程、PRD"
+created: 2026-03-13T22:00:00+08:00
+modified: 2026-03-13T22:00:00+08:00
+tags: [product, specs, requirements]
+index:
+  - index.md: "产品规格索引"
+  - setup-onboarding.md: "setup 一键接入流程"

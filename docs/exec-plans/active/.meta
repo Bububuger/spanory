@@ -1,0 +1,5 @@
+type: directory
+summary: "当前执行中的计划，完成后移至 completed/"
+created: 2026-03-13T22:00:00+08:00
+modified: 2026-03-13T22:00:00+08:00
+tags: [plans, active]
