@@ -774,8 +774,12 @@ function resolveOpenclawPluginDir() {
   if (process.env.SPANORY_OPENCLAW_PLUGIN_DIR) {
     return process.env.SPANORY_OPENCLAW_PLUGIN_DIR;
   }
+  const pkgCandidate = (process as any).pkg
+    ? path.resolve(path.dirname(process.execPath), '..', 'openclaw-plugin')
+    : undefined;
   const candidates = [
     resolveInstalledPackageDir('@bububuger/spanory-openclaw-plugin'),
+    pkgCandidate,
     path.resolve(CLI_PACKAGE_DIR, '..', 'openclaw-plugin'),
     path.resolve(CLI_PACKAGE_DIR, 'openclaw-plugin'),
     path.resolve(process.cwd(), 'packages/openclaw-plugin'),

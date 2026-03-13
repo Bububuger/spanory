@@ -21,6 +21,12 @@ cp -r "$CLI_DIST_SRC" "$CLI_DIST_DST"
 chmod +x "$CLI_DIST_DST/index.js"
 echo "Synced CLI dist -> $CLI_DIST_DST"
 
+# Sync openclaw-plugin (needed by openclaw plugins install -l)
+OPENCLAW_PLUGIN_DST="$PACKAGE_DIR/openclaw-plugin"
+rm -rf "$OPENCLAW_PLUGIN_DST"
+cp -r "$REPO_ROOT/packages/openclaw-plugin" "$OPENCLAW_PLUGIN_DST"
+echo "Synced openclaw-plugin"
+
 # Sync opencode-plugin source (needed by opencode at runtime via file:// import)
 rm -rf "$PLUGIN_DST"
 cp -r "$REPO_ROOT/packages/opencode-plugin" "$PLUGIN_DST"
