@@ -1,0 +1,37 @@
+{
+  "resource": {
+    "serviceName": "spanory",
+    "serviceVersion": "0.1.0",
+    "environment": "test"
+  },
+  "events": [
+    {
+      "runtime": "claude-code",
+      "sessionId": "golden-s1",
+      "projectId": "golden-p1",
+      "turnId": "turn-1",
+      "category": "turn",
+      "name": "Turn 1",
+      "startedAt": "2026-02-27T00:00:00.000Z",
+      "endedAt": "2026-02-27T00:00:01.000Z",
+      "input": "hi",
+      "output": "hello",
+      "attributes": {}
+    },
+    {
+      "runtime": "claude-code",
+      "sessionId": "golden-s1",
+      "projectId": "golden-p1",
+      "turnId": "turn-1",
+      "category": "shell_command",
+      "name": "Tool: Bash",
+      "startedAt": "2026-02-27T00:00:00.500Z",
+      "endedAt": "2026-02-27T00:00:00.600Z",
+      "input": "pwd",
+      "output": "/tmp",
+      "attributes": {
+        "gen_ai.tool.call.id": "call-1"
+      }
+    }
+  ]
+}

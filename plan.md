@@ -1,38 +1,25 @@
-# Plan (2026-03-14) — BUB-13 normalize.ts 拆分治理
+# Plan (2026-03-14) — BUB-15 去除 5 包 `test:noop`
 
 ## 目标
-1. 将 `packages/cli/src/runtime/shared/normalize.ts` 中混合职责按建议拆分为 `usage.ts`、`content.ts`、`gateway.ts`、`turn.ts`。
-2. 保持 `normalizeTranscriptMessages`、`pickUsage`、`parseProjectIdFromTranscriptPath` 等现有对外契约不变。
-3. 在不改变行为的前提下显著缩小 `normalize.ts` 体积，去除超长 `createTurn` 私有函数。
-
-## 拆分边界（Contract-First）
-1. `usage.ts`
-   - 承载 usage 聚合与属性映射：`pickUsage`、`addUsage`、`usageAttributes`、`modelAttributes`。
-2. `content.ts`
-   - 承载消息内容解析与命令判定：`extractText`、`extractToolUses`、`extractToolResults`、`extractReasoningBlocks`、`isPromptUserMessage`、`parseSlashCommand`、`parseBashCommandAttributes`、`isMcpToolName`、`extractToolResultText`、`isoFromUnknownTimestamp`。
-3. `gateway.ts`
-   - 承载 gateway 输入归一化：`runtimeVersionAttributes`、`extractGatewayInputMetadata`、`normalizeUserInput`。
-4. `turn.ts`
-   - 承载 turn 级事件编译：`createTurn` 及其私有辅助（actor、parent-link 推断）。
-5. `normalize.ts`
-   - 保留主 pipeline：`groupByTurns`、`normalizeTranscriptMessages`、context 估算与 attribution 逻辑、`parseProjectIdFromTranscriptPath`。
-   - 通过导入/再导出维持既有调用方契约。
-
-## 风险与防护
-1. 行为漂移风险：tool/result 时间戳、reasoning 分离、context 事件字段。
-   - 防护：保持函数签名和字段字面量不变；跑现有 `normalize.spec.ts`。
-2. 导出兼容风险：`pickUsage` 仍被多个 adapter 依赖。
-   - 防护：`normalize.ts` 显式 re-export `pickUsage`。
-3. 结构性风险：拆分后导入循环或遗漏。
-   - 防护：单向依赖（`turn.ts` 依赖 usage/content/gateway，`normalize.ts` 依赖 `turn.ts` + `content.ts`）。
+1. 将 `backend-langfuse`、`otlp-core`、`openclaw-plugin`、`opencode-plugin`、`alipay-cli` 的 `test` 从零断言 `console.log(...:test:noop)` 升级为可验证行为。
+2. 在 `otlp-core` 引入 golden 测试夹具，稳定断言 OTLP 编译输出。
+3. 为 plugin 包补齐合约级冒烟测试，至少覆盖导出契约与最小注册/调用路径。
 
 ## 执行顺序
-1. 建立四个新模块并迁移对应函数，保持实现一致。
-2. 回填 `normalize.ts` 的 import/export，移除重复实现。
-3. 运行定向结构验证（行数、createTurn 位置）。
-4. 运行单测与项目检查，确认无行为回归。
+1. 复现并记录当前 `test:noop` 信号，确认 5 包脚本与测试资产现状。
+2. 迁移 `otlp-core` golden 测试（含 fixture + runner），将 `test` 脚本切换到真实断言。
+3. 为 `backend-langfuse` 增加最小行为断言测试，并切换 `test` 脚本。
+4. 为 `openclaw-plugin`、`opencode-plugin` 增加合约级冒烟测试，并切换 `test` 脚本。
+5. 为 `alipay-cli` 增加包级完整性断言测试并切换 `test` 脚本；随后执行分包验收。
 
 ## 验收标准
-- `normalize.ts` 不再包含超长 `createTurn` 实现，体积显著下降。
-- `usage.ts` / `content.ts` / `gateway.ts` / `turn.ts` 落地且职责清晰。
-- `npm test` 与 `npm run check` 通过。
+- 5 个目标包 `package.json` 的 `test` 不再是 `console.log(...:test:noop)`。
+- `otlp-core` 的 golden 测试可稳定通过，且对 fixture 输入输出做等值断言。
+- `openclaw-plugin`、`opencode-plugin` 各至少有 1 个合约级冒烟测试并含明确断言。
+- `backend-langfuse`、`alipay-cli` 至少各有 1 个实际断言测试。
+- 下列命令全部通过：
+  - `npm -w packages/otlp-core test`
+  - `npm -w packages/backend-langfuse test`
+  - `npm -w packages/openclaw-plugin test`
+  - `npm -w packages/opencode-plugin test`
+  - `npm -w packages/alipay-cli test`
