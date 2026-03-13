@@ -7,6 +7,7 @@ import {
   estimateTokens,
   pollutionScoreV1,
 } from '@bububuger/core';
+import { REDACTED, redactBody, truncateText } from './redaction.js';
 
 import { isPromptUserMessage } from './content.js';
 import { createTurn } from './turn.js';
