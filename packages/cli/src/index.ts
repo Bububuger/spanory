@@ -296,8 +296,7 @@ function resolveRuntimeHome(runtimeName, explicitRuntimeHome) {
   }
   if (runtimeName === 'openclaw') {
     return (
-      process.env.SPANORY_OPENCLOW_HOME
-      ?? process.env.SPANORY_OPENCLAW_HOME
+      process.env.SPANORY_OPENCLAW_HOME
       ?? path.join(process.env.HOME || '', '.openclaw')
     );
   }

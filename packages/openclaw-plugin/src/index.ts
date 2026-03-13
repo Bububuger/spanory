@@ -300,8 +300,7 @@ function nowIso() {
 }
 
 function pluginStateRoot() {
-  const home = process.env.SPANORY_OPENCLOW_HOME
-    ?? process.env.SPANORY_OPENCLAW_HOME
+  const home = process.env.SPANORY_OPENCLAW_HOME
     ?? process.env.OPENCLAW_STATE_DIR
     ?? path.join(os.homedir(), '.openclaw');
   return path.join(home, 'state', 'spanory');

@@ -1,3 +1,5 @@
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -52,6 +54,51 @@ describe('openclawAdapter', () => {
       sessionId: 'abc',
       transcriptPath: '/Users/me/.openclaw/agents/main/sessions/abc.jsonl',
     });
+  });
+
+  it('ignores misspelled SPANORY_OPENCLOW_HOME when resolving runtime home', async () => {
+    const prevOpenclawHome = process.env.SPANORY_OPENCLAW_HOME;
+    const prevOpenclowHome = process.env.SPANORY_OPENCLOW_HOME;
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-openclaw-env-'));
+    const projectId = 'test-project';
+    const sessionId = 'session-env-home';
+    const preferredHome = path.join(tempRoot, 'preferred-home');
+    const typoHome = path.join(tempRoot, 'typo-home');
+    const preferredFixture = path.resolve('test/fixtures/openclaw/projects/test-project/session-a.jsonl');
+    const typoFixture = path.resolve('test/fixtures/openclaw/projects/test-project/session-b.jsonl');
+
+    try {
+      await mkdir(path.join(preferredHome, 'projects', projectId), { recursive: true });
+      await mkdir(path.join(typoHome, 'projects', projectId), { recursive: true });
+      await writeFile(
+        path.join(preferredHome, 'projects', projectId, `${sessionId}.jsonl`),
+        await readFile(preferredFixture, 'utf-8'),
+        'utf-8',
+      );
+      await writeFile(
+        path.join(typoHome, 'projects', projectId, `${sessionId}.jsonl`),
+        await readFile(typoFixture, 'utf-8'),
+        'utf-8',
+      );
+
+      process.env.SPANORY_OPENCLAW_HOME = preferredHome;
+      process.env.SPANORY_OPENCLOW_HOME = typoHome;
+
+      const events = await openclawAdapter.collectEvents({
+        projectId,
+        sessionId,
+      });
+
+      const turn = events.find((event) => event.category === 'turn');
+      expect(turn).toBeTruthy();
+      expect(turn?.attributes['gen_ai.usage.input_tokens']).toBe(17);
+    } finally {
+      if (prevOpenclawHome === undefined) delete process.env.SPANORY_OPENCLAW_HOME;
+      else process.env.SPANORY_OPENCLAW_HOME = prevOpenclawHome;
+      if (prevOpenclowHome === undefined) delete process.env.SPANORY_OPENCLOW_HOME;
+      else process.env.SPANORY_OPENCLOW_HOME = prevOpenclowHome;
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('deduplicates assistant snapshots by message id and keeps fallback toolUseResult output', async () => {
