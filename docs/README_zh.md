@@ -356,7 +356,7 @@ OpenClaw transcript 默认支持两种目录：
 可覆盖 OpenClaw runtime home：
 
 ```bash
-export SPANORY_OPENCLOW_HOME="$HOME/.openclaw"
+export SPANORY_OPENCLAW_HOME="$HOME/.openclaw"
 ```
 
 实时 hook（补数/排障场景）：
