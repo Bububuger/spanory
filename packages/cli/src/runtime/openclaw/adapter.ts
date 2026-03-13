@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { extractToolUses } from '@bububuger/core';
 
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
 import { forEachJsonlEntry } from '../shared/jsonl.js';
@@ -147,11 +148,6 @@ function normalizeAgentId(entry) {
     ?? entry?.payload?.agentId
     ?? entry?.payload?.agent_id
   );
-}
-
-function extractToolUses(content) {
-  if (!Array.isArray(content)) return [];
-  return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_use');
 }
 
 function extractToolResults(content) {

@@ -10,9 +10,9 @@ import { createRequire } from 'node:module';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/dist/index.js';
 import { loadUserEnv } from '../../cli/dist/env.js';
+import { GATEWAY_INPUT_METADATA_BLOCK_RE, toNumber } from '../../core/dist/index.js';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
-const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
 const EXECUTION_ENTRY = (() => {
   const candidate = fileURLToPath(import.meta.url);
   try {
@@ -69,11 +69,6 @@ const SPANORY_SERVICE_VERSION = process.env.SPANORY_VERSION
   ?? readSpanoryVersionFromBinary()
   ?? readSpanoryVersionFromPackageJson()
   ?? DEFAULT_SPANORY_VERSION;
-
-function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
 
 function usageToAttributes(usage) {
   if (!usage || typeof usage !== 'object') return {};

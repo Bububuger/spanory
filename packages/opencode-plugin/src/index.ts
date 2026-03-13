@@ -12,6 +12,7 @@ import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '../../otlp-core/dist/index.js';
 import { loadUserEnv } from '../../cli/dist/env.js';
 import { normalizeTranscriptMessages, pickUsage } from '../../cli/dist/runtime/shared/normalize.js';
+import { toNumber } from '../../core/dist/index.js';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
 const EXECUTION_ENTRY = (() => {
@@ -94,11 +95,6 @@ const TURN_FLUSH_EVENTS = new Set([
   'assistant.completed',
   'assistant.complete',
 ]);
-
-function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
 
 function nowIso() {
   return new Date().toISOString();

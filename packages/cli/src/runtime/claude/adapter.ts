@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { extractToolUses } from '@bububuger/core';
 
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
 import { forEachJsonlEntry } from '../shared/jsonl.js';
@@ -22,11 +23,6 @@ function normalizeIsSidechain(entry) {
 
 function normalizeAgentId(entry) {
   return entry?.agentId ?? entry?.agent_id ?? entry?.message?.agentId ?? entry?.message?.agent_id;
-}
-
-function extractToolUses(content) {
-  if (!Array.isArray(content)) return [];
-  return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_use');
 }
 
 function extractToolResults(content) {
