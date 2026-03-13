@@ -38,8 +38,8 @@
     "commander": "^14.0.1"
   },
   "devDependencies": {
+    "@yao-pkg/pkg": "^6.14.1",
     "esbuild": "^0.25.10",
-    "pkg": "^5.8.1",
     "vitest": "^3.2.4"
   }
 }
