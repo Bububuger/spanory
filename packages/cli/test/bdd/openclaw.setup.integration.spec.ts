@@ -8,12 +8,13 @@ import { describe, expect, it } from 'vitest';
 const entry = path.resolve('dist/index.js');
 
 describe('BDD openclaw setup path normalization', () => {
-  it('Given conflicting spanory plugin paths, When setup apply installs openclaw plugin, Then only one spanory path remains', () => {
+  function prepareFakeOpenclawEnvironment() {
     const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-openclaw-setup-home-'));
     const openclawHome = path.join(fakeHome, '.openclaw');
     const openclawConfigPath = path.join(openclawHome, 'openclaw.json');
     const fakeBinDir = mkdtempSync(path.join(tmpdir(), 'spanory-openclaw-bin-'));
     const fakeOpenclawBin = path.join(fakeBinDir, 'openclaw');
+    const commandLogPath = path.join(fakeHome, 'openclaw-commands.log');
     const targetPluginDir = path.resolve('../openclaw-plugin');
 
     mkdirSync(openclawHome, { recursive: true });
@@ -38,14 +39,45 @@ describe('BDD openclaw setup path normalization', () => {
       fakeOpenclawBin,
       '#!/usr/bin/env bash\n'
         + 'set -euo pipefail\n'
-        + 'if [[ "${1:-}" == "plugins" && "${2:-}" == "install" ]]; then exit 0; fi\n'
-        + 'if [[ "${1:-}" == "plugins" && "${2:-}" == "enable" ]]; then exit 0; fi\n'
+        + 'printf "%s\\n" "$*" >> "${SPANORY_TEST_OPENCLAW_LOG}"\n'
         + 'if [[ "${1:-}" == "plugins" && "${2:-}" == "info" ]]; then echo "enabled: true"; exit 0; fi\n'
         + 'if [[ "${1:-}" == "--version" ]]; then echo "0.0.0"; exit 0; fi\n'
         + 'exit 0\n',
       'utf-8',
     );
     chmodSync(fakeOpenclawBin, 0o755);
+
+    return {
+      fakeHome,
+      openclawHome,
+      openclawConfigPath,
+      fakeBinDir,
+      commandLogPath,
+      targetPluginDir,
+    };
+  }
+
+  function assertNormalizedConfigAndOpenclawCalls(openclawConfigPath, commandLogPath, targetPluginDir) {
+    const nextConfig = JSON.parse(readFileSync(openclawConfigPath, 'utf-8'));
+    const paths = Array.isArray(nextConfig?.plugins?.load?.paths) ? nextConfig.plugins.load.paths : [];
+    expect(paths.filter((item) => item === targetPluginDir)).toHaveLength(1);
+    expect(paths).not.toContain('/tmp/legacy/spanory/packages/openclaw-plugin');
+    expect(paths.filter((item) => item === '/tmp/other-plugin')).toHaveLength(1);
+
+    const openclawCalls = readFileSync(commandLogPath, 'utf-8');
+    expect(openclawCalls).toContain('plugins install -l');
+    expect(openclawCalls).toContain('plugins enable spanory-openclaw-plugin');
+  }
+
+  it('Given conflicting spanory plugin paths, When setup apply installs openclaw plugin, Then only one spanory path remains', () => {
+    const {
+      fakeHome,
+      openclawHome,
+      openclawConfigPath,
+      fakeBinDir,
+      commandLogPath,
+      targetPluginDir,
+    } = prepareFakeOpenclawEnvironment();
 
     const output = execFileSync(
       'node',
@@ -66,23 +98,50 @@ describe('BDD openclaw setup path normalization', () => {
           ...process.env,
           HOME: fakeHome,
           PATH: `${fakeBinDir}:${process.env.PATH ?? ''}`,
+          SPANORY_TEST_OPENCLAW_LOG: commandLogPath,
           OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
         },
       },
     );
     const report = JSON.parse(output);
     expect(report.ok).toBe(true);
+    assertNormalizedConfigAndOpenclawCalls(openclawConfigPath, commandLogPath, targetPluginDir);
+  });
 
-    const nextConfig = JSON.parse(readFileSync(openclawConfigPath, 'utf-8'));
-    const paths = Array.isArray(nextConfig?.plugins?.load?.paths) ? nextConfig.plugins.load.paths : [];
-    const spanoryPaths = paths.filter((item) => {
-      const text = String(item ?? '').toLowerCase();
-      return text.includes('spanory') && text.includes('openclaw-plugin');
-    });
+  it('Given conflicting spanory plugin paths, When runtime openclaw plugin install runs, Then it normalizes paths and enables plugin', () => {
+    const {
+      fakeHome,
+      openclawHome,
+      openclawConfigPath,
+      fakeBinDir,
+      commandLogPath,
+      targetPluginDir,
+    } = prepareFakeOpenclawEnvironment();
 
-    expect(spanoryPaths).toHaveLength(1);
-    expect(spanoryPaths[0]).toBe(targetPluginDir);
-    expect(paths.filter((item) => item === '/tmp/other-plugin')).toHaveLength(1);
+    const result = execFileSync(
+      'node',
+      [
+        entry,
+        'runtime',
+        'openclaw',
+        'plugin',
+        'install',
+        '--runtime-home',
+        openclawHome,
+      ],
+      {
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          HOME: fakeHome,
+          PATH: `${fakeBinDir}:${process.env.PATH ?? ''}`,
+          SPANORY_TEST_OPENCLAW_LOG: commandLogPath,
+          OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+        },
+      },
+    );
+
+    expect(result).toBeTypeOf('string');
+    assertNormalizedConfigAndOpenclawCalls(openclawConfigPath, commandLogPath, targetPluginDir);
   });
 });
-

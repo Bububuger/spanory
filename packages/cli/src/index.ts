@@ -43,6 +43,7 @@ const backendAdapters = {
 const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
 const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 const DEFAULT_SETUP_RUNTIMES = ['claude-code', 'codex', 'openclaw', 'opencode'];
+const PLUGIN_RUNTIME_NAMES = ['openclaw', 'opencode'];
 const EMPTY_OUTPUT_RETRY_WINDOW_MS = 1000;
 const EMPTY_OUTPUT_RETRY_INTERVAL_MS = 120;
 const SPANORY_NPM_PACKAGE = '@bububuger/spanory';
@@ -1036,6 +1037,14 @@ function parseSetupRuntimes(csv) {
   return selected;
 }
 
+function parsePluginRuntimeName(runtimeName) {
+  const name = String(runtimeName ?? '').trim();
+  if (name === 'openclaw' || name === 'opencode') {
+    return name;
+  }
+  throw new Error(`unsupported runtime in --runtime: ${name || '<empty>'}`);
+}
+
 function backupSuffix() {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
@@ -1344,10 +1353,7 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) 
   }
   const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, openclawRuntimeHome);
   if (dryRun) return { runtime: 'openclaw', ok: true, changed: true, dryRun };
-  const result = runSystemCommand('openclaw', ['plugins', 'uninstall', OPENCLAW_SPANORY_PLUGIN_ID], {
-    env: { ...process.env, ...(runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', runtimeHome) } : {}) },
-  });
-  if (result.code !== 0) throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
+  uninstallOpenclawPlugin(runtimeHome);
   return { runtime: 'openclaw', ok: true, changed: true, dryRun };
 }
 
@@ -1546,12 +1552,13 @@ async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun) 
   return { changed: true, configPath, backup };
 }
 
-async function installOpenclawPlugin(runtimeHome, dryRun) {
-  const pluginDir = path.resolve(resolveOpenclawPluginDir());
+async function installOpenclawPlugin(runtimeHome, dryRun, pluginDirOverride) {
+  const pluginDir = path.resolve(pluginDirOverride ?? resolveOpenclawPluginDir());
+  const resolvedRuntimeHome = resolveRuntimeHome('openclaw', runtimeHome);
   const installResult = runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
     env: {
       ...process.env,
-      OPENCLAW_STATE_DIR: runtimeHome,
+      OPENCLAW_STATE_DIR: resolvedRuntimeHome,
     },
   });
   if (installResult.code !== 0) {
@@ -1560,14 +1567,14 @@ async function installOpenclawPlugin(runtimeHome, dryRun) {
   const enableResult = runSystemCommand('openclaw', ['plugins', 'enable', OPENCLAW_SPANORY_PLUGIN_ID], {
     env: {
       ...process.env,
-      OPENCLAW_STATE_DIR: runtimeHome,
+      OPENCLAW_STATE_DIR: resolvedRuntimeHome,
     },
   });
   if (enableResult.code !== 0) {
     throw new Error(enableResult.stderr || enableResult.error || 'openclaw plugins enable failed');
   }
-  const pathNormalizeResult = await normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun);
-  const runtimeDirs = await ensureOpenclawPluginRuntimeDirs(runtimeHome);
+  const pathNormalizeResult = await normalizeOpenclawPluginLoadPaths(resolvedRuntimeHome, pluginDir, dryRun);
+  const runtimeDirs = await ensureOpenclawPluginRuntimeDirs(resolvedRuntimeHome);
   return {
     pluginDir,
     installStdout: installResult.stdout.trim(),
@@ -1619,6 +1626,66 @@ async function installOpencodePlugin(runtimeHome, pluginDirOverride) {
 
   const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome);
   return { loaderFile, runtimeDirs };
+}
+
+function uninstallOpenclawPlugin(runtimeHome) {
+  const result = runSystemCommand('openclaw', ['plugins', 'uninstall', OPENCLAW_SPANORY_PLUGIN_ID], {
+    env: {
+      ...process.env,
+      OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', runtimeHome),
+    },
+  });
+  if (result.code !== 0) {
+    throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
+  }
+  return {
+    stdout: result.stdout.trim(),
+  };
+}
+
+async function uninstallOpencodePlugin(runtimeHome) {
+  const loaderFile = opencodePluginLoaderPath(runtimeHome);
+  await rm(loaderFile, { force: true });
+  return { loaderFile };
+}
+
+async function runPluginInstallCommand(runtimeName, options = {}) {
+  const runtime = parsePluginRuntimeName(runtimeName);
+  if (runtime === 'openclaw') {
+    const result = await installOpenclawPlugin(options.runtimeHome, false, options.pluginDir);
+    if (result.installStdout) console.log(result.installStdout);
+    if (result.enableStdout) console.log(result.enableStdout);
+    return;
+  }
+
+  const result = await installOpencodePlugin(options.runtimeHome, options.pluginDir);
+  console.log(`installed=${result.loaderFile}`);
+}
+
+async function runPluginDoctorCommand(runtimeName, options = {}) {
+  const runtime = parsePluginRuntimeName(runtimeName);
+  if (runtime === 'openclaw') {
+    const report = await runOpenclawPluginDoctor(options.runtimeHome);
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.ok) process.exitCode = 2;
+    return;
+  }
+
+  const report = await runOpencodePluginDoctor(options.runtimeHome);
+  console.log(JSON.stringify(report, null, 2));
+  if (!report.ok) process.exitCode = 2;
+}
+
+async function runPluginUninstallCommand(runtimeName, options = {}) {
+  const runtime = parsePluginRuntimeName(runtimeName);
+  if (runtime === 'openclaw') {
+    const result = uninstallOpenclawPlugin(options.runtimeHome);
+    if (result.stdout) console.log(result.stdout);
+    return;
+  }
+
+  const result = await uninstallOpencodePlugin(options.runtimeHome);
+  console.log(`removed=${result.loaderFile}`);
 }
 
 async function runSetupDetect(options) {
@@ -2098,21 +2165,11 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
 
     plugin
       .command('install')
-      .description('Install Spanory OpenClaw plugin using openclaw plugins install -l')
+      .description('Install Spanory OpenClaw plugin (alias: spanory install --runtime openclaw)')
       .option('--plugin-dir <path>', 'Plugin directory path (default: packages/openclaw-plugin)')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const pluginDir = path.resolve(options.pluginDir ?? resolveOpenclawPluginDir());
-        const result = runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins install failed');
-        }
+      .action(async (options) => {
+        await runPluginInstallCommand('openclaw', options);
       });
 
     plugin
@@ -2151,29 +2208,18 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
 
     plugin
       .command('uninstall')
-      .description('Uninstall Spanory OpenClaw plugin')
+      .description('Uninstall Spanory OpenClaw plugin (alias: spanory uninstall --runtime openclaw)')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const result = runSystemCommand('openclaw', ['plugins', 'uninstall', OPENCLAW_SPANORY_PLUGIN_ID], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
-        }
+      .action(async (options) => {
+        await runPluginUninstallCommand('openclaw', options);
       });
 
     plugin
       .command('doctor')
-      .description('Run local diagnostic checks for Spanory OpenClaw plugin')
+      .description('Run local diagnostic checks for Spanory OpenClaw plugin (alias: spanory doctor --runtime openclaw)')
       .option('--runtime-home <path>', 'Override runtime home directory')
       .action(async (options) => {
-        const report = await runOpenclawPluginDoctor(options.runtimeHome);
-        console.log(JSON.stringify(report, null, 2));
-        if (!report.ok) process.exitCode = 2;
+        await runPluginDoctorCommand('openclaw', options);
       });
   }
 
@@ -2184,32 +2230,27 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
 
     plugin
       .command('install')
-      .description('Install Spanory OpenCode plugin loader into ~/.config/opencode/plugin')
+      .description('Install Spanory OpenCode plugin loader (alias: spanory install --runtime opencode)')
       .option('--plugin-dir <path>', 'Plugin directory path (default: packages/opencode-plugin)')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
       .action(async (options) => {
-        const result = await installOpencodePlugin(options.runtimeHome, options.pluginDir);
-        console.log(`installed=${result.loaderFile}`);
+        await runPluginInstallCommand('opencode', options);
       });
 
     plugin
       .command('uninstall')
-      .description('Remove Spanory OpenCode plugin loader')
+      .description('Remove Spanory OpenCode plugin loader (alias: spanory uninstall --runtime opencode)')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
       .action(async (options) => {
-        const loaderFile = opencodePluginLoaderPath(options.runtimeHome);
-        await rm(loaderFile, { force: true });
-        console.log(`removed=${loaderFile}`);
+        await runPluginUninstallCommand('opencode', options);
       });
 
     plugin
       .command('doctor')
-      .description('Run local diagnostic checks for Spanory OpenCode plugin')
+      .description('Run local diagnostic checks for Spanory OpenCode plugin (alias: spanory doctor --runtime opencode)')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
       .action(async (options) => {
-        const report = await runOpencodePluginDoctor(options.runtimeHome);
-        console.log(JSON.stringify(report, null, 2));
-        if (!report.ok) process.exitCode = 2;
+        await runPluginDoctorCommand('opencode', options);
       });
   }
 }
@@ -2373,6 +2414,34 @@ program
         ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR
         ?? resolveRuntimeExportDir(runtimeName, options.runtimeHome),
     });
+  });
+
+program
+  .command('install')
+  .description('Install Spanory runtime plugin (shortcut for runtime <runtime> plugin install)')
+  .requiredOption('--runtime <name>', `Target runtime (${PLUGIN_RUNTIME_NAMES.join('|')})`)
+  .option('--plugin-dir <path>', 'Plugin directory path override')
+  .option('--runtime-home <path>', 'Override runtime home directory')
+  .action(async (options) => {
+    await runPluginInstallCommand(options.runtime, options);
+  });
+
+program
+  .command('doctor')
+  .description('Run Spanory runtime plugin diagnostics (shortcut for runtime <runtime> plugin doctor)')
+  .requiredOption('--runtime <name>', `Target runtime (${PLUGIN_RUNTIME_NAMES.join('|')})`)
+  .option('--runtime-home <path>', 'Override runtime home directory')
+  .action(async (options) => {
+    await runPluginDoctorCommand(options.runtime, options);
+  });
+
+program
+  .command('uninstall')
+  .description('Uninstall Spanory runtime plugin (shortcut for runtime <runtime> plugin uninstall)')
+  .requiredOption('--runtime <name>', `Target runtime (${PLUGIN_RUNTIME_NAMES.join('|')})`)
+  .option('--runtime-home <path>', 'Override runtime home directory')
+  .action(async (options) => {
+    await runPluginUninstallCommand(options.runtime, options);
   });
 
 const setup = program.command('setup').description('One-command local runtime integration setup and diagnostics');
