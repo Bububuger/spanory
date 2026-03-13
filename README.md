@@ -152,20 +152,18 @@ For Langfuse OTLP, use `Authorization=Basic <base64(public_key:secret_key)>`.
 
 ### Local Setup (Recommended: one command for 4 runtimes)
 
-`setup apply` is idempotent and configures all supported runtimes (Codex defaults to non-proxy notify mode):
+`setup apply` is idempotent and configures all supported runtimes (Codex defaults to non-proxy watch daemon mode):
 
 ```bash
 spanory setup detect
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+spanory setup apply --runtimes claude-code,codex,openclaw,opencode
 spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
 What `setup apply` does:
 
 - Claude Code: writes/updates `Stop` + `SessionEnd` hook command to `spanory hook --last-turn-only`
-- Codex: writes `~/.codex/bin/spanory-codex-notify.sh` and updates `~/.codex/config.toml` `notify = ["/absolute/path/to/spanory-codex-notify.sh"]`
-
-Note: Codex `notify` should use an absolute path. `~` may not be expanded in some exec paths.
+- Codex: removes legacy `~/.codex/bin/spanory-codex-notify.sh` and `notify = [...]` from `~/.codex/config.toml`, then starts `spanory runtime codex watch --last-turn-only` in background (`~/.spanory/codex-watch.pid`, `~/.spanory/logs/codex-watch.log`)
 - OpenClaw: installs/enables Spanory plugin (when `openclaw` is available in PATH)
 - OpenCode: installs Spanory plugin loader into `~/.config/opencode/plugin`
 
@@ -174,7 +172,6 @@ Dry-run example:
 ```bash
 spanory setup apply \
   --runtimes claude-code,codex,openclaw,opencode \
-  --codex-mode notify \
   --dry-run
 ```
 
@@ -185,7 +182,7 @@ Paste this block to your coding agent in this repo, and let it finish setup auto
 ```text
 Install and configure Spanory on this machine with one-command setup.
 Requirements:
-- Keep Codex in notify mode (no proxy hijack).
+- Keep Codex in watch daemon mode (no proxy hijack, no notify injection).
 - Configure all runtimes: claude-code,codex,openclaw,opencode.
 - Verify and report any failed checks.
 
@@ -193,7 +190,7 @@ Run:
 1) npm install
 2) npm install -g ./packages/cli
 3) spanory setup detect
-4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode
 5) spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 
 Output:
