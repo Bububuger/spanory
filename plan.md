@@ -1,17 +1,17 @@
-# Plan (2026-03-14) — BUB-27 teardown 清理 codex config.toml 改动
+# Plan (2026-03-14) — BUB-21 doctor 只读化（移除目录写副作用）
 
 ## 目标
-1. `setup apply --runtimes codex` 删除的 `~/.codex/config.toml` 中 `notify` 配置可在 `setup teardown --runtimes codex` 恢复。
-2. 修复保持幂等：未发生 apply 改动时 teardown 不应写入无关配置。
-3. 为该行为补充自动化测试，防止回归。
+1. `runtime openclaw plugin doctor` 与 `runtime opencode plugin doctor` 不再创建 `spool/log` 目录。
+2. 目录创建职责迁移到 `install/apply` 路径，保持安装后运行能力。
+3. 补充测试，防止 doctor 写副作用回归。
 
 ## 执行顺序
-1. 在 `packages/cli/src/index.ts` 为 codex apply 增加 `notify` 备份写入逻辑（写到 `~/.codex/spanory-notify.backup.json`）。
-2. 在 `teardownCodexSetup` 读取备份并恢复 `config.toml` 的 `notify` 行，恢复后清理备份。
-3. 扩展 `packages/cli/test/bdd/setup.integration.spec.ts`，覆盖 apply 后 teardown 恢复 notify 的端到端场景。
-4. 运行最小 BDD 验证并确认通过。
+1. 先写失败测试：验证两类 doctor 执行后不会落盘创建目录。
+2. 修改 CLI 实现：doctor 改为只读 `stat/access` 检查；将目录创建移动到 `installOpenclawPlugin` / `installOpencodePlugin`。
+3. 运行目标 BDD 与单测回归，确认红绿闭环。
+4. 更新 Linear workpad、提交并准备 PR。
 
 ## 验收标准
-- apply 之后 `config.toml` 的 `notify` 行被移除。
-- teardown 之后 `config.toml` 恢复到 apply 前的 `notify` 值（若有备份）。
-- 新增/更新 BDD 用例通过。
+- doctor 不创建目录且仍输出结构化检查结果。
+- apply/install 后所需目录可创建，行为不回退。
+- 新增/更新测试通过。
