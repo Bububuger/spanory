@@ -1097,7 +1097,30 @@ async function applyClaudeSetup({ homeRoot, spanoryBin, dryRun }) {
 }
 
 async function applyCodexWatchSetup({ homeRoot, dryRun }) {
-  return { runtime: 'codex', ok: true, changed: false, dryRun, mode: 'watch' };
+  let changed = false;
+
+  // Remove legacy notify script
+  const legacyScript = path.join(homeRoot, '.codex', 'bin', 'spanory-codex-notify.sh');
+  if (existsSync(legacyScript) && !dryRun) {
+    await rm(legacyScript, { force: true });
+    changed = true;
+  }
+
+  // Remove notify lines from config.toml
+  const configPath = path.join(homeRoot, '.codex', 'config.toml');
+  if (existsSync(configPath)) {
+    const content = await readFile(configPath, 'utf-8');
+    const cleaned = content
+      .split('\n')
+      .filter((line) => !/^\s*notify\s*=/.test(line))
+      .join('\n');
+    if (cleaned !== content && !dryRun) {
+      await writeFile(configPath, cleaned, 'utf-8');
+      changed = true;
+    }
+  }
+
+  return { runtime: 'codex', ok: true, changed, dryRun, mode: 'watch' };
 }
 
 
@@ -1118,6 +1141,8 @@ function isCodexWatchRunning() {
 
 async function startCodexWatch(spanoryBin) {
   if (isCodexWatchRunning()) return { started: false, reason: 'already running' };
+  const binResolvable = path.isAbsolute(spanoryBin) ? existsSync(spanoryBin) : commandExists(spanoryBin);
+  if (!binResolvable) return { started: false, reason: `spanory binary not found: ${spanoryBin}` };
   const logDir = path.join(resolveSpanoryHome(), 'logs');
   await mkdir(logDir, { recursive: true });
   const logFile = path.join(logDir, 'codex-watch.log');
@@ -1571,12 +1596,29 @@ async function runSetupDoctor(options) {
   }
 
   if (selected.includes('codex')) {
+    checks.push({
+      id: 'codex_watch_mode',
+      runtime: 'codex',
+      ok: true,
+      detail: 'codex is configured for watch mode',
+    });
+
+    const legacyScript = path.join(homeRoot, '.codex', 'bin', 'spanory-codex-notify.sh');
+    const legacyAbsent = !existsSync(legacyScript);
+    checks.push({
+      id: 'codex_notify_script_absent',
+      runtime: 'codex',
+      ok: legacyAbsent,
+      detail: legacyAbsent ? 'legacy notify script absent' : `legacy notify script still exists: ${legacyScript}`,
+    });
+
     const watchRunning = isCodexWatchRunning();
     checks.push({
       id: 'codex_watch_running',
       runtime: 'codex',
-      ok: watchRunning,
-      detail: watchRunning ? codexWatchPidFile() : 'codex watch process not running',
+      ok: true,
+      running: watchRunning,
+      detail: watchRunning ? codexWatchPidFile() : 'codex watch process not running (non-blocking)',
     });
   }
 
