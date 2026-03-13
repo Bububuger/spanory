@@ -1,27 +1,38 @@
-# Plan (2026-03-14) — BUB-28 pkg CVE 迁移
-
-## 背景
-- 工单要求移除 `packages/cli/package.json` 中 `pkg@5.8.1`（`GHSA-22r3-9w55-cj54`, `fixAvailable:false`）。
-- 上游 `pkg` 已停止维护，优先迁移到 `@yao-pkg/pkg`。
+# Plan (2026-03-14) — BUB-13 normalize.ts 拆分治理
 
 ## 目标
-1. CLI 二进制打包流程继续可用（命令与产物路径不变）。
-2. 依赖树中不再存在 `pkg@5.8.1`，且 `npm audit` 不再报该 GHSA。
-3. 变更最小化，仅触及必要文件并保留可追溯验证证据。
+1. 将 `packages/cli/src/runtime/shared/normalize.ts` 中混合职责按建议拆分为 `usage.ts`、`content.ts`、`gateway.ts`、`turn.ts`。
+2. 保持 `normalizeTranscriptMessages`、`pickUsage`、`parseProjectIdFromTranscriptPath` 等现有对外契约不变。
+3. 在不改变行为的前提下显著缩小 `normalize.ts` 体积，去除超长 `createTurn` 私有函数。
+
+## 拆分边界（Contract-First）
+1. `usage.ts`
+   - 承载 usage 聚合与属性映射：`pickUsage`、`addUsage`、`usageAttributes`、`modelAttributes`。
+2. `content.ts`
+   - 承载消息内容解析与命令判定：`extractText`、`extractToolUses`、`extractToolResults`、`extractReasoningBlocks`、`isPromptUserMessage`、`parseSlashCommand`、`parseBashCommandAttributes`、`isMcpToolName`、`extractToolResultText`、`isoFromUnknownTimestamp`。
+3. `gateway.ts`
+   - 承载 gateway 输入归一化：`runtimeVersionAttributes`、`extractGatewayInputMetadata`、`normalizeUserInput`。
+4. `turn.ts`
+   - 承载 turn 级事件编译：`createTurn` 及其私有辅助（actor、parent-link 推断）。
+5. `normalize.ts`
+   - 保留主 pipeline：`groupByTurns`、`normalizeTranscriptMessages`、context 估算与 attribution 逻辑、`parseProjectIdFromTranscriptPath`。
+   - 通过导入/再导出维持既有调用方契约。
+
+## 风险与防护
+1. 行为漂移风险：tool/result 时间戳、reasoning 分离、context 事件字段。
+   - 防护：保持函数签名和字段字面量不变；跑现有 `normalize.spec.ts`。
+2. 导出兼容风险：`pickUsage` 仍被多个 adapter 依赖。
+   - 防护：`normalize.ts` 显式 re-export `pickUsage`。
+3. 结构性风险：拆分后导入循环或遗漏。
+   - 防护：单向依赖（`turn.ts` 依赖 usage/content/gateway，`normalize.ts` 依赖 `turn.ts` + `content.ts`）。
 
 ## 执行顺序
-1. 基线确认与兼容性评估
-   - 确认 `@yao-pkg/pkg` 提供 `pkg` 命令，且 Node 版本基线与仓库 CI 一致。
-   - 验收检查：`npm view @yao-pkg/pkg version bin engines --json` 输出满足预期。
-2. 依赖替换与锁文件更新
-   - 在 `packages/cli/package.json` 将 `pkg` 替换为 `@yao-pkg/pkg`。
-   - 运行定向安装/更新锁文件，确保 lock 与 package 一致。
-   - 验收检查：`rg -n "\bpkg\b|@yao-pkg/pkg" packages/cli/package.json package-lock.json`。
-3. 功能与安全回归
-   - 执行 CLI 构建与二进制打包关键路径验证。
-   - 执行 `npm audit --workspace @bububuger/spanory --json` 确认 GHSA 消失。
-   - 验收检查：构建命令成功、audit 不含 `GHSA-22r3-9w55-cj54`。
-4. 交付整理
-   - 更新 Workpad 全量勾选与验证记录。
-   - 提交、推送、创建 PR 并挂载到 Linear issue。
-   - 验收检查：PR checks 通过，issue 进入 `Human Review` 前满足完成门槛。
+1. 建立四个新模块并迁移对应函数，保持实现一致。
+2. 回填 `normalize.ts` 的 import/export，移除重复实现。
+3. 运行定向结构验证（行数、createTurn 位置）。
+4. 运行单测与项目检查，确认无行为回归。
+
+## 验收标准
+- `normalize.ts` 不再包含超长 `createTurn` 实现，体积显著下降。
+- `usage.ts` / `content.ts` / `gateway.ts` / `turn.ts` 落地且职责清晰。
+- `npm test` 与 `npm run check` 通过。
