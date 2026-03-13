@@ -1,18 +1,18 @@
-# Plan (2026-03-14) — BUB-32 隐藏内部 issue 命令
+# Plan (2026-03-14) — BUB-33 命令层级收敛与重复入口治理
 
 ## 目标
-1. 公开 CLI `spanory --help` 不再显示内部 `issue` 命令。
-2. 内部 issue 状态管理能力迁移到非公开入口（`npm run issue:*`）。
-3. 增加回归验证，防止后续再次将内部命令暴露到公开 help。
+1. 将最常用插件维护操作提升到顶级命令：`spanory install|doctor|uninstall`。
+2. 统一 `setup apply --runtimes openclaw` 与 `runtime openclaw plugin install` 的安装行为，避免实现分叉。
+3. 保持兼容：现有 `runtime <runtime> plugin ...` 入口继续可用。
 
 ## 执行顺序
-1. 设计并实现独立 issue 脚本入口（`scripts/issues/issue-cli.mjs`），承接 `sync/list/set-status`。
-2. 在 `package.json` 增加 `issue:sync`/`issue:list`/`issue:set-status`，并保留现有 `issue:status`。
-3. 从 `packages/cli/src/index.ts` 移除公开 `issue` 子命令注册与相关导入。
-4. 更新文档示例（`docs/issues/README.md`）到新入口。
-5. 增加最小测试覆盖公开 help 不暴露 `issue` 命令，并运行最小相关验证。
+1. 复现当前 CLI 层级深度与重复入口差异，固定修复目标。
+2. 在 `packages/cli/src/index.ts` 抽取共享安装/诊断/卸载执行器，并挂载顶级命令。
+3. 调整 `setup apply` 复用同一 openclaw 安装执行器，消除行为偏差。
+4. 增加/更新 `packages/cli/test/unit` 测试覆盖顶级命令与 setup/runtime 行为一致性。
+5. 运行最小必要测试验证并完成提交。
 
 ## 验收标准
-- `node packages/cli/dist/index.js --help` 输出中不包含 `issue` 命令。
-- `npm run issue:sync|issue:list|issue:set-status -- ...` 可正常工作。
-- 新增/更新测试通过，且不影响现有 CLI 观测性命令。
+- `spanory install --runtime openclaw|opencode`、`spanory doctor --runtime openclaw|opencode`、`spanory uninstall --runtime openclaw|opencode` 可直接执行。
+- `setup apply --runtimes openclaw` 与 `runtime openclaw plugin install` 走同一实现路径（行为无分叉）。
+- 保持现有 runtime 子命令兼容，相关测试通过。
