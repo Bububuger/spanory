@@ -380,6 +380,7 @@ function delay(ms) {
 }
 
 async function sendWithRetry(payload) {
+  await ensureUserEnvLoaded();
   const endpoint = otlpEndpoint();
   if (!endpoint) {
     throw new Error('OTEL_EXPORTER_OTLP_ENDPOINT is unset');
@@ -872,8 +873,17 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
   };
 }
 
+let envLoadPromise;
+
+function ensureUserEnvLoaded() {
+  if (!envLoadPromise) {
+    envLoadPromise = loadUserEnv().catch(() => {});
+  }
+  return envLoadPromise;
+}
+
 export default function register(api) {
-  loadUserEnv();
+  ensureUserEnvLoaded();
   const runtime = createOpenclawSpanoryPluginRuntime(api.logger);
   api.on('session_start', runtime.onSessionStart);
   api.on('llm_input', runtime.onLlmInput);
