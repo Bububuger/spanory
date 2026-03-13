@@ -1,7 +1,7 @@
 {
   "name": "spanory",
   "private": true,
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "Cross-runtime observability toolkit for agent systems",
   "license": "MIT",
   "workspaces": [
@@ -21,7 +21,8 @@
     "issue:status": "node scripts/issues/status-report.mjs summary",
     "build:bin": "bash scripts/release/build-binaries.sh",
     "package:release-assets": "bash scripts/release/package-release-assets.sh",
-    "version:sync": "node scripts/release/sync-version.mjs"
+    "version:sync": "node scripts/release/sync-version.mjs",
+    "publish:internal": "bash scripts/publish-internal.sh"
   },
   "devDependencies": {
     "@types/node": "^24.4.0",
