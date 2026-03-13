@@ -1,9 +1,10 @@
 // @ts-nocheck
 import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
+import { forEachJsonlEntry } from '../shared/jsonl.js';
 import { normalizeTranscriptMessages, pickUsage } from '../shared/normalize.js';
 
 function parseTimestamp(raw) {
@@ -214,9 +215,6 @@ function buildMessagesFromTurns(turns, runtimeVersion) {
 }
 
 async function readCodexSession(transcriptPath) {
-  const raw = await readFile(transcriptPath, 'utf-8');
-  const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
-
   const turns = [];
   let currentTurn = null;
   let pendingUserInput = '';
@@ -242,18 +240,12 @@ async function readCodexSession(transcriptPath) {
     return currentTurn;
   }
 
-  for (const line of lines) {
-    let entry;
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      continue;
-    }
+  await forEachJsonlEntry(transcriptPath, (entry) => {
     const isoAt = toIso(entry.timestamp);
 
     if (entry.type === 'session_meta') {
       sessionMeta = entry.payload ?? {};
-      continue;
+      return;
     }
 
     if (entry.type === 'turn_context') {
@@ -264,7 +256,7 @@ async function readCodexSession(transcriptPath) {
       }
       if (payload.model) turn.model = payload.model;
       if (payload.cwd) turn.cwd = payload.cwd;
-      continue;
+      return;
     }
 
     if (entry.type === 'event_msg') {
@@ -276,18 +268,18 @@ async function readCodexSession(transcriptPath) {
           currentTurn.userInput = pendingUserInput;
           pendingUserInput = '';
         }
-        continue;
+        return;
       }
 
       if (payload.type === 'user_message') {
         const text = String(payload.message ?? '').trim();
-        if (!text) continue;
+        if (!text) return;
         if (currentTurn && !currentTurn.userInput) {
           currentTurn.userInput = text;
         } else {
           pendingUserInput = text;
         }
-        continue;
+        return;
       }
 
       if (payload.type === 'token_count') {
@@ -302,7 +294,7 @@ async function readCodexSession(transcriptPath) {
           if (!turn.totalUsageStart) turn.totalUsageStart = totalUsage;
           turn.totalUsageEnd = totalUsage;
         }
-        continue;
+        return;
       }
 
       if (payload.type === 'agent_message') {
@@ -310,7 +302,7 @@ async function readCodexSession(transcriptPath) {
         if (payload.phase === 'final_answer') {
           turn.lastAgentMessage = String(payload.message ?? turn.lastAgentMessage ?? '');
         }
-        continue;
+        return;
       }
 
       if (payload.type === 'task_complete' || payload.type === 'turn_aborted') {
@@ -322,12 +314,12 @@ async function readCodexSession(transcriptPath) {
         turn.completed = true;
         turn.endedAt = isoAt;
         finalizeCurrentTurn(entry.timestamp);
-        continue;
+        return;
       }
-      continue;
+      return;
     }
 
-    if (entry.type !== 'response_item') continue;
+    if (entry.type !== 'response_item') return;
     const payload = entry.payload ?? {};
 
     if (payload.type === 'message' && payload.role === 'assistant' && Array.isArray(payload.content)) {
@@ -343,7 +335,7 @@ async function readCodexSession(transcriptPath) {
         .join('\n')
         .trim();
       if (text) turn.lastAgentMessage = text;
-      continue;
+      return;
     }
 
     if (payload.type === 'function_call' || payload.type === 'custom_tool_call') {
@@ -355,7 +347,7 @@ async function readCodexSession(transcriptPath) {
       const ptySessionId = args.session_id != null ? String(args.session_id) : '';
       if (String(rawName ?? '') === 'write_stdin' && ptySessionId && ptyCallBySession.has(ptySessionId)) {
         callIndex.set(String(payload.call_id ?? payload.callId ?? `call-${callCounter}`), ptyCallBySession.get(ptySessionId));
-        continue;
+        return;
       }
       const normalized = normalizeToolCall(rawName, args, callCounter);
       const callId = String(payload.call_id ?? payload.callId ?? normalized.callId ?? `call-${callCounter}`);
@@ -369,7 +361,7 @@ async function readCodexSession(transcriptPath) {
       };
       turn.calls.push(call);
       callIndex.set(callId, call);
-      continue;
+      return;
     }
 
     if (payload.type === 'function_call_output' || payload.type === 'custom_tool_call_output') {
@@ -391,7 +383,7 @@ async function readCodexSession(transcriptPath) {
           if (ptySessionId) ptyCallBySession.set(ptySessionId, call);
         }
       }
-      continue;
+      return;
     }
 
     if (payload.type === 'web_search_call') {
@@ -409,9 +401,9 @@ async function readCodexSession(transcriptPath) {
         endedAt: isoAt,
       };
       turn.calls.push(call);
-      continue;
+      return;
     }
-  }
+  });
 
   finalizeCurrentTurn(new Date().toISOString());
 
