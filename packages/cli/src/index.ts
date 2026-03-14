@@ -2,21 +2,25 @@
 // @ts-nocheck
 // BUB-79: Scoped waiver for legacy CLI entrypoint; keep strict at package level and retire incrementally.
 import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { codexAdapter } from './runtime/codex/adapter.js';
 import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { mapCodexSessionsWithStat } from './runtime/codex/sessions.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
-import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import {
+  compileOtlpSpans as compileOtlp,
+  parseOtlpHeaders as parseHeaders,
+  sendOtlpHttp as sendOtlp,
+} from '../../otlp-core/dist/index.js';
 import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
 import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
@@ -216,26 +220,10 @@ function fingerprintSession(context, events) {
   for (const event of events) {
     hash.update(String(event.turnId ?? ''));
     hash.update('\u001f');
-    hash.update(String(event.category ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.name ?? ''));
-    hash.update('\u001f');
     hash.update(String(event.startedAt ?? ''));
     hash.update('\u001f');
     hash.update(String(event.endedAt ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.input ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.output ?? ''));
-    hash.update('\u001f');
-    const attrs = event.attributes ?? {};
-    const keys = Object.keys(attrs).sort();
-    for (const key of keys) {
-      hash.update(key);
-      hash.update('=');
-      hash.update(String(attrs[key] ?? ''));
-      hash.update('\u001f');
-    }
+    hash.update('\u001e');
   }
   return hash.digest('hex');
 }
@@ -863,6 +851,12 @@ function parsePluginEnabledFromInfoOutput(output) {
   return undefined;
 }
 
+const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint']);
+
+function computePluginDoctorOk(checks) {
+  return checks.every((item) => item.ok || NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS.has(item.id));
+}
+
 async function runOpenclawPluginDoctor(runtimeHome) {
   const checks = [];
 
@@ -913,7 +907,7 @@ async function runOpenclawPluginDoctor(runtimeHome) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = computePluginDoctorOk(checks);
   return { ok, checks };
 }
 
@@ -1018,7 +1012,7 @@ async function runOpencodePluginDoctor(runtimeHome) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = computePluginDoctorOk(checks);
   return { ok, checks };
 }
 
@@ -1361,12 +1355,15 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) 
   const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, openclawRuntimeHome);
   if (dryRun) return { runtime: 'openclaw', ok: true, changed: true, dryRun };
   uninstallOpenclawPlugin(runtimeHome);
-  return { runtime: 'openclaw', ok: true, changed: true, dryRun };
+  const pathCleanupResult = await removeSpanoryOpenclawPluginLoadPaths(resolveRuntimeHome('openclaw', runtimeHome));
+  return { runtime: 'openclaw', ok: true, changed: true, dryRun, pathCleanupResult };
 }
 
 async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) {
   const runtimeHome = opencodeRuntimeHomeForSetup(homeRoot, opencodeRuntimeHome);
+  const pluginDir = resolveOpencodePluginInstallDir(runtimeHome);
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
+  const packageFile = path.join(pluginDir, 'package.json');
   let present = false;
   try {
     await stat(loaderFile);
@@ -1374,7 +1371,24 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) 
   } catch {
     /* not present */
   }
+
+  let packagePresent = false;
+  try {
+    await stat(packageFile);
+    packagePresent = true;
+  } catch {
+    /* not present */
+  }
+
   if (present && !dryRun) await rm(loaderFile, { force: true });
+  if (packagePresent && !dryRun) await rm(packageFile, { force: true });
+  if (!dryRun) {
+    try {
+      await rmdir(pluginDir);
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+    }
+  }
 
   let unregistered = false;
   if (!dryRun) {
@@ -1392,7 +1406,14 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) 
     }
   }
 
-  return { runtime: 'opencode', ok: true, changed: present || unregistered, dryRun, loaderFile, unregistered };
+  return {
+    runtime: 'opencode',
+    ok: true,
+    changed: present || packagePresent || unregistered,
+    dryRun,
+    loaderFile,
+    unregistered,
+  };
 }
 
 async function runSetupTeardown(options) {
@@ -1517,6 +1538,39 @@ function isSpanoryOpenclawPluginPath(candidatePath) {
   const canonical = canonicalPath(text);
   const pluginName = readOpenclawPluginNameFromDir(canonical);
   return pluginName === '@bububuger/spanory-openclaw-plugin' || pluginName === '@alipay/spanory-openclaw-plugin';
+}
+
+async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome) {
+  const configPath = resolveOpenclawConfigPath(runtimeHome);
+  let configRaw = '';
+  try {
+    configRaw = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+    throw error;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(configRaw);
+  } catch (error) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  }
+
+  const currentPaths = parsed?.plugins?.load?.paths;
+  if (!Array.isArray(currentPaths)) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  const nextPaths = currentPaths.filter((item) => !(typeof item === 'string' && isSpanoryOpenclawPluginPath(item)));
+  if (nextPaths.length === currentPaths.length) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  parsed.plugins.load.paths = nextPaths;
+  const backup = await backupIfExists(configPath);
+  await writeFile(configPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf-8');
+  return { changed: true, configPath, backup };
 }
 
 async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun) {
@@ -1680,7 +1734,22 @@ function uninstallOpenclawPlugin(runtimeHome) {
 async function uninstallOpencodePlugin(runtimeHome) {
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
   await rm(loaderFile, { force: true });
-  return { loaderFile };
+
+  let unregistered = false;
+  const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  try {
+    const raw = await readFile(opencodeConfigPath, 'utf-8');
+    const config = JSON.parse(raw);
+    if (Array.isArray(config.plugin) && config.plugin.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
+      config.plugin = config.plugin.filter((pluginId) => pluginId !== OPENCODE_SPANORY_PLUGIN_ID);
+      await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      unregistered = true;
+    }
+  } catch {
+    /* ignore opencode.json cleanup failures */
+  }
+
+  return { loaderFile, unregistered };
 }
 
 type PluginCommandOptions = {
@@ -2043,7 +2112,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
       .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
       .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
       .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
       .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
       .addHelpText(
         'after',
@@ -2318,12 +2387,21 @@ for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
   registerRuntimeCommands(runtime, runtimeName);
 }
 
+function createReportInputJsonOption() {
+  return new Option(
+    '--input-json <path>',
+    'Path to exported JSON file or directory of JSON files (fallback: SPANORY_INPUT_JSON)',
+  )
+    .env('SPANORY_INPUT_JSON')
+    .makeOptionMandatory(true);
+}
+
 const report = program.command('report').description('Aggregate exported session JSON into infra-level views');
 
 report
   .command('session')
   .description('Session-level summary view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'session-summary', rows: summarizeSessions(sessions) }, null, 2));
@@ -2332,7 +2410,7 @@ report
 report
   .command('mcp')
   .description('MCP server aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'mcp-summary', rows: summarizeMcp(sessions) }, null, 2));
@@ -2341,7 +2419,7 @@ report
 report
   .command('command')
   .description('Agent command aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'command-summary', rows: summarizeCommands(sessions) }, null, 2));
@@ -2350,7 +2428,7 @@ report
 report
   .command('agent')
   .description('Agent activity summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'agent-summary', rows: summarizeAgents(sessions) }, null, 2));
@@ -2359,7 +2437,7 @@ report
 report
   .command('cache')
   .description('Cache usage summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'cache-summary', rows: summarizeCache(sessions) }, null, 2));
@@ -2368,7 +2446,7 @@ report
 report
   .command('tool')
   .description('Tool usage aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'tool-summary', rows: summarizeTools(sessions) }, null, 2));
@@ -2377,7 +2455,7 @@ report
 report
   .command('context')
   .description('Context observability summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'context-summary', rows: summarizeContext(sessions) }, null, 2));
@@ -2386,7 +2464,7 @@ report
 report
   .command('turn-diff')
   .description('Turn input diff summary view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'turn-diff-summary', rows: summarizeTurnDiff(sessions) }, null, 2));
@@ -2424,7 +2502,7 @@ alert
 
     if (options.webhookUrl) {
       await sendAlertWebhook(options.webhookUrl, result, parseHeaders(options.webhookHeaders));
-      console.log(`webhook=sent url=${options.webhookUrl}`);
+      console.error(`webhook=sent url=${options.webhookUrl}`);
     }
 
     if (options.failOnAlert && alerts.length > 0) {
@@ -2440,7 +2518,7 @@ program
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
   .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
   .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-  .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+  .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
   .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
   .addHelpText(
     'after',

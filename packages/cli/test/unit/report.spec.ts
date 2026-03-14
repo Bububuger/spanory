@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+  loadExportedEvents,
   summarizeCache,
   summarizeAgents,
   summarizeCommands,
@@ -175,6 +179,31 @@ function buildContextSession() {
 }
 
 describe('report aggregations', () => {
+  it('skips malformed exported json files while preserving valid sessions', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'spanory-report-load-'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await writeFile(
+        path.join(dir, 'ok.json'),
+        JSON.stringify({
+          context: { projectId: 'p1', sessionId: 's1' },
+          events: [{ category: 'turn', runtime: 'codex', sessionId: 's1', projectId: 'p1', attributes: {} }],
+        }),
+        'utf-8',
+      );
+      await writeFile(path.join(dir, 'broken.json'), '{"context":', 'utf-8');
+
+      const sessions = await loadExportedEvents(dir);
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].file.endsWith('ok.json')).toBe(true);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(String(warnSpy.mock.calls[0]?.[0] ?? '')).toContain('broken.json');
+    } finally {
+      warnSpy.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('builds session summary', () => {
     const rows = summarizeSessions([buildSession()]);
     expect(rows[0].sessionId).toBe('s1');

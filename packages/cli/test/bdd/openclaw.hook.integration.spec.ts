@@ -78,6 +78,6 @@ describe('BDD openclaw hook ingestion', () => {
       { input: payload, env, encoding: 'utf8' },
     );
 
-    expect(second).toContain('skip=unchanged sessionId=session-a');
+    expect(second).toContain('skip=unchanged-turn sessionId=session-a');
   });
 });

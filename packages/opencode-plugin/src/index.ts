@@ -7,16 +7,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
-import {
-  buildResource,
-  compileOtlpSpans,
-  parseOtlpHeaders,
-  sendOtlpHttp as sendOtlpHttpDefault,
-} from '../../otlp-core/dist/index.js';
+import { langfuseBackendAdapter } from '@bububuger/backend-langfuse';
+import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '@bububuger/otlp-core';
 import { loadUserEnv } from '@bububuger/spanory/env';
 import { normalizeTranscriptMessages, pickUsage } from '@bububuger/spanory/runtime/shared/normalize';
-import { toNumber } from '../../core/dist/index.js';
+import { toNumber } from '@bububuger/core';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
 const EXECUTION_ENTRY = (() => {
