@@ -14,9 +14,27 @@
     "registry": "https://registry.npmjs.org"
   },
   "files": [
+    "dist/env.js",
+    "dist/env.d.ts",
     "dist/index.js",
-    "dist/index.d.ts"
+    "dist/index.d.ts",
+    "dist/runtime/shared/normalize.js",
+    "dist/runtime/shared/normalize.d.ts"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "import": "./dist/env.js"
+    },
+    "./runtime/shared/normalize": {
+      "types": "./dist/runtime/shared/normalize.d.ts",
+      "import": "./dist/runtime/shared/normalize.js"
+    }
+  },
   "bin": {
     "spanory": "dist/index.js"
   },

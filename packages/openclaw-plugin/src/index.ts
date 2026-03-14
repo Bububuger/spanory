@@ -7,9 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
-import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/dist/index.js';
-import { loadUserEnv } from '../../cli/dist/env.js';
+import { langfuseBackendAdapter } from '@bububuger/backend-langfuse';
+import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '@bububuger/otlp-core';
+import { loadUserEnv } from '@bububuger/spanory/env';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
 const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
