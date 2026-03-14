@@ -13,6 +13,7 @@ import {
   parseSlashCommand,
 } from './content.js';
 import { normalizeUserInput, runtimeVersionAttributes } from './gateway.js';
+import { REDACTED, redactBody, truncateText } from './redaction.js';
 import { addUsage, modelAttributes, usageAttributes } from './usage.js';
 
 function actorHeuristic(messages) {
@@ -39,36 +40,36 @@ function inferParentLinkAttributes(messages) {
   const parentSessionId = firstNonEmptyString(
     messages.map(
       (m) =>
-        m?.parentSessionId
-        ?? m?.parent_session_id
-        ?? m?.parent?.sessionId
-        ?? m?.parent?.session_id
-        ?? m?.session_meta?.parent_session_id
-        ?? m?.sessionMeta?.parentSessionId,
+        m?.parentSessionId ??
+        m?.parent_session_id ??
+        m?.parent?.sessionId ??
+        m?.parent?.session_id ??
+        m?.session_meta?.parent_session_id ??
+        m?.sessionMeta?.parentSessionId,
     ),
   );
 
   const parentTurnId = firstNonEmptyString(
     messages.map(
       (m) =>
-        m?.parentTurnId
-        ?? m?.parent_turn_id
-        ?? m?.parent?.turnId
-        ?? m?.parent?.turn_id
-        ?? m?.session_meta?.parent_turn_id
-        ?? m?.sessionMeta?.parentTurnId,
+        m?.parentTurnId ??
+        m?.parent_turn_id ??
+        m?.parent?.turnId ??
+        m?.parent?.turn_id ??
+        m?.session_meta?.parent_turn_id ??
+        m?.sessionMeta?.parentTurnId,
     ),
   );
 
   const parentToolCallId = firstNonEmptyString(
     messages.map(
       (m) =>
-        m?.parentToolCallId
-        ?? m?.parent_tool_call_id
-        ?? m?.parent?.toolCallId
-        ?? m?.parent?.tool_call_id
-        ?? m?.session_meta?.parent_tool_call_id
-        ?? m?.sessionMeta?.parentToolCallId,
+        m?.parentToolCallId ??
+        m?.parent_tool_call_id ??
+        m?.parent?.toolCallId ??
+        m?.parent?.tool_call_id ??
+        m?.session_meta?.parent_tool_call_id ??
+        m?.sessionMeta?.parentToolCallId,
     ),
   );
 
@@ -95,8 +96,44 @@ function inferParentLinkAttributes(messages) {
   return attrs;
 }
 
+const DEFAULT_TOOL_CONTENT_MAX_BYTES = 131072;
+
+function toolContentMaxBytes() {
+  const raw = Number(process.env.SPANORY_TOOL_CONTENT_MAX_BYTES);
+  if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  return DEFAULT_TOOL_CONTENT_MAX_BYTES;
+}
+
+function isFileTool(toolName, toolInput) {
+  const normalizedName = String(toolName ?? '')
+    .trim()
+    .toLowerCase();
+  if (['read', 'write', 'edit', 'multiedit'].includes(normalizedName)) return true;
+  if (normalizedName.includes('file')) return true;
+  if (!toolInput || typeof toolInput !== 'object') return false;
+  return ['file_path', 'filepath', 'path', 'target_file', 'targetPath', 'old_string', 'new_string'].some((key) =>
+    Object.prototype.hasOwnProperty.call(toolInput, key),
+  );
+}
+
+function serializeToolInput(toolName, toolInput) {
+  const maxBytes = toolContentMaxBytes();
+  const payload = redactBody(toolInput ?? {}, maxBytes, {
+    extraSensitiveKeyPattern: isFileTool(toolName, toolInput)
+      ? /(content|token|secret|password|private[_-]?key)/i
+      : undefined,
+  });
+  return JSON.stringify(payload);
+}
+
+function serializeToolOutput(toolName, toolInput, toolOutput) {
+  if (isFileTool(toolName, toolInput)) return REDACTED;
+  return truncateText(toolOutput, toolContentMaxBytes());
+}
+
 export function createTurn(messages, turnId, projectId, sessionId, runtime) {
-  const user = messages.find(isPromptUserMessage) ?? messages.find((m) => m.role === 'user' && !m.isMeta) ?? messages[0];
+  const user =
+    messages.find(isPromptUserMessage) ?? messages.find((m) => m.role === 'user' && !m.isMeta) ?? messages[0];
   const assistantsRaw = messages.filter((m) => m.role === 'assistant');
   const assistantOrder = [];
   const assistantLatest = new Map();
@@ -110,7 +147,10 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const start = user?.timestamp ?? messages[0]?.timestamp ?? new Date();
   const end = messages[messages.length - 1]?.timestamp ?? start;
 
-  const output = assistants.map((m) => extractText(m.content)).filter(Boolean).join('\n');
+  const output = assistants
+    .map((m) => extractText(m.content))
+    .filter(Boolean)
+    .join('\n');
   const runtimeVersion = [...messages]
     .map((m) => String(m.runtimeVersion ?? '').trim())
     .filter(Boolean)
@@ -170,10 +210,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
 
     if (msg.sourceToolUseId) {
       const fallback = extractToolResultText({}, msg);
-      if (
-        fallback
-        && (!resultByToolId.has(msg.sourceToolUseId) || !resultByToolId.get(msg.sourceToolUseId)?.content)
-      ) {
+      if (fallback && (!resultByToolId.has(msg.sourceToolUseId) || !resultByToolId.get(msg.sourceToolUseId)?.content)) {
         resultByToolId.set(msg.sourceToolUseId, { content: fallback, endedAt: resultAt });
       }
     }
@@ -283,8 +320,8 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
           name: `Tool: ${toolName}`,
           startedAt: t,
           endedAt: toolEndedAt,
-          input: JSON.stringify(toolInput),
-          output: toolOutput,
+          input: serializeToolInput(toolName, toolInput),
+          output: serializeToolOutput(toolName, toolInput, toolOutput),
           attributes: {
             'agentic.event.category': 'mcp',
             'langfuse.observation.type': 'tool',
@@ -310,8 +347,8 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
           name: 'Tool: Task',
           startedAt: t,
           endedAt: toolEndedAt,
-          input: JSON.stringify(toolInput),
-          output: toolOutput,
+          input: serializeToolInput(toolName, toolInput),
+          output: serializeToolOutput(toolName, toolInput, toolOutput),
           attributes: {
             'agentic.event.category': 'agent_task',
             'langfuse.observation.type': 'agent',
@@ -336,8 +373,8 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
           name: `Tool: ${toolName}`,
           startedAt: t,
           endedAt: toolEndedAt,
-          input: JSON.stringify(toolInput),
-          output: toolOutput,
+          input: serializeToolInput(toolName, toolInput),
+          output: serializeToolOutput(toolName, toolInput, toolOutput),
           attributes: {
             'agentic.event.category': 'tool',
             'langfuse.observation.type': 'tool',
