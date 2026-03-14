@@ -2,7 +2,7 @@
 // BUB-79: Scoped waiver for legacy report aggregation path; strict remains enforced at package command level.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { parseJsonObject } from '@bububuger/core';
+import { parseJsonObject } from '../utils/json.js';
 
 function toNumber(value) {
   const n = Number(value);
