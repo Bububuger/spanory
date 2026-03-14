@@ -38,7 +38,7 @@
   "scripts": {
     "check": "npm run build:deps && tsc -p tsconfig.runtime.json --noEmit",
     "build:deps": "npm run --workspace @bububuger/core build && npm run --workspace @bububuger/otlp-core build && npm run --workspace @bububuger/backend-langfuse build",
-    "build": "npm run build:deps && node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.runtime.json && npx esbuild dist/index.js --bundle --platform=node --format=esm --target=node22 --external:node:* --external:commander --minify --outfile=dist/index.bundle.js && node -e \"require('node:fs').renameSync('dist/index.bundle.js','dist/index.js')\" && chmod +x dist/index.js",
+    "build": "npm run build:deps && node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.runtime.json && npx esbuild dist/index.js --bundle --platform=node --format=esm --target=node22 --external:node:* --external:commander --define:process.env.SPANORY_VERSION=\\\"$npm_package_version\\\" --minify --outfile=dist/index.bundle.js && node -e \"require('node:fs').renameSync('dist/index.bundle.js','dist/index.js')\" && chmod +x dist/index.js",
     "test": "npm run build && vitest run test/unit",
     "test:coverage": "npm run build && vitest run test/unit --coverage",
     "test:bdd": "npm run build && vitest run test/bdd",
