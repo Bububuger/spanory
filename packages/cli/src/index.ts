@@ -19,6 +19,7 @@ import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
 import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
+import { redactSecretText } from './runtime/shared/redaction.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { evaluateRules, loadAlertRules, sendAlertWebhook } from './alert/evaluate.js';
 import {
@@ -131,12 +132,6 @@ function parseHookPayload(raw) {
   } catch {
     throw new Error('hook payload is not valid JSON');
   }
-}
-
-function redactSecretText(value) {
-  return String(value ?? '')
-    .replace(/(authorization\s*[:=]\s*)(basic|bearer)\s+[^\s"']+/gi, '$1[REDACTED]')
-    .replace(/\b(sk|pk)_[a-z0-9_-]{8,}\b/gi, '[REDACTED]');
 }
 
 function maskEndpoint(endpoint) {
