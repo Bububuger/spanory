@@ -7,16 +7,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
-import {
-  buildResource,
-  compileOtlpSpans,
-  parseOtlpHeaders,
-  sendOtlpHttp as sendOtlpHttpDefault,
-} from '../../otlp-core/dist/index.js';
+import { langfuseBackendAdapter } from '@bububuger/backend-langfuse';
+import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '@bububuger/otlp-core';
 import { loadUserEnv } from '@bububuger/spanory/env';
 import { normalizeTranscriptMessages, pickUsage } from '@bububuger/spanory/runtime/shared/normalize';
-import { toNumber } from '../../core/dist/index.js';
+import { toNumber } from '@bububuger/core';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
 const EXECUTION_ENTRY = (() => {
@@ -29,7 +24,7 @@ const EXECUTION_ENTRY = (() => {
 })();
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const PLUGIN_FILE_DIR = path.dirname(EXECUTION_ENTRY);
-const DEFAULT_SPANORY_VERSION = '0.1.1';
+const DEFAULT_SPANORY_VERSION = 'unknown';
 const DEFAULT_FLUSH_MODE = 'turn';
 
 function readSpanoryVersionFromBinary() {
