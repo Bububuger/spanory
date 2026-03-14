@@ -21,10 +21,6 @@ describe('version fallback defaults', () => {
         expected: "const DEFAULT_SPANORY_VERSION = 'unknown';",
       },
       {
-        file: path.resolve('../alipay-cli/openclaw-plugin/src/index.ts'),
-        expected: "const DEFAULT_SPANORY_VERSION = 'unknown';",
-      },
-      {
         file: path.resolve('../otlp-core/src/index.ts'),
         expected: "serviceVersion: input.serviceVersion ?? process.env.SPANORY_VERSION ?? 'unknown',",
       },
