@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const entry = path.resolve('dist/index.js');
 
 describe('BDD setup command', () => {
-  it('Given fake home with stale codex notify setup, When setup apply runs for claude+codex twice, Then watch mode is idempotent and doctor passes', async () => {
+  it('Given fake home with stale codex notify setup, When setup apply+teardown runs for claude+codex, Then watch mode is idempotent and codex notify config is restored', async () => {
     const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-setup-home-'));
     const spanoryBin = '/tmp/spanory-bin';
 
@@ -26,6 +26,7 @@ describe('BDD setup command', () => {
 
     const codexConfig = path.join(fakeHome, '.codex', 'config.toml');
     const codexScript = path.join(fakeHome, '.codex', 'bin', 'spanory-codex-notify.sh');
+    const notifyBackupPath = path.join(fakeHome, '.codex', 'spanory-notify.backup.json');
     const escapedScriptPath = codexScript
       .replaceAll('\\', '\\\\')
       .replaceAll('"', '\\"');
@@ -48,6 +49,7 @@ describe('BDD setup command', () => {
     expect(existsSync(claudeSettings)).toBe(true);
     expect(existsSync(codexConfig)).toBe(true);
     expect(existsSync(codexScript)).toBe(false);
+    expect(existsSync(notifyBackupPath)).toBe(true);
 
     const second = execFileSync(
       'node',
@@ -88,5 +90,51 @@ describe('BDD setup command', () => {
     expect(doctorReport.checks.some((check) => check.id === 'claude_hook_stop' && check.ok)).toBe(true);
     expect(doctorReport.checks.some((check) => check.id === 'codex_watch_mode' && check.ok)).toBe(true);
     expect(doctorReport.checks.some((check) => check.id === 'codex_notify_script_absent' && check.ok)).toBe(true);
+
+    const teardown = execFileSync(
+      'node',
+      [
+        entry,
+        'setup',
+        'teardown',
+        '--runtimes',
+        'codex',
+        '--home',
+        fakeHome,
+      ],
+      { encoding: 'utf-8', env: { ...process.env, HOME: fakeHome } },
+    );
+    const teardownReport = JSON.parse(teardown);
+    expect(teardownReport.ok).toBe(true);
+    const codexTeardown = teardownReport.results.find((result) => result.runtime === 'codex');
+    expect(codexTeardown.notifyRestore.restored).toBe(true);
+    expect(codexTeardown.notifyRestore.changed).toBe(true);
+    expect(codexTeardown.notifyRestore.notifyLineCount).toBe(1);
+    expect(codexTeardown.notifyRestore.detail).toContain('restored 1 notify line');
+    expect(existsSync(notifyBackupPath)).toBe(false);
+
+    const restoredConfigRaw = readFileSync(codexConfig, 'utf-8');
+    const restoredNotifyMatches = restoredConfigRaw.match(/^notify\s*=.*$/gm) ?? [];
+    expect(restoredNotifyMatches).toHaveLength(1);
+    expect(restoredNotifyMatches[0]).toBe(`notify = ["${escapedScriptPath}"]`);
+
+    const teardownAgain = execFileSync(
+      'node',
+      [
+        entry,
+        'setup',
+        'teardown',
+        '--runtimes',
+        'codex',
+        '--home',
+        fakeHome,
+      ],
+      { encoding: 'utf-8', env: { ...process.env, HOME: fakeHome } },
+    );
+    const teardownAgainReport = JSON.parse(teardownAgain);
+    expect(teardownAgainReport.ok).toBe(true);
+    const codexTeardownAgain = teardownAgainReport.results.find((result) => result.runtime === 'codex');
+    expect(codexTeardownAgain.notifyRestore.restored).toBe(false);
+    expect(codexTeardownAgain.notifyRestore.detail).toContain('no notify backup found');
   });
 });

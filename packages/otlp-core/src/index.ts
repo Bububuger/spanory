@@ -153,7 +153,7 @@ function usageDetailsFromAttributes(attrs: Record<string, unknown>): string | un
 export function buildResource(input: Partial<OtlpResource> = {}): OtlpResource {
   return {
     serviceName: input.serviceName ?? process.env.SPANORY_SERVICE_NAME ?? 'spanory',
-    serviceVersion: input.serviceVersion ?? process.env.SPANORY_VERSION ?? '0.1.1',
+    serviceVersion: input.serviceVersion ?? process.env.SPANORY_VERSION ?? 'unknown',
     environment: input.environment ?? process.env.SPANORY_ENV ?? 'development',
   };
 }

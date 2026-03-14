@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { appendFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -12,6 +11,7 @@ import { langfuseBackendAdapter } from '@bububuger/backend-langfuse';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp as sendOtlpHttpDefault } from '@bububuger/otlp-core';
 import { loadUserEnv } from '@bububuger/spanory/env';
 import { normalizeTranscriptMessages, pickUsage } from '@bububuger/spanory/runtime/shared/normalize';
+import { toNumber } from '@bububuger/core';
 
 const PLUGIN_ID = 'spanory-opencode-plugin';
 const EXECUTION_ENTRY = (() => {
@@ -24,7 +24,7 @@ const EXECUTION_ENTRY = (() => {
 })();
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const PLUGIN_FILE_DIR = path.dirname(EXECUTION_ENTRY);
-const DEFAULT_SPANORY_VERSION = '0.1.1';
+const DEFAULT_SPANORY_VERSION = 'unknown';
 const DEFAULT_FLUSH_MODE = 'turn';
 
 function readSpanoryVersionFromBinary() {
@@ -67,10 +67,11 @@ function readSpanoryVersionFromPackageJson() {
   return null;
 }
 
-const SPANORY_SERVICE_VERSION = process.env.SPANORY_VERSION
-  ?? readSpanoryVersionFromBinary()
-  ?? readSpanoryVersionFromPackageJson()
-  ?? DEFAULT_SPANORY_VERSION;
+const SPANORY_SERVICE_VERSION =
+  process.env.SPANORY_VERSION ??
+  readSpanoryVersionFromBinary() ??
+  readSpanoryVersionFromPackageJson() ??
+  DEFAULT_SPANORY_VERSION;
 
 const SESSION_FLUSH_EVENTS = new Set([
   'session.idle',
@@ -94,11 +95,6 @@ const TURN_FLUSH_EVENTS = new Set([
   'assistant.completed',
   'assistant.complete',
 ]);
-
-function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
 
 function nowIso() {
   return new Date().toISOString();
@@ -140,8 +136,8 @@ function userEnvPath() {
 
 function sanitizeLogValue(value) {
   return String(value)
-    .replace(/(authorization\s*[:=]\s*)(basic|bearer)\s+[^\s"']+/ig, '$1[REDACTED]')
-    .replace(/\b(sk|pk)_[a-z0-9_-]{8,}\b/ig, '[REDACTED]')
+    .replace(/(authorization\s*[:=]\s*)(basic|bearer)\s+[^\s"']+/gi, '$1[REDACTED]')
+    .replace(/\b(sk|pk)_[a-z0-9_-]{8,}\b/gi, '[REDACTED]')
     .replace(/\s+/g, ' ')
     .replace(/[^ -~]/g, '')
     .slice(0, 320);
@@ -192,7 +188,7 @@ async function readSpoolItems() {
   const root = spoolRoot();
   await mkdir(root, { recursive: true });
   const names = (await readdir(root)).filter((name) => name.endsWith('.json')).sort();
-  const out = [];
+  const out: Array<{ file: string; payload: any }> = [];
   for (const name of names) {
     const file = path.join(root, name);
     try {
@@ -210,7 +206,7 @@ function retryMax() {
 }
 
 function retryDelayMs(attempt) {
-  return Math.min(2000, 200 * (2 ** attempt));
+  return Math.min(2000, 200 * 2 ** attempt);
 }
 
 function delay(ms) {
@@ -269,9 +265,9 @@ function partTimestamp(part, fallbackMs) {
   return parseTimestamp(end ?? start ?? fallbackMs);
 }
 
-function normalizeMessages({ sessionInfo, sessionMessages }) {
+function normalizeMessages({ sessionInfo, sessionMessages }: { sessionInfo: any; sessionMessages: any[] }) {
   const runtimeVersion = sessionInfo?.version;
-  const normalized = [];
+  const normalized: Array<Record<string, any>> = [];
 
   for (const message of sessionMessages) {
     const info = message?.info ?? {};
@@ -292,7 +288,7 @@ function normalizeMessages({ sessionInfo, sessionMessages }) {
       continue;
     }
 
-    const content = [];
+    const content: Array<Record<string, any>> = [];
     for (const part of parts) {
       if (part?.type === 'text') {
         content.push({ type: 'text', text: String(part.text ?? '') });
@@ -380,25 +376,29 @@ function unwrapData(response) {
 }
 
 function resolveFlushMode() {
-  const raw = String(process.env.SPANORY_OPENCODE_FLUSH_MODE ?? DEFAULT_FLUSH_MODE).trim().toLowerCase();
+  const raw = String(process.env.SPANORY_OPENCODE_FLUSH_MODE ?? DEFAULT_FLUSH_MODE)
+    .trim()
+    .toLowerCase();
   if (raw === 'session' || raw === 'turn') return raw;
   return DEFAULT_FLUSH_MODE;
 }
 
 function extractSessionId(event) {
-  return event?.properties?.sessionID
-    ?? event?.properties?.sessionId
-    ?? event?.sessionID
-    ?? event?.sessionId
-    ?? undefined;
+  return (
+    event?.properties?.sessionID ?? event?.properties?.sessionId ?? event?.sessionID ?? event?.sessionId ?? undefined
+  );
 }
 
 function normalizeEventType(type) {
-  return String(type ?? '').trim().toLowerCase();
+  return String(type ?? '')
+    .trim()
+    .toLowerCase();
 }
 
 function looksLikeTurnDoneEvent(type) {
-  return /(?:^|\.)(turn|message|response|assistant)(?:\.|_)?(completed|complete|done|ended|end|finished|finish|stopped|stop)$/.test(type);
+  return /(?:^|\.)(turn|message|response|assistant)(?:\.|_)?(completed|complete|done|ended|end|finished|finish|stopped|stop)$/.test(
+    type,
+  );
 }
 
 function shouldFlushForEvent(type, flushMode) {
@@ -452,7 +452,10 @@ export function createOpencodeSpanoryPluginRuntime(options) {
     await envLoadPromise;
   }
 
-  async function sendWithRetry(payload, meta = {}) {
+  async function sendWithRetry(
+    payload: unknown,
+    meta: { source?: string; sessionId?: string; triggerType?: string } = {},
+  ) {
     await ensureUserEnvLoaded();
     const endpoint = otlpEndpoint();
     if (!endpoint) {
@@ -508,48 +511,53 @@ export function createOpencodeSpanoryPluginRuntime(options) {
   let pipeline = Promise.resolve();
 
   function submit(events, sessionId, fingerprint, triggerType) {
-    pipeline = pipeline.then(async () => {
-      const mapped = langfuseBackendAdapter.mapEvents(events);
-      const payload = compileOtlpSpans(mapped, buildResource({
-        serviceVersion: SPANORY_SERVICE_VERSION,
-      }));
+    pipeline = pipeline
+      .then(async () => {
+        const mapped = langfuseBackendAdapter.mapEvents(events);
+        const payload = compileOtlpSpans(
+          mapped,
+          buildResource({
+            serviceVersion: SPANORY_SERVICE_VERSION,
+          }),
+        );
 
-      try {
-        const result = await sendWithRetry(payload, {
-          source: 'live',
-          sessionId,
-          triggerType,
-        });
-        if (!result.skipped) {
-          await flushSpool();
+        try {
+          const result = await sendWithRetry(payload, {
+            source: 'live',
+            sessionId,
+            triggerType,
+          });
+          if (!result.skipped) {
+            await flushSpool();
+          }
+          await writeStatus({
+            pluginId: PLUGIN_ID,
+            lastSessionId: sessionId,
+            lastFingerprint: fingerprint,
+            lastTriggerEvent: triggerType,
+            lastSuccessAt: nowIso(),
+            events: events.length,
+            ...(result.skipped ? { lastSkippedAt: nowIso(), reason: 'otlp_endpoint_unset' } : {}),
+            endpointConfigured: !result.skipped,
+            flushMode,
+            logFile: pluginLogFilePath(),
+          });
+        } catch (err) {
+          await enqueueSpool({
+            payload,
+            sessionId,
+            fingerprint,
+            createdAt: nowIso(),
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
-        await writeStatus({
-          pluginId: PLUGIN_ID,
-          lastSessionId: sessionId,
-          lastFingerprint: fingerprint,
-          lastTriggerEvent: triggerType,
-          lastSuccessAt: nowIso(),
-          events: events.length,
-          ...(result.skipped ? { lastSkippedAt: nowIso(), reason: 'otlp_endpoint_unset' } : {}),
-          endpointConfigured: !result.skipped,
-          flushMode,
-          logFile: pluginLogFilePath(),
-        });
-      } catch (err) {
-        await enqueueSpool({
-          payload,
-          sessionId,
-          fingerprint,
-          createdAt: nowIso(),
+      })
+      .catch((err) => {
+        appendPluginLog('error', 'pipeline_error', {
           error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }).catch((err) => {
-      appendPluginLog('error', 'pipeline_error', {
-        error: err instanceof Error ? err.message : String(err),
-      }).catch(() => {});
-      logger?.warn?.(`[${PLUGIN_ID}] pipeline error: ${String(err)}`);
-    });
+        }).catch(() => {});
+        logger?.warn?.(`[${PLUGIN_ID}] pipeline error: ${String(err)}`);
+      });
   }
 
   async function collectCanonicalEvents(sessionId) {

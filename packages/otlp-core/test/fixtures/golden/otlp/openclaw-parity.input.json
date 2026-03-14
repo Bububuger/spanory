@@ -1,0 +1,42 @@
+{
+  "resource": {
+    "serviceName": "spanory",
+    "serviceVersion": "0.1.0",
+    "environment": "test"
+  },
+  "events": [
+    {
+      "runtime": "openclaw",
+      "sessionId": "oc-s1",
+      "projectId": "oc-p1",
+      "turnId": "turn-1",
+      "category": "turn",
+      "name": "Turn 1",
+      "startedAt": "2026-03-01T00:00:00.000Z",
+      "endedAt": "2026-03-01T00:00:01.000Z",
+      "input": "hi",
+      "output": "hello",
+      "attributes": {
+        "langfuse.observation.model.name": "openclaw-pro",
+        "gen_ai.usage.input_tokens": 10,
+        "gen_ai.usage.output_tokens": 5
+      }
+    },
+    {
+      "runtime": "openclaw",
+      "sessionId": "oc-s1",
+      "projectId": "oc-p1",
+      "turnId": "turn-1",
+      "category": "tool",
+      "name": "Tool: WebSearch",
+      "startedAt": "2026-03-01T00:00:00.200Z",
+      "endedAt": "2026-03-01T00:00:00.300Z",
+      "input": "{\"query\":\"langfuse\"}",
+      "output": "ok",
+      "attributes": {
+        "gen_ai.tool.name": "WebSearch",
+        "gen_ai.tool.call.id": "call-web-1"
+      }
+    }
+  ]
+}

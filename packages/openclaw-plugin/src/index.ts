@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -10,9 +9,9 @@ import { createRequire } from 'node:module';
 import { langfuseBackendAdapter } from '@bububuger/backend-langfuse';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '@bububuger/otlp-core';
 import { loadUserEnv } from '@bububuger/spanory/env';
+import { GATEWAY_INPUT_METADATA_BLOCK_RE, toNumber } from '@bububuger/core';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
-const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
 const EXECUTION_ENTRY = (() => {
   const candidate = fileURLToPath(import.meta.url);
   try {
@@ -23,7 +22,7 @@ const EXECUTION_ENTRY = (() => {
 })();
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const PLUGIN_FILE_DIR = path.dirname(EXECUTION_ENTRY);
-const DEFAULT_SPANORY_VERSION = '0.1.1';
+const DEFAULT_SPANORY_VERSION = 'unknown';
 
 function readSpanoryVersionFromBinary() {
   try {
@@ -65,15 +64,11 @@ function readSpanoryVersionFromPackageJson() {
   return null;
 }
 
-const SPANORY_SERVICE_VERSION = process.env.SPANORY_VERSION
-  ?? readSpanoryVersionFromBinary()
-  ?? readSpanoryVersionFromPackageJson()
-  ?? DEFAULT_SPANORY_VERSION;
-
-function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
+const SPANORY_SERVICE_VERSION =
+  process.env.SPANORY_VERSION ??
+  readSpanoryVersionFromBinary() ??
+  readSpanoryVersionFromPackageJson() ??
+  DEFAULT_SPANORY_VERSION;
 
 function usageToAttributes(usage) {
   if (!usage || typeof usage !== 'object') return {};
@@ -111,7 +106,7 @@ function usageToAttributes(usage) {
   return attrs;
 }
 
-function mergeUsage(target = {}, usage) {
+function mergeUsage(target: Record<string, number> = {}, usage: any) {
   if (!usage || typeof usage !== 'object') return target;
   const next = { ...target };
   const input = toNumber(usage.input ?? usage.input_tokens ?? usage.prompt_tokens);
@@ -218,9 +213,7 @@ function runtimeVersionAttributes(version) {
 
 function detectOpenclawRuntimeVersion() {
   const envVersion = normalizeRuntimeVersion(
-    process.env.OPENCLAW_RUNTIME_VERSION
-    ?? process.env.OPENCLAW_VERSION
-    ?? process.env.npm_package_version,
+    process.env.OPENCLAW_RUNTIME_VERSION ?? process.env.OPENCLAW_VERSION ?? process.env.npm_package_version,
   );
   if (envVersion) return envVersion;
   try {
@@ -251,7 +244,8 @@ function extractPromptMetadata(prompt) {
     // ignore malformed metadata JSON and only strip wrapper text
   }
 
-  const normalizedPrompt = input.slice(match.index + match[0].length).trim() || input;
+  const matchIndex = match.index ?? 0;
+  const normalizedPrompt = input.slice(matchIndex + match[0].length).trim() || input;
   return { prompt: normalizedPrompt, attributes };
 }
 
@@ -268,11 +262,17 @@ function normalizeToolParams(value) {
   return {};
 }
 
-function extractAssistantToolCalls(message) {
+type AssistantToolCall = {
+  toolCallId: string;
+  toolName: string;
+  params: Record<string, unknown>;
+};
+
+function extractAssistantToolCalls(message): AssistantToolCall[] {
   if (!message || typeof message !== 'object') return [];
   if (message.role !== 'assistant') return [];
   if (!Array.isArray(message.content)) return [];
-  const out = [];
+  const out: AssistantToolCall[] = [];
   for (const block of message.content) {
     if (!block || typeof block !== 'object') continue;
     if (block.type !== 'toolCall') continue;
@@ -287,7 +287,7 @@ function extractAssistantToolCalls(message) {
   return out;
 }
 
-function sessionIdsFromContext(ctx = {}) {
+function sessionIdsFromContext(ctx: any = {}) {
   const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? 'unknown-session';
   const sessionId = ctx.sessionId ?? sessionKey;
   const projectId = ctx.agentId ?? sessionKey.split(':')[1] ?? 'openclaw';
@@ -300,10 +300,8 @@ function nowIso() {
 }
 
 function pluginStateRoot() {
-  const home = process.env.SPANORY_OPENCLOW_HOME
-    ?? process.env.SPANORY_OPENCLAW_HOME
-    ?? process.env.OPENCLAW_STATE_DIR
-    ?? path.join(os.homedir(), '.openclaw');
+  const home =
+    process.env.SPANORY_OPENCLAW_HOME ?? process.env.OPENCLAW_STATE_DIR ?? path.join(os.homedir(), '.openclaw');
   return path.join(home, 'state', 'spanory');
 }
 
@@ -339,7 +337,7 @@ async function readSpoolItems() {
   const root = spoolRoot();
   await mkdir(root, { recursive: true });
   const names = (await readdir(root)).filter((name) => name.endsWith('.json')).sort();
-  const out = [];
+  const out: Array<{ file: string; payload: any }> = [];
   for (const name of names) {
     const file = path.join(root, name);
     try {
@@ -366,7 +364,7 @@ function retryMax() {
 }
 
 function retryDelayMs(attempt) {
-  return Math.min(2000, 200 * (2 ** attempt));
+  return Math.min(2000, 200 * 2 ** attempt);
 }
 
 function flushDelayMs() {
@@ -413,29 +411,34 @@ function createRuntimeQueue(logger) {
 
   const submit = (events) => {
     if (!events.length) return;
-    pipeline = pipeline.then(async () => {
-      const mapped = langfuseBackendAdapter.mapEvents(events);
-      const payload = compileOtlpSpans(mapped, buildResource({
-        serviceVersion: SPANORY_SERVICE_VERSION,
-      }));
-      try {
-        await sendWithRetry(payload);
-        await flushSpool();
-        await writeStatus({
-          pluginId: PLUGIN_ID,
-          lastSuccessAt: new Date().toISOString(),
-          events: events.length,
-        });
-      } catch (err) {
-        await enqueueSpool({
-          payload,
-          error: err instanceof Error ? err.message : String(err),
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }).catch((err) => {
-      logger?.warn?.(`[${PLUGIN_ID}] pipeline error: ${String(err)}`);
-    });
+    pipeline = pipeline
+      .then(async () => {
+        const mapped = langfuseBackendAdapter.mapEvents(events);
+        const payload = compileOtlpSpans(
+          mapped,
+          buildResource({
+            serviceVersion: SPANORY_SERVICE_VERSION,
+          }),
+        );
+        try {
+          await sendWithRetry(payload);
+          await flushSpool();
+          await writeStatus({
+            pluginId: PLUGIN_ID,
+            lastSuccessAt: new Date().toISOString(),
+            events: events.length,
+          });
+        } catch (err) {
+          await enqueueSpool({
+            payload,
+            error: err instanceof Error ? err.message : String(err),
+            createdAt: new Date().toISOString(),
+          });
+        }
+      })
+      .catch((err) => {
+        logger?.warn?.(`[${PLUGIN_ID}] pipeline error: ${String(err)}`);
+      });
   };
 
   const flush = async () => {
@@ -451,8 +454,8 @@ function createRuntimeQueue(logger) {
 }
 
 export function createOpenclawSpanoryPluginRuntime(logger) {
-  const sessions = new Map();
-  const sessionAliases = new Map();
+  const sessions = new Map<string, any>();
+  const sessionAliases = new Map<string, string>();
   const queue = createRuntimeQueue(logger);
   const defaultRuntimeVersion = detectOpenclawRuntimeVersion();
 
@@ -463,16 +466,18 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     }
 
     if (ctx?.sessionKey && sessionAliases.has(ctx.sessionKey)) {
-      const stateKey = sessionAliases.get(ctx.sessionKey);
-      const existing = sessions.get(stateKey);
-      if (existing) return { stateKey, ids: existing };
+      const aliasedStateKey = sessionAliases.get(ctx.sessionKey);
+      if (aliasedStateKey) {
+        const existing = sessions.get(aliasedStateKey);
+        if (existing) return { stateKey: aliasedStateKey, ids: existing };
+      }
     }
 
     const ids = sessionIdsFromContext(ctx);
     return { stateKey: ids.stateKey, ids };
   };
 
-  const getState = (ctx, options = {}) => {
+  const getState = (ctx: any, options: { requireResolved?: boolean } = {}) => {
     const { requireResolved = false } = options;
     const hasResolvedAlias = Boolean(ctx?.sessionId) || (ctx?.sessionKey && sessionAliases.has(ctx.sessionKey));
     if (requireResolved && !hasResolvedAlias) return null;
@@ -508,7 +513,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
   };
 
   const findFallbackState = (ctx) => {
-    const candidates = [];
+    const candidates: any[] = [];
     for (const state of sessions.values()) {
       if (ctx?.agentId && state.projectId !== ctx.agentId) continue;
       candidates.push(state);
@@ -576,10 +581,14 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     state.pendingInputAttributes = {};
   };
 
-  const finalizePendingTurn = (state, options = {}) => {
+  const finalizePendingTurn = (state: any, options: { force?: boolean; requireOutput?: boolean } = {}) => {
     const { force = false, requireOutput = false } = options;
     if (!state.pendingTurnId) return false;
-    const output = state.pendingOutputParts.map((part) => String(part ?? '')).filter(Boolean).join('\n').trim();
+    const output = state.pendingOutputParts
+      .map((part) => String(part ?? ''))
+      .filter(Boolean)
+      .join('\n')
+      .trim();
     const hasTools = state.pendingTools.length > 0;
     if (requireOutput && !output) return false;
     if (!force && !output && !hasTools) return false;
@@ -617,9 +626,9 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
   const enqueueToolEvent = (state, toolEvent) => {
     state.lastTouchedAt = Date.now();
     const hasPendingUnmaterializedTurn = Boolean(
-      state.pendingTurnId
-      && state.pendingTurnId !== state.lastTurnId
-      && (!state.currentBatch || state.currentBatch.length === 0),
+      state.pendingTurnId &&
+      state.pendingTurnId !== state.lastTurnId &&
+      (!state.currentBatch || state.currentBatch.length === 0),
     );
     if (hasPendingUnmaterializedTurn) {
       state.pendingTools.push({ ...toolEvent, turnId: state.pendingTurnId });
@@ -644,11 +653,11 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     }
     const normalized = extractPromptMetadata(event?.prompt ?? '');
     const runtimeVersion = normalizeRuntimeVersion(
-      event?.runtimeVersion
-      ?? event?.runtime_version
-      ?? event?.openclawVersion
-      ?? event?.openclaw_version
-      ?? event?.version,
+      event?.runtimeVersion ??
+        event?.runtime_version ??
+        event?.openclawVersion ??
+        event?.openclaw_version ??
+        event?.version,
     );
     if (runtimeVersion) state.runtimeVersion = runtimeVersion;
     state.lastPrompt = normalized.prompt;
@@ -664,11 +673,11 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     const state = getState(ctx);
     if (!state.pendingTurnId) return;
     const runtimeVersion = normalizeRuntimeVersion(
-      event?.runtimeVersion
-      ?? event?.runtime_version
-      ?? event?.openclawVersion
-      ?? event?.openclaw_version
-      ?? event?.version,
+      event?.runtimeVersion ??
+        event?.runtime_version ??
+        event?.openclawVersion ??
+        event?.openclaw_version ??
+        event?.version,
     );
     if (runtimeVersion) state.runtimeVersion = runtimeVersion;
     state.lastModel = event?.model ?? state.lastModel;
@@ -838,14 +847,14 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
   const onSessionStart = (event, ctx) => {
     const state = getState(ctx);
     const runtimeVersion = normalizeRuntimeVersion(
-      event?.runtimeVersion
-      ?? event?.runtime_version
-      ?? event?.openclawVersion
-      ?? event?.openclaw_version
-      ?? event?.version
-      ?? event?.session?.runtimeVersion
-      ?? event?.session?.runtime_version
-      ?? event?.session?.version,
+      event?.runtimeVersion ??
+        event?.runtime_version ??
+        event?.openclawVersion ??
+        event?.openclaw_version ??
+        event?.version ??
+        event?.session?.runtimeVersion ??
+        event?.session?.runtime_version ??
+        event?.session?.version,
     );
     if (runtimeVersion) state.runtimeVersion = runtimeVersion;
     state.lastTouchedAt = Date.now();

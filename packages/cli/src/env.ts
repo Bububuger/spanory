@@ -1,29 +1,28 @@
-// @ts-nocheck
 import path from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
-export function resolveUserHome() {
+export function resolveUserHome(): string {
   return process.env.HOME || process.env.USERPROFILE || '';
 }
 
-export function resolveSpanoryHome() {
+export function resolveSpanoryHome(): string {
   if (process.env.SPANORY_HOME) return process.env.SPANORY_HOME;
   const home = resolveUserHome();
   return home ? path.join(home, '.spanory') : '';
 }
 
-export function resolveSpanoryEnvPath() {
+export function resolveSpanoryEnvPath(): string {
   const root = resolveSpanoryHome();
   return root ? path.join(root, '.env') : '';
 }
 
-export function resolveLegacyUserEnvPath() {
+export function resolveLegacyUserEnvPath(): string {
   const home = resolveUserHome();
   return home ? path.join(home, '.env') : '';
 }
 
-export function parseSimpleDotEnv(raw) {
-  const out = {};
+export function parseSimpleDotEnv(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const line of String(raw).split('\n')) {
     let s = line.trim();
     if (!s || s.startsWith('#')) continue;

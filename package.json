@@ -8,6 +8,10 @@
     "packages/*"
   ],
   "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write \"{package.json,package-lock.json,packages/*/package.json,eslint.config.mjs,.prettierrc.json}\"",
+    "format:check": "prettier --check \"{package.json,package-lock.json,packages/*/package.json,eslint.config.mjs,.prettierrc.json}\"",
+    "prepare": "husky",
     "check": "npm run --workspaces check",
     "build": "npm run --workspaces build",
     "test": "npm run --workspaces test",
@@ -18,14 +22,32 @@
     "telemetry:validate-mapping": "node scripts/telemetry/validate-mapping.mjs",
     "telemetry:report": "node scripts/telemetry/report.mjs",
     "telemetry:check": "node scripts/telemetry/check.mjs",
+    "issue:sync": "node scripts/issues/issue-cli.mjs sync",
+    "issue:list": "node scripts/issues/issue-cli.mjs list",
+    "issue:set-status": "node scripts/issues/issue-cli.mjs set-status",
     "issue:status": "node scripts/issues/status-report.mjs summary",
     "build:bin": "bash scripts/release/build-binaries.sh",
     "package:release-assets": "bash scripts/release/package-release-assets.sh",
     "version:sync": "node scripts/release/sync-version.mjs",
     "publish:internal": "bash scripts/publish-internal.sh"
   },
+  "lint-staged": {
+    "*.{ts,mts,cts,js,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,yaml,yml}": "prettier --write"
+  },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/node": "^24.4.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^9.39.4",
+    "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.8.1",
     "typescript": "^5.9.2"
   },
   "publishConfig": {

@@ -1,0 +1,242 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "spanory"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.1.0"
+            }
+          },
+          {
+            "key": "deployment.environment.name",
+            "value": {
+              "stringValue": "test"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "spanory"
+          },
+          "spans": [
+            {
+              "traceId": "276b08911e84e81bb7516e55a63fcc75",
+              "spanId": "483ccc421cd3f770",
+              "name": "Turn 1",
+              "startTimeUnixNano": "1772150400000000000",
+              "endTimeUnixNano": "1772150401000000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "claude-code"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "golden-s1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "276b08911e84e81bb7516e55a63fcc75"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "golden-s1"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "claude-code turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"golden-p1\",\"sessionId\":\"golden-s1\",\"turnId\":\"turn-1\"}"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "agent"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "483ccc421cd3f770"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "276b08911e84e81bb7516e55a63fcc75",
+              "spanId": "0edd54c27d8caf8c",
+              "parentSpanId": "483ccc421cd3f770",
+              "name": "Tool: Bash",
+              "startTimeUnixNano": "1772150400500000000",
+              "endTimeUnixNano": "1772150400600000000",
+              "attributes": [
+                {
+                  "key": "agentic.runtime.name",
+                  "value": {
+                    "stringValue": "claude-code"
+                  }
+                },
+                {
+                  "key": "session.id",
+                  "value": {
+                    "stringValue": "golden-s1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.id",
+                  "value": {
+                    "stringValue": "276b08911e84e81bb7516e55a63fcc75"
+                  }
+                },
+                {
+                  "key": "langfuse.session.id",
+                  "value": {
+                    "stringValue": "golden-s1"
+                  }
+                },
+                {
+                  "key": "agentic.turn.id",
+                  "value": {
+                    "stringValue": "turn-1"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.id",
+                  "value": {
+                    "stringValue": "call-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.name",
+                  "value": {
+                    "stringValue": "claude-code turn-1"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.metadata",
+                  "value": {
+                    "stringValue": "{\"runtime\":\"claude-code\",\"projectId\":\"golden-p1\",\"sessionId\":\"golden-s1\",\"turnId\":\"turn-1\"}"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.input",
+                  "value": {
+                    "stringValue": "hi"
+                  }
+                },
+                {
+                  "key": "langfuse.trace.output",
+                  "value": {
+                    "stringValue": "hello"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.type",
+                  "value": {
+                    "stringValue": "tool"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.id",
+                  "value": {
+                    "stringValue": "0edd54c27d8caf8c"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.input",
+                  "value": {
+                    "stringValue": "pwd"
+                  }
+                },
+                {
+                  "key": "input.value",
+                  "value": {
+                    "stringValue": "pwd"
+                  }
+                },
+                {
+                  "key": "langfuse.observation.output",
+                  "value": {
+                    "stringValue": "/tmp"
+                  }
+                },
+                {
+                  "key": "output.value",
+                  "value": {
+                    "stringValue": "/tmp"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

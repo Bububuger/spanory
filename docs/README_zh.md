@@ -18,19 +18,17 @@ Spanory 是一个跨运行时的 AI Agent 可观测性工具包，将 Claude Cod
 
 ## 推荐：一键 setup（四 runtime）
 
-优先使用内置 setup 命令完成本地接入（默认 Codex 走 notify，非代理模式）：
+优先使用内置 setup 命令完成本地接入（默认 Codex 走 watch 守护进程，非代理模式）：
 
 ```bash
 spanory setup detect
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+spanory setup apply --runtimes claude-code,codex,openclaw,opencode
 spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
 `setup apply` 会自动执行：
 - Claude Code：写入/更新 `Stop` + `SessionEnd` 的 `spanory hook --last-turn-only`
-- Codex：写入 `~/.codex/bin/spanory-codex-notify.sh`，并将 `~/.codex/config.toml` 的 `notify` 更新为绝对路径（如 `notify = ["/Users/<you>/.codex/bin/spanory-codex-notify.sh"]`）
-
-注意：Codex 的 `notify` 建议必须写绝对路径；部分执行路径下 `~` 不会自动展开。
+- Codex：清理历史 `~/.codex/bin/spanory-codex-notify.sh` 与 `~/.codex/config.toml` 中的 `notify = [...]` 注入，并后台启动 `spanory runtime codex watch --last-turn-only`（状态文件 `~/.spanory/codex-watch.pid`，日志 `~/.spanory/logs/codex-watch.log`）
 - OpenClaw：安装并启用 Spanory plugin（当 PATH 中可用 `openclaw`）
 - OpenCode：安装 plugin loader 到 `~/.config/opencode/plugin`
 
@@ -39,7 +37,6 @@ spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 ```bash
 spanory setup apply \
   --runtimes claude-code,codex,openclaw,opencode \
-  --codex-mode notify \
   --dry-run
 ```
 
@@ -50,7 +47,7 @@ spanory setup apply \
 ```text
 请在当前仓库完成 Spanory 本机安装与四 runtime 接入。
 要求：
-- Codex 使用 notify 模式，不启用 proxy 劫持。
+- Codex 使用 watch 守护进程模式（不启用 proxy 劫持，也不注入 notify）。
 - 接入 claude-code,codex,openclaw,opencode 四个 runtime。
 - 执行后输出 detect/apply/doctor 的 JSON 结果，并给出最终通过/失败总结。
 
@@ -58,7 +55,7 @@ spanory setup apply \
 1) npm install
 2) npm install -g ./packages/cli
 3) spanory setup detect
-4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode
 5) spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 
 如果有失败项，请附上可直接执行的排查命令。
@@ -359,7 +356,7 @@ OpenClaw transcript 默认支持两种目录：
 可覆盖 OpenClaw runtime home：
 
 ```bash
-export SPANORY_OPENCLOW_HOME="$HOME/.openclaw"
+export SPANORY_OPENCLAW_HOME="$HOME/.openclaw"
 ```
 
 实时 hook（补数/排障场景）：
@@ -437,7 +434,7 @@ spanory report turn-diff --input-json /path/to/exported-or-dir
 执行规则评估：
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json
 ```
@@ -452,7 +449,7 @@ spanory alert eval \
 有告警时返回非零退出码（用于 CI/自动化）：
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json \
   --fail-on-alert
@@ -461,7 +458,7 @@ spanory alert eval \
 可选 webhook 通知：
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json \
   --webhook-url https://example.com/hook \

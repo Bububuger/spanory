@@ -1,16 +1,33 @@
-# Plan (2026-03-13) — OpenClaw 插件多路径冲突规避
+# Plan (2026-03-14) — 全仓 ESLint/Prettier/Husky 基线
 
 ## 目标
-1. `spanory setup apply` 在 openclaw 插件模式下自动清理 `plugins.load.paths` 的 spanory 多路径冲突。
-2. 安装后仅保留一个有效 spanory 插件路径，避免重复加载旧路径。
+1. 在仓库根建立统一的 ESLint 与 Prettier 机制，覆盖 `packages/*` 主要源码与脚本文件。
+2. 在提交前通过 Husky + lint-staged 自动执行可增量的 lint/format 门禁。
+3. 保持改动最小，不引入大规模格式化噪音；新增命令可直接在根目录执行。
 
-## 执行顺序
-1. 在 `packages/cli/src/index.ts` 增加 openclaw 配置归一化函数。
-2. 在 `installOpenclawPlugin` 前执行归一化并写回 `openclaw.json`（支持备份）。
-3. 增加 BDD 覆盖：构造冲突路径，执行 setup apply 后断言只剩一个目标路径。
-4. 运行最小测试与 BDD 全量回归。
+## 文件范围（最小集）
+- `package.json`（根）
+- `eslint.config.js`
+- `.prettierrc.json`
+- `.prettierignore`
+- `.husky/pre-commit`
+
+## 实施步骤
+1. 设计并落地 ESLint/Prettier 配置：
+   - ESLint 使用 JS + TS 基础规则（避免类型依赖过重导致性能回归）。
+   - Prettier 对齐现有风格（`singleQuote: true`）。
+2. 在根 `package.json` 新增脚本与开发依赖：
+   - `lint`、`format`、`format:check`、`prepare`。
+   - 增加 `lint-staged` 配置，仅检查暂存文件。
+3. 接入 Husky pre-commit：
+   - 提交前执行 `lint-staged`。
+4. 逐项验收：
+   - 先验证新增命令可运行。
+   - 再验证 `lint-staged` 触发链路。
+   - 最后回归 `npm run check`。
 
 ## 验收标准
-- `openclaw.json` 中 `plugins.load.paths` 不再包含多个 spanory 路径。
-- `setup apply --runtimes openclaw` 后保留路径为当前插件目录。
-- 相关 BDD 通过。
+- 根目录存在可执行且可复用的 `lint` 与 `format:check` 命令。
+- 提交前 hook 生效，`pre-commit` 可触发 `lint-staged`。
+- 至少一条“修复前失败 / 修复后通过”证据在工作记录中可追溯。
+- 不引入与任务无关的大面积代码重排。

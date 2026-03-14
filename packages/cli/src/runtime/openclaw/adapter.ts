@@ -1,8 +1,11 @@
 // @ts-nocheck
-import { readdir, readFile, stat } from 'node:fs/promises';
+// BUB-79: Scoped waiver for legacy OpenClaw adapter parser; strict remains enforced at package command level.
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { extractToolUses } from '@bububuger/core';
 
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
+import { forEachJsonlEntry } from '../shared/jsonl.js';
 import { normalizeTranscriptMessages, parseProjectIdFromTranscriptPath, pickUsage } from '../shared/normalize.js';
 
 const INFER_WINDOW_EPSILON_MS = 1200;
@@ -103,20 +106,17 @@ function normalizeToolUseResult(entry) {
 
 function normalizeSourceToolUseId(entry) {
   return (
-    entry?.sourceToolUseID
-    ?? entry?.sourceToolUseId
-    ?? entry?.source_tool_use_id
-    ?? entry?.message?.toolCallId
-    ?? entry?.message?.tool_call_id
+    entry?.sourceToolUseID ??
+    entry?.sourceToolUseId ??
+    entry?.source_tool_use_id ??
+    entry?.message?.toolCallId ??
+    entry?.message?.tool_call_id
   );
 }
 
 function normalizeUsage(entry) {
-  const raw = entry?.message?.usage
-    ?? entry?.usage
-    ?? entry?.message_usage
-    ?? entry?.token_usage
-    ?? entry?.payload?.usage;
+  const raw =
+    entry?.message?.usage ?? entry?.usage ?? entry?.message_usage ?? entry?.token_usage ?? entry?.payload?.usage;
   if (!raw || typeof raw !== 'object') return undefined;
   return pickUsage({
     input_tokens: raw.input_tokens ?? raw.prompt_tokens ?? raw.input,
@@ -128,29 +128,25 @@ function normalizeUsage(entry) {
 }
 
 function normalizeIsSidechain(entry) {
-  const raw = entry?.isSidechain
-    ?? entry?.is_sidechain
-    ?? entry?.message?.isSidechain
-    ?? entry?.message?.is_sidechain
-    ?? entry?.payload?.isSidechain
-    ?? entry?.payload?.is_sidechain;
+  const raw =
+    entry?.isSidechain ??
+    entry?.is_sidechain ??
+    entry?.message?.isSidechain ??
+    entry?.message?.is_sidechain ??
+    entry?.payload?.isSidechain ??
+    entry?.payload?.is_sidechain;
   return raw === true;
 }
 
 function normalizeAgentId(entry) {
   return (
-    entry?.agentId
-    ?? entry?.agent_id
-    ?? entry?.message?.agentId
-    ?? entry?.message?.agent_id
-    ?? entry?.payload?.agentId
-    ?? entry?.payload?.agent_id
+    entry?.agentId ??
+    entry?.agent_id ??
+    entry?.message?.agentId ??
+    entry?.message?.agent_id ??
+    entry?.payload?.agentId ??
+    entry?.payload?.agent_id
   );
-}
-
-function extractToolUses(content) {
-  if (!Array.isArray(content)) return [];
-  return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_use');
 }
 
 function extractToolResults(content) {
@@ -159,9 +155,11 @@ function extractToolResults(content) {
 }
 
 function isToolResultOnlyContent(content) {
-  return Array.isArray(content)
-    && content.length > 0
-    && content.every((block) => block && typeof block === 'object' && block.type === 'tool_result');
+  return (
+    Array.isArray(content) &&
+    content.length > 0 &&
+    content.every((block) => block && typeof block === 'object' && block.type === 'tool_result')
+  );
 }
 
 function isPromptUserMessage(message) {
@@ -181,9 +179,9 @@ function findChildSessionHints(messages) {
 
   const hasParentLink = messages.some(
     (m) =>
-      String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0
-      || String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0
-      || String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
+      String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0 ||
+      String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0 ||
+      String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
   );
   if (hasParentLink) return null;
 
@@ -290,68 +288,57 @@ async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) 
 }
 
 async function readOpenclawTranscript(transcriptPath) {
-  const raw = await readFile(transcriptPath, 'utf-8');
-  const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
   const messages = [];
   let runtimeVersion;
-  for (const line of lines) {
-    try {
-      const entry = JSON.parse(line);
-      if (entry?.type === 'session') {
-        runtimeVersion = entry?.runtimeVersion
-          ?? entry?.runtime_version
-          ?? entry?.openclawVersion
-          ?? entry?.openclaw_version
-          ?? entry?.version
-          ?? runtimeVersion;
-        continue;
-      }
-      const role = normalizeRole(entry);
-      if (!role) continue;
-      messages.push({
-        role,
-        isMeta: entry?.isMeta ?? entry?.is_meta ?? false,
-        isSidechain: normalizeIsSidechain(entry),
-        agentId: normalizeAgentId(entry),
-        parentSessionId: entry?.parentSessionId ?? entry?.parent_session_id,
-        parentTurnId: entry?.parentTurnId ?? entry?.parent_turn_id,
-        parentToolCallId: entry?.parentToolCallId ?? entry?.parent_tool_call_id,
-        content: normalizeContent(entry),
-        model: normalizeModel(entry),
-        usage: normalizeUsage(entry),
-        messageId: normalizeMessageId(entry),
-        toolUseResult: normalizeToolUseResult(entry),
-        sourceToolUseId: normalizeSourceToolUseId(entry),
-        runtimeVersion:
-          entry?.runtimeVersion
-          ?? entry?.runtime_version
-          ?? entry?.version
-          ?? entry?.app_version
-          ?? entry?.appVersion
-          ?? runtimeVersion,
-        timestamp: parseTimestamp(entry),
-      });
-    } catch {
-      // ignore malformed lines
+  await forEachJsonlEntry(transcriptPath, (entry) => {
+    if (entry?.type === 'session') {
+      runtimeVersion =
+        entry?.runtimeVersion ??
+        entry?.runtime_version ??
+        entry?.openclawVersion ??
+        entry?.openclaw_version ??
+        entry?.version ??
+        runtimeVersion;
+      return;
     }
-  }
+    const role = normalizeRole(entry);
+    if (!role) return;
+    messages.push({
+      role,
+      isMeta: entry?.isMeta ?? entry?.is_meta ?? false,
+      isSidechain: normalizeIsSidechain(entry),
+      agentId: normalizeAgentId(entry),
+      parentSessionId: entry?.parentSessionId ?? entry?.parent_session_id,
+      parentTurnId: entry?.parentTurnId ?? entry?.parent_turn_id,
+      parentToolCallId: entry?.parentToolCallId ?? entry?.parent_tool_call_id,
+      content: normalizeContent(entry),
+      model: normalizeModel(entry),
+      usage: normalizeUsage(entry),
+      messageId: normalizeMessageId(entry),
+      toolUseResult: normalizeToolUseResult(entry),
+      sourceToolUseId: normalizeSourceToolUseId(entry),
+      runtimeVersion:
+        entry?.runtimeVersion ??
+        entry?.runtime_version ??
+        entry?.version ??
+        entry?.app_version ??
+        entry?.appVersion ??
+        runtimeVersion,
+      timestamp: parseTimestamp(entry),
+    });
+  });
   messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   return messages;
 }
 
 function resolveRuntimeHome(context) {
-  return (
-    context.runtimeHome
-    ?? process.env.SPANORY_OPENCLOW_HOME
-    ?? process.env.SPANORY_OPENCLAW_HOME
-    ?? path.join(process.env.HOME || '', '.openclaw')
-  );
+  return context.runtimeHome ?? process.env.SPANORY_OPENCLAW_HOME ?? path.join(process.env.HOME || '', '.openclaw');
 }
 
 function parseOpenclawProjectId(transcriptPath) {
   return (
-    parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/projects/')
-    ?? parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/agents/')
+    parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/projects/') ??
+    parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/agents/')
   );
 }
 
