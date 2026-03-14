@@ -405,8 +405,12 @@ function createRuntimeQueue(logger) {
   const flushSpool = async () => {
     const items = await readSpoolItems(logger);
     for (const item of items) {
-      await sendWithRetry(item.payload.payload);
-      await rm(item.file, { force: true });
+      try {
+        await sendWithRetry(item.payload.payload);
+        await rm(item.file, { force: true });
+      } catch (err) {
+        logger?.warn?.(`[${PLUGIN_ID}] flush spool item failed: ${String(err)}`);
+      }
     }
   };
 
