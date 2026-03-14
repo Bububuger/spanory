@@ -204,6 +204,7 @@ export async function runSetupApply(options, deps) {
         await deps.installOpencodePlugin(runtimeHome, undefined, {
           resolveRuntimeHome: deps.resolveRuntimeHome,
           resolveOpencodePluginDir: deps.resolveOpencodePluginDir,
+          resolveOpencodePluginStateRoot: deps.resolveOpencodePluginStateRoot,
         });
       }
       const doctor = await deps.runOpencodePluginDoctor(runtimeHome, {

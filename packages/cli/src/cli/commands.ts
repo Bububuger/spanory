@@ -370,7 +370,7 @@ export function createProgram(deps) {
     .description('Cross-runtime observability CLI for agent sessions')
     .showHelpAfterError()
     .showSuggestionAfterError(true)
-    .version(deps.cliVersion, '-v, --version');
+    .version(deps.cliVersion, '-V, --version');
 
   const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
   for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {

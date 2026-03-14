@@ -48,6 +48,22 @@ export function opencodePluginLoaderPath(runtimeHome, resolveRuntimeHome) {
   return path.join(resolveOpencodePluginInstallDir(runtimeHome, resolveRuntimeHome), `${OPENCODE_SPANORY_PLUGIN_ID}.js`);
 }
 
+function resolveOpencodePluginSpoolDir(runtimeHome, resolveOpencodePluginStateRoot) {
+  return process.env.SPANORY_OPENCODE_SPOOL_DIR ?? path.join(resolveOpencodePluginStateRoot(runtimeHome), 'spool');
+}
+
+function resolveOpencodePluginLogFile(runtimeHome, resolveOpencodePluginStateRoot) {
+  return path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin.log');
+}
+
+async function ensureOpencodePluginRuntimeDirs(runtimeHome, resolveOpencodePluginStateRoot) {
+  const spoolDir = resolveOpencodePluginSpoolDir(runtimeHome, resolveOpencodePluginStateRoot);
+  const logFile = resolveOpencodePluginLogFile(runtimeHome, resolveOpencodePluginStateRoot);
+  await mkdir(spoolDir, { recursive: true });
+  await mkdir(path.dirname(logFile), { recursive: true });
+  return { spoolDir, logFile };
+}
+
 export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps) {
   const pluginDir = path.resolve(pluginDirOverride ?? deps.resolveOpencodePluginDir());
   let pluginEntry;
@@ -72,6 +88,7 @@ export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps
   await writeFile(loaderFile, loader, 'utf-8');
 
   const opencodeConfigPath = path.join(deps.resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome, deps.resolveOpencodePluginStateRoot);
   try {
     const raw = await readFile(opencodeConfigPath, 'utf-8');
     const config = JSON.parse(raw);
@@ -83,12 +100,12 @@ export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps
   } catch (err) {
     if (err?.code === 'ENOENT') {
       await writeFile(opencodeConfigPath, JSON.stringify({ plugin: [OPENCODE_SPANORY_PLUGIN_ID] }, null, 2) + '\n', 'utf-8');
-      return { loaderFile };
+      return { loaderFile, runtimeDirs };
     }
     throw err;
   }
 
-  return { loaderFile };
+  return { loaderFile, runtimeDirs };
 }
 
 export async function uninstallOpencodePlugin(runtimeHome, deps) {

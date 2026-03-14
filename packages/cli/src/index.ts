@@ -1737,6 +1737,7 @@ const program = createProgram({
       deps ?? {
         resolveRuntimeHome,
         resolveOpencodePluginDir,
+        resolveOpencodePluginStateRoot,
       },
     );
   },
