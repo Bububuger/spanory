@@ -67,7 +67,7 @@ const EXECUTION_ENTRY = (() => {
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
-const DEFAULT_VERSION = '0.1.1';
+const DEFAULT_VERSION = 'unknown';
 
 function readVersionFromPackageJson() {
   const packageNameCandidates = ['@bububuger/spanory', '@spanory/cli'];
