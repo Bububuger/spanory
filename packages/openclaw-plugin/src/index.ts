@@ -23,7 +23,7 @@ const EXECUTION_ENTRY = (() => {
 })();
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const PLUGIN_FILE_DIR = path.dirname(EXECUTION_ENTRY);
-const DEFAULT_SPANORY_VERSION = '0.1.1';
+const DEFAULT_SPANORY_VERSION = 'unknown';
 
 function readSpanoryVersionFromBinary() {
   try {
