@@ -2356,8 +2356,6 @@ report
 const alert = program.command('alert').description('Evaluate alert rules against exported telemetry data');
 
 alert
-  .command('eval')
-  .description('Run threshold rules and emit alert events')
   .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
   .requiredOption('--rules <path>', 'Path to alert rules JSON file')
   .option('--webhook-url <url>', 'Optional webhook URL to post alert payload')
@@ -2564,13 +2562,20 @@ const formatUnhandledRejection = (reason: unknown): string => {
   }
 };
 
+const normalizeLegacyAlertEvalArgv = (argv) => {
+  if (argv[2] === 'alert' && argv[3] === 'eval') {
+    return [argv[0], argv[1], 'alert', ...argv.slice(4)];
+  }
+  return argv;
+};
+
 process.on('unhandledRejection', (reason) => {
   console.error(`[spanory] Unhandled promise rejection: ${formatUnhandledRejection(reason)}`);
   process.exitCode = 1;
 });
 
 loadUserEnv()
-  .then(() => program.parseAsync(process.argv))
+  .then(() => program.parseAsync(normalizeLegacyAlertEvalArgv(process.argv)))
   .catch((error) => {
     console.error(`[spanory] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

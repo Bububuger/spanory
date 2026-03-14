@@ -434,7 +434,7 @@ spanory report turn-diff --input-json /path/to/exported-or-dir
 执行规则评估：
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json
 ```
@@ -449,7 +449,7 @@ spanory alert eval \
 有告警时返回非零退出码（用于 CI/自动化）：
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json \
   --fail-on-alert
@@ -458,7 +458,7 @@ spanory alert eval \
 可选 webhook 通知：
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json \
   --webhook-url https://example.com/hook \
