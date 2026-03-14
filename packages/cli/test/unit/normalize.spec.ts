@@ -111,6 +111,77 @@ describe('normalizeTranscriptMessages', () => {
     expect(turn2.attributes['agentic.turn.diff.changed']).toBe(true);
   });
 
+  it('reuses previous turn token set when computing similarity across turns', () => {
+    const OriginalSet = globalThis.Set;
+    let setConstructionCount = 0;
+
+    class CountingSet<T> extends OriginalSet<T> {
+      constructor(iterable?: Iterable<T> | null) {
+        super(iterable ?? undefined);
+        setConstructionCount += 1;
+      }
+    }
+
+    try {
+      globalThis.Set = CountingSet as unknown as SetConstructor;
+
+      normalizeTranscriptMessages({
+        runtime: 'benchmark-runtime',
+        projectId: 'p-cache',
+        sessionId: 's-cache',
+        messages: [
+          {
+            role: 'user',
+            isMeta: false,
+            content: 'alpha',
+            timestamp: new Date('2026-03-14T07:00:00.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [{ type: 'text', text: 'ok-1' }],
+            model: 'gpt-5.3-codex',
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+            timestamp: new Date('2026-03-14T07:00:01.000Z'),
+          },
+          {
+            role: 'user',
+            isMeta: false,
+            content: 'alpha beta',
+            timestamp: new Date('2026-03-14T07:00:02.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [{ type: 'text', text: 'ok-2' }],
+            model: 'gpt-5.3-codex',
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+            timestamp: new Date('2026-03-14T07:00:03.000Z'),
+          },
+          {
+            role: 'user',
+            isMeta: false,
+            content: 'alpha beta gamma',
+            timestamp: new Date('2026-03-14T07:00:04.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [{ type: 'text', text: 'ok-3' }],
+            model: 'gpt-5.3-codex',
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+            timestamp: new Date('2026-03-14T07:00:05.000Z'),
+          },
+        ],
+      });
+    } finally {
+      globalThis.Set = OriginalSet;
+    }
+
+    // 3 user turns -> only build one token set per turn after caching.
+    expect(setConstructionCount).toBe(3);
+  });
+
   it('marks actor role as unknown when sidechain/subagent hints exist', () => {
     const messages = [
       {

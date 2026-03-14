@@ -29,10 +29,10 @@ function tokenSet(text) {
   return new Set(tokens);
 }
 
-function similarityScore(a, b) {
+function similarityScore(a, b, setAOverride, setBOverride) {
   if (a === b) return 1;
-  const setA = tokenSet(a);
-  const setB = tokenSet(b);
+  const setA = setAOverride ?? tokenSet(a);
+  const setB = setBOverride ?? tokenSet(b);
   if (setA.size === 0 && setB.size === 0) return 1;
   if (setA.size === 0 || setB.size === 0) return 0;
 
@@ -448,6 +448,7 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
   const turns = groupByTurns(messages);
   const events = [];
   let previousInput = '';
+  let previousInputTokenSet = null;
   let previousHash = '';
   let hasPreviousTurn = false;
   let previousEstimatedTotal = 0;
@@ -460,6 +461,7 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
 
     const turnEvent = turnEvents[0];
     const input = String(turnEvent.input ?? '');
+    const inputTokenSet = tokenSet(input);
     const inputHash = hashText(input);
 
     if (!hasPreviousTurn) {
@@ -475,11 +477,17 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
       turnEvent.attributes['agentic.turn.input.prev_hash'] = previousHash;
       turnEvent.attributes['agentic.turn.diff.char_delta'] = input.length - previousInput.length;
       turnEvent.attributes['agentic.turn.diff.line_delta'] = lineCount(input) - lineCount(previousInput);
-      turnEvent.attributes['agentic.turn.diff.similarity'] = similarityScore(previousInput, input);
+      turnEvent.attributes['agentic.turn.diff.similarity'] = similarityScore(
+        previousInput,
+        input,
+        previousInputTokenSet,
+        inputTokenSet,
+      );
       turnEvent.attributes['agentic.turn.diff.changed'] = inputHash !== previousHash;
     }
 
     previousInput = input;
+    previousInputTokenSet = inputTokenSet;
     previousHash = inputHash;
     events.push(...turnEvents);
 
