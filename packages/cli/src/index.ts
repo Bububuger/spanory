@@ -73,34 +73,7 @@ const requireFromHere = createRequire(EXECUTION_ENTRY);
 const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
 const DEFAULT_VERSION = 'unknown';
-
-function readVersionFromPackageJson() {
-  const packageNameCandidates = ['@bububuger/spanory', '@spanory/cli'];
-  for (const packageName of packageNameCandidates) {
-    try {
-      const pkgJsonPath = requireFromHere.resolve(`${packageName}/package.json`);
-      const parsed = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-      const version = String(parsed?.version ?? '').trim();
-      if (version) return version;
-    } catch {}
-  }
-
-  const candidates = [
-    path.join(CLI_PACKAGE_DIR, 'package.json'),
-    path.resolve(process.cwd(), 'packages', 'cli', 'package.json'),
-  ];
-  for (const file of candidates) {
-    if (!existsSync(file)) continue;
-    try {
-      const parsed = JSON.parse(readFileSync(file, 'utf8'));
-      const version = String(parsed?.version ?? '').trim();
-      if (version) return version;
-    } catch {}
-  }
-  return null;
-}
-
-const CLI_VERSION = process.env.SPANORY_VERSION ?? readVersionFromPackageJson() ?? DEFAULT_VERSION;
+const CLI_VERSION = process.env.SPANORY_VERSION ?? DEFAULT_VERSION;
 
 function getResource() {
   return {
@@ -2012,7 +1985,7 @@ async function runSetupApply(options) {
     } else {
       const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome);
       try {
-        if (!dryRun) await installOpenclawPlugin(runtimeHome, dryRun, undefined);
+        if (!dryRun) await installOpenclawPlugin(runtimeHome, dryRun, options.openclawPluginDir);
         const doctor = await runOpenclawPluginDoctor(runtimeHome);
         results.push({
           runtime: 'openclaw',
@@ -2033,7 +2006,7 @@ async function runSetupApply(options) {
   if (selected.includes('opencode')) {
     const runtimeHome = opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome);
     try {
-      if (!dryRun) await installOpencodePlugin(runtimeHome);
+      if (!dryRun) await installOpencodePlugin(runtimeHome, options.opencodePluginDir);
       const doctor = await runOpencodePluginDoctor(runtimeHome);
       results.push({
         runtime: 'opencode',
@@ -2592,7 +2565,9 @@ setup
   .option('--home <path>', 'Home directory root override (default: $HOME)')
   .option('--spanory-bin <path>', 'Spanory binary/command to write into runtime configs', 'spanory')
   .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
+  .option('--openclaw-plugin-dir <path>', 'Override OpenClaw plugin directory (default: packages/openclaw-plugin)')
   .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+  .option('--opencode-plugin-dir <path>', 'Override OpenCode plugin directory (default: packages/opencode-plugin)')
   .option('--dry-run', 'Only print planned changes without writing files', false)
   .action(async (options) => {
     const report = await runSetupApply(options);
