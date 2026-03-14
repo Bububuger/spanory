@@ -155,6 +155,73 @@ describe('openclaw plugin runtime', () => {
     }
   });
 
+  it('ignores misspelled SPANORY_OPENCLOW_HOME when deciding plugin state root', async () => {
+    const prevHome = process.env.SPANORY_OPENCLAW_HOME;
+    const prevTypoHome = process.env.SPANORY_OPENCLOW_HOME;
+    const prevSpool = process.env.SPANORY_OPENCLAW_SPOOL_DIR;
+    const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushDelay = process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS;
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-openclaw-plugin-env-home-'));
+    const preferredHome = path.join(tempRoot, 'preferred-home');
+    const typoHome = path.join(tempRoot, 'typo-home');
+    process.env.SPANORY_OPENCLAW_HOME = preferredHome;
+    process.env.SPANORY_OPENCLOW_HOME = typoHome;
+    process.env.SPANORY_OPENCLAW_SPOOL_DIR = path.join(preferredHome, 'state', 'spanory', 'spool');
+    process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS = '20';
+
+    try {
+      const server = createServer((req, res) => {
+        req.on('data', () => {});
+        req.on('end', () => {
+          res.statusCode = 200;
+          res.end('ok');
+        });
+      });
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const addr = server.address();
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://127.0.0.1:${addr.port}/otel`;
+
+      const runtime = createOpenclawSpanoryPluginRuntime({
+        warn: () => {},
+      });
+
+      runtime.onLlmInput(
+        { prompt: 'hello' },
+        { sessionKey: 'agent:main:env-home-session', agentId: 'main', sessionId: 'env-home-session' },
+      );
+      runtime.onLlmOutput(
+        {
+          model: 'openclaw-pro',
+          assistantTexts: ['hi'],
+          usage: { input: 5, output: 3, total: 8 },
+        },
+        { sessionKey: 'agent:main:env-home-session', agentId: 'main', sessionId: 'env-home-session' },
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await runtime.onGatewayStop();
+      await new Promise((resolve) => server.close(resolve));
+
+      const preferredStatusPath = path.join(preferredHome, 'state', 'spanory', 'plugin-status.json');
+      const typoStatusPath = path.join(typoHome, 'state', 'spanory', 'plugin-status.json');
+
+      const preferredStatus = JSON.parse(await readFile(preferredStatusPath, 'utf-8'));
+      expect(preferredStatus.pluginId).toBe('spanory-openclaw-plugin');
+      await expect(readFile(typoStatusPath, 'utf-8')).rejects.toThrow();
+    } finally {
+      if (prevHome === undefined) delete process.env.SPANORY_OPENCLAW_HOME;
+      else process.env.SPANORY_OPENCLAW_HOME = prevHome;
+      if (prevTypoHome === undefined) delete process.env.SPANORY_OPENCLOW_HOME;
+      else process.env.SPANORY_OPENCLOW_HOME = prevTypoHome;
+      if (prevSpool === undefined) delete process.env.SPANORY_OPENCLAW_SPOOL_DIR;
+      else process.env.SPANORY_OPENCLAW_SPOOL_DIR = prevSpool;
+      if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushDelay === undefined) delete process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS;
+      else process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS = prevFlushDelay;
+    }
+  });
+
   it('keeps late tool callbacks on the originating turn after turn flush', async () => {
     const prevHome = process.env.SPANORY_OPENCLAW_HOME;
     const prevSpool = process.env.SPANORY_OPENCLAW_SPOOL_DIR;

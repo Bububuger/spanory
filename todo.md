@@ -1,7 +1,12 @@
-# Todo (2026-03-13) — OpenClaw 插件多路径冲突规避
+# Todo (2026-03-14) — 全仓 ESLint/Prettier/Husky 基线
 
-- [x] 归档上一阶段 `plan.md/todo.md`
-- [x] 增加 openclaw `plugins.load.paths` 归一化逻辑
-- [x] 将归一化接入 `setup apply` openclaw 插件安装流程
-- [x] 增加冲突场景 BDD 用例
-- [x] 通过最小测试与 BDD 全量回归
+- [x] 1. 归档旧版 `plan.md/todo.md`（已完成）
+  - 验收：`ls docs/plans/archive docs/todos/archive | tail`
+- [x] 2. 新增 ESLint 与 Prettier 配置文件
+  - 验收：`npm run lint -- --help` 与 `npm run format:check -- --help`
+- [x] 3. 更新根 `package.json` 脚本、依赖与 `lint-staged`
+  - 验收：`npm run lint`（首次通过）
+- [x] 4. 新增 Husky `pre-commit` 并验证可执行
+  - 验收：`npx lint-staged --allow-empty`
+- [x] 5. 全量回归本任务要求的检查
+  - 验收：`npm run format:check && npm run check`

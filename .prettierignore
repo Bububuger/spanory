@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+local/
+packages/*/dist/
+packages/cli/build/
+packages/cli/.tmp/
+packages/alipay-cli/bin/
+packages/alipay-cli/opencode-plugin/
+telemetry/reports/
+telemetry/spanory-fields.current.yaml

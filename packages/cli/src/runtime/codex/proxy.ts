@@ -1,11 +1,11 @@
 // @ts-nocheck
+// BUB-79: Scoped waiver for legacy Codex proxy implementation; strict remains enforced at package command level.
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
 
-const REDACTED = '[REDACTED]';
-const SENSITIVE_KEY_RE = /(authorization|cookie|set-cookie|x-api-key|api[-_]?key|token|password|secret)/i;
+import { REDACTED, SENSITIVE_KEY_RE, redactBody, truncateText } from '../shared/redaction.js';
 
 function isSensitiveKey(key) {
   return SENSITIVE_KEY_RE.test(String(key ?? ''));
@@ -26,57 +26,14 @@ function redactHeaders(headers) {
   return out;
 }
 
-function truncateText(text, maxBytes) {
-  const raw = String(text ?? '');
-  if (!Number.isFinite(maxBytes) || maxBytes <= 0) return raw;
-  if (Buffer.byteLength(raw, 'utf8') <= maxBytes) return raw;
-  let end = raw.length;
-  while (end > 0 && Buffer.byteLength(raw.slice(0, end), 'utf8') > maxBytes) end -= 1;
-  return `${raw.slice(0, Math.max(0, end))}...[truncated]`;
-}
-
-function redactBody(value, maxBytes) {
-  function walk(current, keyHint = '') {
-    if (current === null || current === undefined) return current;
-    if (typeof current === 'string') {
-      if (isSensitiveKey(keyHint)) return REDACTED;
-      return truncateText(current, maxBytes);
-    }
-    if (typeof current === 'number' || typeof current === 'boolean') {
-      if (isSensitiveKey(keyHint)) return REDACTED;
-      return current;
-    }
-    if (Array.isArray(current)) {
-      return current.map((item) => walk(item, keyHint));
-    }
-    if (typeof current === 'object') {
-      const out = {};
-      for (const [key, val] of Object.entries(current)) {
-        if (isSensitiveKey(key)) {
-          out[key] = REDACTED;
-        } else {
-          out[key] = walk(val, key);
-        }
-      }
-      return out;
-    }
-    return truncateText(String(current), maxBytes);
-  }
-
-  const redacted = walk(value);
-  if (!Number.isFinite(maxBytes) || maxBytes <= 0) return redacted;
-  const serialized = JSON.stringify(redacted);
-  if (Buffer.byteLength(serialized, 'utf8') <= maxBytes) return redacted;
-  return {
-    __truncated__: true,
-    preview: truncateText(serialized, maxBytes),
-  };
-}
-
 function parseBodyFromBuffer(buffer, contentType, maxBytes) {
   if (!buffer || buffer.length === 0) return '';
   const text = buffer.toString('utf8');
-  if (String(contentType ?? '').toLowerCase().includes('application/json')) {
+  if (
+    String(contentType ?? '')
+      .toLowerCase()
+      .includes('application/json')
+  ) {
     try {
       return redactBody(JSON.parse(text), maxBytes);
     } catch {
@@ -114,9 +71,8 @@ function correlationKeyFromRequest(req, seq) {
 export function createCodexProxyServer(options) {
   const upstreamBaseUrl = options?.upstreamBaseUrl ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com';
   const spanoryHome = process.env.SPANORY_HOME ?? path.join(process.env.HOME || '', '.spanory');
-  const spoolDir = options?.spoolDir
-    ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR
-    ?? path.join(spanoryHome, 'spool', 'codex-proxy');
+  const spoolDir =
+    options?.spoolDir ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR ?? path.join(spanoryHome, 'spool', 'codex-proxy');
   const maxBodyBytes = Number(options?.maxBodyBytes ?? process.env.SPANORY_CODEX_CAPTURE_MAX_BYTES ?? 131072);
   const logger = options?.logger ?? console;
   const upstream = new URL(upstreamBaseUrl);
@@ -129,7 +85,9 @@ export function createCodexProxyServer(options) {
     const correlationKey = correlationKeyFromRequest(req, seq);
     const method = req.method ?? 'GET';
     const targetUrl = new URL(req.url ?? '/', upstream);
-    const requestHeaders = { ...req.headers };
+    const requestHeaders = Object.fromEntries(
+      Object.entries(req.headers).map(([key, value]) => [key, normalizeHeaderValue(value)]),
+    );
     delete requestHeaders.host;
     delete requestHeaders['content-length'];
 
@@ -175,30 +133,36 @@ export function createCodexProxyServer(options) {
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ error: 'upstream_request_failed', message }));
 
-      await writeCaptureRecord(spoolDir, {
-        timestamp: new Date().toISOString(),
-        metadata: {
-          capture_mode: 'full_redacted',
-          correlation_key: correlationKey,
-          latency_ms: Date.now() - startedAt,
+      await writeCaptureRecord(
+        spoolDir,
+        {
+          timestamp: new Date().toISOString(),
+          metadata: {
+            capture_mode: 'full_redacted',
+            correlation_key: correlationKey,
+            latency_ms: Date.now() - startedAt,
+          },
+          request: {
+            method,
+            url: req.url ?? '/',
+            headers: redactHeaders(req.headers),
+            body: parseBodyFromBuffer(requestBodyBuffer, req.headers['content-type'], maxBodyBytes),
+          },
+          response: {
+            status: 502,
+            error: message,
+          },
         },
-        request: {
-          method,
-          url: req.url ?? '/',
-          headers: redactHeaders(req.headers),
-          body: parseBodyFromBuffer(requestBodyBuffer, req.headers['content-type'], maxBodyBytes),
-        },
-        response: {
-          status: 502,
-          error: message,
-        },
-      }, logger);
+        logger,
+      );
     }
   });
 
   return {
     async start({ host = '127.0.0.1', port = 8787 } = {}) {
-      await new Promise((resolve) => server.listen(port, host, resolve));
+      await new Promise<void>((resolve) => {
+        server.listen(port, host, () => resolve());
+      });
     },
     async stop() {
       if (!server.listening) return;
