@@ -6,15 +6,18 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
-const version = execSync('git describe --tags --abbrev=0', { encoding: 'utf-8' })
-  .trim()
-  .replace(/^v/, '');
+const version = execSync('git describe --tags --abbrev=0', { encoding: 'utf-8' }).trim().replace(/^v/, '');
 
-const targets = [
-  'package.json',
-  'packages/cli/package.json',
-  'packages/alipay-cli/package.json',
-];
+const workspaceTargets = execSync('git ls-files "packages/**/package.json"', {
+  cwd: root,
+  encoding: 'utf-8',
+})
+  .trim()
+  .split('\n')
+  .filter(Boolean)
+  .sort();
+
+const targets = ['package.json', ...workspaceTargets];
 
 for (const rel of targets) {
   const file = join(root, rel);
