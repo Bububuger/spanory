@@ -2347,7 +2347,7 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version(CLI_VERSION, '-v, --version')
+  .version(CLI_VERSION, '-V, --version')
   .addHelpText(
     'after',
     '\nExit codes:\n' +
