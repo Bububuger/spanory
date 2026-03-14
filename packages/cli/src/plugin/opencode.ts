@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { existsSync } from 'node:fs';
-import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -90,6 +90,38 @@ export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps
 
   return { loaderFile };
 }
+
+export async function uninstallOpencodePlugin(runtimeHome, deps) {
+  const installDir = resolveOpencodePluginInstallDir(runtimeHome, deps.resolveRuntimeHome);
+  const loaderFile = opencodePluginLoaderPath(runtimeHome, deps.resolveRuntimeHome);
+  const packageFile = path.join(installDir, 'package.json');
+
+  await rm(loaderFile, { force: true });
+  await rm(packageFile, { force: true });
+  try {
+    await rmdir(installDir);
+  } catch (error) {
+    if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+  }
+
+  let unregistered = false;
+  const opencodeConfigPath = path.join(deps.resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  try {
+    const raw = await readFile(opencodeConfigPath, 'utf-8');
+    const config = JSON.parse(raw);
+    if (Array.isArray(config.plugin) && config.plugin.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
+      config.plugin = config.plugin.filter((pluginId) => pluginId !== OPENCODE_SPANORY_PLUGIN_ID);
+      await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      unregistered = true;
+    }
+  } catch {
+    // ignore opencode.json cleanup failures
+  }
+
+  return { loaderFile, unregistered };
+}
+
+const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint', 'last_send_endpoint_configured']);
 
 export async function runOpencodePluginDoctor(runtimeHome, deps) {
   const checks = [];
@@ -207,6 +239,6 @@ export async function runOpencodePluginDoctor(runtimeHome, deps) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = checks.every((item) => item.ok || NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS.has(item.id));
   return { ok, checks };
 }

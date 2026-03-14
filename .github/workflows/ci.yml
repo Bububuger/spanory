@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "codex/**", "feat/**"]
+    branches: [main, 'codex/**', 'feat/**']
   pull_request:
 
 concurrency:
@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install
@@ -63,7 +63,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install

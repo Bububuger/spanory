@@ -1,7 +1,12 @@
 // @ts-nocheck
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { removeSpanoryOpenclawPluginLoadPaths } from '../plugin/openclaw.js';
+import {
+  resolveOpencodePluginInstallDir,
+  uninstallOpencodePlugin,
+} from '../plugin/opencode.js';
 import { isSpanoryHookCommand, parseSetupRuntimes, setupHomeRoot } from './apply.js';
 
 function removeClaudeHooks(settings) {
@@ -139,33 +144,53 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun, de
     },
   });
   if (result.code !== 0) throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
-  return { runtime: 'openclaw', ok: true, changed: true, dryRun };
+  const pathCleanupResult = await removeSpanoryOpenclawPluginLoadPaths(
+    deps.resolveRuntimeHome('openclaw', runtimeHome),
+    deps.backupIfExists,
+  );
+  return { runtime: 'openclaw', ok: true, changed: true, dryRun, pathCleanupResult };
 }
 
 async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun, deps }) {
   const runtimeHome = deps.opencodeRuntimeHomeForSetup(homeRoot, opencodeRuntimeHome);
+  const pluginDir = resolveOpencodePluginInstallDir(runtimeHome, deps.resolveRuntimeHome);
   const loaderFile = deps.opencodePluginLoaderPath(runtimeHome, deps.resolveRuntimeHome);
+  const packageFile = path.join(pluginDir, 'package.json');
   let present = false;
-  try { await stat(loaderFile); present = true; } catch { /* not present */ }
-  if (present && !dryRun) await rm(loaderFile, { force: true });
+  try {
+    await stat(loaderFile);
+    present = true;
+  } catch {
+    // not present
+  }
+
+  let packagePresent = false;
+  try {
+    await stat(packageFile);
+    packagePresent = true;
+  } catch {
+    // not present
+  }
 
   let unregistered = false;
   if (!dryRun) {
-    const opencodeConfigPath = path.join(deps.resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+    const uninstallResult = await uninstallOpencodePlugin(runtimeHome, { resolveRuntimeHome: deps.resolveRuntimeHome });
+    unregistered = uninstallResult.unregistered;
     try {
-      const raw = await readFile(opencodeConfigPath, 'utf-8');
-      const config = JSON.parse(raw);
-      if (Array.isArray(config.plugin) && config.plugin.includes(deps.opencodePluginId)) {
-        config.plugin = config.plugin.filter((p) => p !== deps.opencodePluginId);
-        await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-        unregistered = true;
-      }
-    } catch {
-      // no config to clean
+      await rmdir(pluginDir);
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
     }
   }
 
-  return { runtime: 'opencode', ok: true, changed: present || unregistered, dryRun, loaderFile, unregistered };
+  return {
+    runtime: 'opencode',
+    ok: true,
+    changed: present || packagePresent || unregistered,
+    dryRun,
+    loaderFile,
+    unregistered,
+  };
 }
 
 export async function runSetupTeardown(options, deps) {

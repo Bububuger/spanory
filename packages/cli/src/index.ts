@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 // @ts-nocheck
 import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { codexAdapter } from './runtime/codex/adapter.js';
 import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
-import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import {
+  compileOtlpSpans as compileOtlp,
+  parseOtlpHeaders as parseHeaders,
+  sendOtlpHttp as sendOtlp,
+} from '../../otlp-core/dist/index.js';
 import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
 import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
@@ -58,6 +62,7 @@ import {
   opencodePluginLoaderPath as opencodePluginLoaderPathModule,
   opencodeRuntimeHomeForSetup as opencodeRuntimeHomeForSetupModule,
   resolveOpencodePluginDir as resolveOpencodePluginDirModule,
+  uninstallOpencodePlugin as uninstallOpencodePluginModule,
   runOpencodePluginDoctor as runOpencodePluginDoctorModule,
 } from './plugin/opencode.js';
 import { runSetupApply as runSetupApplyModule } from './setup/apply.js';
@@ -97,7 +102,7 @@ const EXECUTION_ENTRY = (() => {
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
-const DEFAULT_VERSION = '0.1.1';
+const DEFAULT_VERSION = 'unknown';
 
 function readVersionFromPackageJson() {
   const packageNameCandidates = ['@bububuger/spanory', '@spanory/cli'];
@@ -245,26 +250,10 @@ function fingerprintSession(context, events) {
   for (const event of events) {
     hash.update(String(event.turnId ?? ''));
     hash.update('\u001f');
-    hash.update(String(event.category ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.name ?? ''));
-    hash.update('\u001f');
     hash.update(String(event.startedAt ?? ''));
     hash.update('\u001f');
     hash.update(String(event.endedAt ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.input ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.output ?? ''));
-    hash.update('\u001f');
-    const attrs = event.attributes ?? {};
-    const keys = Object.keys(attrs).sort();
-    for (const key of keys) {
-      hash.update(key);
-      hash.update('=');
-      hash.update(String(attrs[key] ?? ''));
-      hash.update('\u001f');
-    }
+    hash.update('\u001e');
   }
   return hash.digest('hex');
 }
@@ -712,6 +701,12 @@ function parsePluginEnabledFromInfoOutput(output) {
   return undefined;
 }
 
+const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint']);
+
+function computePluginDoctorOk(checks) {
+  return checks.every((item) => item.ok || NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS.has(item.id));
+}
+
 async function runOpenclawPluginDoctor(runtimeHome) {
   const checks = [];
 
@@ -763,7 +758,7 @@ async function runOpenclawPluginDoctor(runtimeHome) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = computePluginDoctorOk(checks);
   return { ok, checks };
 }
 
@@ -865,7 +860,7 @@ async function runOpencodePluginDoctor(runtimeHome) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = computePluginDoctorOk(checks);
   return { ok, checks };
 }
 
@@ -1109,10 +1104,34 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) 
 
 async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) {
   const runtimeHome = opencodeRuntimeHomeForSetup(homeRoot, opencodeRuntimeHome);
+  const pluginDir = resolveOpencodePluginInstallDir(runtimeHome);
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
+  const packageFile = path.join(pluginDir, 'package.json');
   let present = false;
-  try { await stat(loaderFile); present = true; } catch { /* not present */ }
+  try {
+    await stat(loaderFile);
+    present = true;
+  } catch {
+    /* not present */
+  }
+
+  let packagePresent = false;
+  try {
+    await stat(packageFile);
+    packagePresent = true;
+  } catch {
+    /* not present */
+  }
+
   if (present && !dryRun) await rm(loaderFile, { force: true });
+  if (packagePresent && !dryRun) await rm(packageFile, { force: true });
+  if (!dryRun) {
+    try {
+      await rmdir(pluginDir);
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+    }
+  }
 
   let unregistered = false;
   if (!dryRun) {
@@ -1128,7 +1147,14 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) 
     } catch { /* no config to clean */ }
   }
 
-  return { runtime: 'opencode', ok: true, changed: present || unregistered, dryRun, loaderFile, unregistered };
+  return {
+    runtime: 'opencode',
+    ok: true,
+    changed: present || packagePresent || unregistered,
+    dryRun,
+    loaderFile,
+    unregistered,
+  };
 }
 
 async function runSetupTeardown(options) {
@@ -1238,6 +1264,39 @@ function isSpanoryOpenclawPluginPath(candidatePath) {
   const canonical = canonicalPath(text);
   const pluginName = readOpenclawPluginNameFromDir(canonical);
   return pluginName === '@bububuger/spanory-openclaw-plugin' || pluginName === '@alipay/spanory-openclaw-plugin';
+}
+
+async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome) {
+  const configPath = resolveOpenclawConfigPath(runtimeHome);
+  let configRaw = '';
+  try {
+    configRaw = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+    throw error;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(configRaw);
+  } catch (error) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  }
+
+  const currentPaths = parsed?.plugins?.load?.paths;
+  if (!Array.isArray(currentPaths)) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  const nextPaths = currentPaths.filter((item) => !(typeof item === 'string' && isSpanoryOpenclawPluginPath(item)));
+  if (nextPaths.length === currentPaths.length) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  parsed.plugins.load.paths = nextPaths;
+  const backup = await backupIfExists(configPath);
+  await writeFile(configPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf-8');
+  return { changed: true, configPath, backup };
 }
 
 async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun) {
@@ -1484,7 +1543,7 @@ async function runSetupDoctor(options) {
     checks.push({
       id: 'codex_watch_running',
       runtime: 'codex',
-      ok: true,
+      ok: watchRunning,
       running: watchRunning,
       detail: watchRunning ? codexWatchPidFile() : 'codex watch process not running (non-blocking)',
     });
@@ -1681,6 +1740,10 @@ const program = createProgram({
       },
     );
   },
+  uninstallOpencodePlugin: (runtimeHome, deps) => uninstallOpencodePluginModule(
+    runtimeHome,
+    deps ?? { resolveRuntimeHome },
+  ),
   opencodePluginLoaderPath: (runtimeHome) => opencodePluginLoaderPathModule(runtimeHome, resolveRuntimeHome),
   runOpencodePluginDoctor: (runtimeHome, deps) => runOpencodePluginDoctorModule(
     runtimeHome,

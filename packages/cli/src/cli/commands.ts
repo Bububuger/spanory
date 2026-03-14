@@ -1,8 +1,7 @@
 // @ts-nocheck
 import path from 'node:path';
-import { rm } from 'node:fs/promises';
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 function runtimeDisplayName(runtimeName) {
   if (runtimeName === 'codex') return 'Codex';
@@ -21,6 +20,15 @@ function parsePluginRuntimeName(runtimeName) {
     return normalized;
   }
   throw new Error(`unsupported runtime for plugin command: ${runtimeName}`);
+}
+
+function createReportInputJsonOption() {
+  return new Option(
+    '--input-json <path>',
+    'Path to exported JSON file or directory of JSON files (fallback: SPANORY_INPUT_JSON)',
+  )
+    .env('SPANORY_INPUT_JSON')
+    .makeOptionMandatory(true);
 }
 
 function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
@@ -78,7 +86,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
       .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
       .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
       .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
       .addHelpText(
         'after',
@@ -335,9 +343,12 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .description('Remove Spanory OpenCode plugin loader')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
       .action(async (options) => {
-        const loaderFile = deps.opencodePluginLoaderPath(options.runtimeHome);
-        await rm(loaderFile, { force: true });
+        const result = await deps.uninstallOpencodePlugin(options.runtimeHome);
+        const loaderFile = result.loaderFile ?? deps.opencodePluginLoaderPath(options.runtimeHome);
         console.log(`removed=${loaderFile}`);
+        if (result.unregistered) {
+          console.log(`unregistered=${deps.opencodePluginId}`);
+        }
       });
 
     plugin
@@ -371,7 +382,7 @@ export function createProgram(deps) {
   report
     .command('session')
     .description('Session-level summary view')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'session-summary', rows: deps.summarizeSessions(sessions) }, null, 2));
@@ -380,7 +391,7 @@ export function createProgram(deps) {
   report
     .command('mcp')
     .description('MCP server aggregation view')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'mcp-summary', rows: deps.summarizeMcp(sessions) }, null, 2));
@@ -389,7 +400,7 @@ export function createProgram(deps) {
   report
     .command('command')
     .description('Agent command aggregation view')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'command-summary', rows: deps.summarizeCommands(sessions) }, null, 2));
@@ -398,7 +409,7 @@ export function createProgram(deps) {
   report
     .command('agent')
     .description('Agent activity summary per session')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'agent-summary', rows: deps.summarizeAgents(sessions) }, null, 2));
@@ -407,7 +418,7 @@ export function createProgram(deps) {
   report
     .command('cache')
     .description('Cache usage summary per session')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'cache-summary', rows: deps.summarizeCache(sessions) }, null, 2));
@@ -416,7 +427,7 @@ export function createProgram(deps) {
   report
     .command('tool')
     .description('Tool usage aggregation view')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'tool-summary', rows: deps.summarizeTools(sessions) }, null, 2));
@@ -425,7 +436,7 @@ export function createProgram(deps) {
   report
     .command('context')
     .description('Context observability summary per session')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'context-summary', rows: deps.summarizeContext(sessions) }, null, 2));
@@ -434,7 +445,7 @@ export function createProgram(deps) {
   report
     .command('turn-diff')
     .description('Turn input diff summary view')
-    .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+    .addOption(createReportInputJsonOption())
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'turn-diff-summary', rows: deps.summarizeTurnDiff(sessions) }, null, 2));
@@ -472,7 +483,7 @@ export function createProgram(deps) {
 
       if (options.webhookUrl) {
         await deps.sendAlertWebhook(options.webhookUrl, result, deps.parseHeaders(options.webhookHeaders));
-        console.log(`webhook=sent url=${options.webhookUrl}`);
+        console.error(`webhook=sent url=${options.webhookUrl}`);
       }
 
       if (options.failOnAlert && alerts.length > 0) {
@@ -488,7 +499,7 @@ export function createProgram(deps) {
     .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
     .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
     .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-    .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+    .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
     .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
     .addHelpText(
       'after',
@@ -573,9 +584,12 @@ export function createProgram(deps) {
         }
         return;
       }
-      const loaderFile = deps.opencodePluginLoaderPath(options.runtimeHome);
-      await rm(loaderFile, { force: true });
+      const result = await deps.uninstallOpencodePlugin(options.runtimeHome);
+      const loaderFile = result.loaderFile ?? deps.opencodePluginLoaderPath(options.runtimeHome);
       console.log(`removed=${loaderFile}`);
+      if (result.unregistered) {
+        console.log(`unregistered=${deps.opencodePluginId}`);
+      }
     });
 
   const setup = program.command('setup').description('One-command local runtime integration setup and diagnostics');

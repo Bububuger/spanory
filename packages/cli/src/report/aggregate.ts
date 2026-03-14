@@ -2,7 +2,7 @@
 // BUB-79: Scoped waiver for legacy report aggregation path; strict remains enforced at package command level.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { parseJsonObject } from '@bububuger/core';
+import { parseJsonObject } from '../utils/json.js';
 
 function toNumber(value) {
   const n = Number(value);
@@ -60,7 +60,14 @@ export async function loadExportedEvents(inputPath) {
   const sessions = [];
   for (const file of files) {
     const raw = await readFile(file, 'utf-8');
-    const parsed = JSON.parse(raw);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[report] skip malformed export file: ${file} (${message})`);
+      continue;
+    }
     if (!Array.isArray(parsed.events)) continue;
     sessions.push({
       file,

@@ -117,7 +117,7 @@ export async function runSetupDoctor(options, deps) {
     checks.push({
       id: 'codex_watch_running',
       runtime: 'codex',
-      ok: true,
+      ok: watchRunning,
       running: watchRunning,
       detail: watchRunning ? deps.codexWatchPidFile() : 'codex watch process not running (non-blocking)',
     });

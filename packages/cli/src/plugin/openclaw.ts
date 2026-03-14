@@ -128,6 +128,55 @@ async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun, 
   return { changed: true, configPath, backup };
 }
 
+export async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome, backupIfExists) {
+  const configPath = resolveOpenclawConfigPath(runtimeHome);
+  let configRaw = '';
+  try {
+    configRaw = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+    throw error;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(configRaw);
+  } catch (error) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    parsed = {};
+  }
+  if (!parsed.plugins || typeof parsed.plugins !== 'object' || Array.isArray(parsed.plugins)) {
+    parsed.plugins = {};
+  }
+  if (!parsed.plugins.load || typeof parsed.plugins.load !== 'object' || Array.isArray(parsed.plugins.load)) {
+    parsed.plugins.load = {};
+  }
+
+  const currentPaths = Array.isArray(parsed.plugins.load.paths) ? parsed.plugins.load.paths : [];
+  const retained = [];
+  for (const item of currentPaths) {
+    if (typeof item !== 'string') continue;
+    const text = item.trim();
+    if (!text) continue;
+    if (isSpanoryOpenclawPluginPath(text)) continue;
+    retained.push(text);
+  }
+  parsed.plugins.load.paths = retained;
+
+  const nextRaw = `${JSON.stringify(parsed, null, 2)}\n`;
+  if (nextRaw === configRaw) return { changed: false, configPath, backup: null };
+
+  let backup = null;
+  if (typeof backupIfExists === 'function') {
+    backup = await backupIfExists(configPath);
+  }
+  await writeFile(configPath, nextRaw, 'utf-8');
+  return { changed: true, configPath, backup };
+}
+
 export async function installOpenclawPlugin(runtimeHome, dryRun, deps) {
   const pluginDir = path.resolve(deps.resolveOpenclawPluginDir());
   const installResult = deps.runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
@@ -170,6 +219,8 @@ function parsePluginEnabledFromInfoOutput(output) {
   if (no) return false;
   return undefined;
 }
+
+const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint']);
 
 export async function runOpenclawPluginDoctor(runtimeHome, deps) {
   const checks = [];
@@ -232,6 +283,6 @@ export async function runOpenclawPluginDoctor(runtimeHome, deps) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = checks.every((item) => item.ok || NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS.has(item.id));
   return { ok, checks };
 }

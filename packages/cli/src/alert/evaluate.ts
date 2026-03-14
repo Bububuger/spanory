@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { readFile } from 'node:fs/promises';
-import { parseJsonObject } from '@bububuger/core';
+import { parseJsonObject } from '../utils/json.js';
 
 import {
   summarizeAgents,
@@ -12,6 +12,7 @@ import {
 } from '../report/aggregate.js';
 
 const DEFAULT_CONTEXT_WINDOW_TOKENS = 200000;
+const SUPPORTED_RULE_SCOPES = ['session', 'agent', 'mcp', 'command'];
 
 function getMetricFromSessionRow(row, metric, refs = {}) {
   const cacheRow = refs.cacheBySessionId?.get(row.sessionId);
@@ -69,9 +70,7 @@ function parseJsonArray(value) {
 }
 
 function summarizeContextForSession(events) {
-  const snapshots = events.filter(
-    (event) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot',
-  );
+  const snapshots = events.filter((event) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
   const attributions = events.filter(
     (event) => event?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
   );
@@ -160,8 +159,8 @@ function summarizeContextForSession(events) {
       }
     }
     if (
-      String(attrs['agentic.context.event_type'] ?? '') === 'context_boundary'
-      && String(attrs['agentic.context.boundary_kind'] ?? '') === 'compact_after'
+      String(attrs['agentic.context.event_type'] ?? '') === 'context_boundary' &&
+      String(attrs['agentic.context.boundary_kind'] ?? '') === 'compact_after'
     ) {
       compactCount += 1;
     }
@@ -201,6 +200,28 @@ function compare(value, op, threshold) {
   throw new Error(`unsupported operator: ${op}`);
 }
 
+function assertValidRule(rule, index = null) {
+  const ruleRef = Number.isInteger(index) ? `rule at index ${index}` : 'rule';
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+    throw new Error(`invalid ${ruleRef}: expected object`);
+  }
+
+  for (const field of ['id', 'scope', 'metric', 'op']) {
+    const value = rule[field];
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error(`invalid ${ruleRef}: "${field}" must be a non-empty string`);
+    }
+  }
+
+  if (typeof rule.threshold !== 'number' || !Number.isFinite(rule.threshold)) {
+    throw new Error(`invalid ${ruleRef}: "threshold" must be a finite number`);
+  }
+
+  if (!SUPPORTED_RULE_SCOPES.includes(rule.scope)) {
+    throw new Error(`unsupported rule scope: ${rule.scope}`);
+  }
+}
+
 function buildTurnDiffBySessionId(rows) {
   const turnDiffBySessionId = new Map();
   for (const row of rows) {
@@ -222,18 +243,16 @@ function buildEvaluationContext(rules, sessions) {
   const agentRows = needsSession || needsAgent ? summarizeAgents(sessions) : [];
   const contextBySessionId = needsSession
     ? new Map(
-      sessions.map((session) => [
-        session.context?.sessionId ?? session.events?.[0]?.sessionId,
-        summarizeContextForSession(session.events ?? []),
-      ]),
-    )
+        sessions.map((session) => [
+          session.context?.sessionId ?? session.events?.[0]?.sessionId,
+          summarizeContextForSession(session.events ?? []),
+        ]),
+      )
     : new Map();
 
   return {
     sessionRows: needsSession ? summarizeSessions(sessions) : [],
-    cacheBySessionId: needsSession
-      ? new Map(summarizeCache(sessions).map((row) => [row.sessionId, row]))
-      : new Map(),
+    cacheBySessionId: needsSession ? new Map(summarizeCache(sessions).map((row) => [row.sessionId, row])) : new Map(),
     agentRows,
     agentBySessionId: needsSession ? new Map(agentRows.map((row) => [row.sessionId, row])) : new Map(),
     turnDiffBySessionId: needsSession ? buildTurnDiffBySessionId(summarizeTurnDiff(sessions)) : new Map(),
@@ -334,17 +353,16 @@ export async function loadAlertRules(path) {
   if (!Array.isArray(parsed.rules)) {
     throw new Error('rule file must be JSON with {"rules": [...]}');
   }
+
+  parsed.rules.forEach((rule, index) => {
+    assertValidRule(rule, index);
+  });
   return parsed.rules;
 }
 
 export function evaluateRules(rules, sessions) {
-  for (const rule of rules) {
-    if (!rule.id || !rule.scope || !rule.metric || !rule.op) {
-      throw new Error(`invalid rule: ${JSON.stringify(rule)}`);
-    }
-    if (!['session', 'agent', 'mcp', 'command'].includes(rule.scope)) {
-      throw new Error(`unsupported rule scope: ${rule.scope}`);
-    }
+  for (const [index, rule] of rules.entries()) {
+    assertValidRule(rule, index);
   }
 
   const context = buildEvaluationContext(rules, sessions);
