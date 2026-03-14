@@ -1680,7 +1680,22 @@ function uninstallOpenclawPlugin(runtimeHome) {
 async function uninstallOpencodePlugin(runtimeHome) {
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
   await rm(loaderFile, { force: true });
-  return { loaderFile };
+
+  let unregistered = false;
+  const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  try {
+    const raw = await readFile(opencodeConfigPath, 'utf-8');
+    const config = JSON.parse(raw);
+    if (Array.isArray(config.plugin) && config.plugin.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
+      config.plugin = config.plugin.filter((pluginId) => pluginId !== OPENCODE_SPANORY_PLUGIN_ID);
+      await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      unregistered = true;
+    }
+  } catch {
+    /* ignore opencode.json cleanup failures */
+  }
+
+  return { loaderFile, unregistered };
 }
 
 type PluginCommandOptions = {
