@@ -1,12 +1,6 @@
 // @ts-nocheck
 import { createHash } from 'node:crypto';
-import {
-  calibratedEstimate,
-  calibrate,
-  CONTEXT_SOURCE_KINDS,
-  estimateTokens,
-  pollutionScoreV1,
-} from '@bububuger/core';
+import { calibratedEstimate, calibrate, CONTEXT_SOURCE_KINDS, estimateTokens, pollutionScoreV1 } from '@bububuger/core';
 import { REDACTED, redactBody, truncateText } from './redaction.js';
 
 import { isPromptUserMessage } from './content.js';
@@ -15,7 +9,9 @@ import { createTurn } from './turn.js';
 export { pickUsage } from './usage.js';
 
 function hashText(text) {
-  return createHash('sha256').update(String(text ?? '')).digest('hex');
+  return createHash('sha256')
+    .update(String(text ?? ''))
+    .digest('hex');
 }
 
 function lineCount(text) {
@@ -25,14 +21,14 @@ function lineCount(text) {
 }
 
 function tokenSet(text) {
-  const tokens = String(text ?? '').trim().split(/\s+/).filter(Boolean);
+  const tokens = String(text ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   return new Set(tokens);
 }
 
-function similarityScore(a, b) {
-  if (a === b) return 1;
-  const setA = tokenSet(a);
-  const setB = tokenSet(b);
+function similarityScoreFromTokenSets(setA, setB) {
   if (setA.size === 0 && setB.size === 0) return 1;
   if (setA.size === 0 || setB.size === 0) return 0;
 
@@ -142,7 +138,10 @@ function classifyContextSignals(turnEvents) {
     if (hasClaudeMd) {
       addSourceDelta(sourceDelta, 'claude_md', mentionTokens);
       moveSourceDelta(sourceDelta, 'mention_file', 'claude_md', mentionTokens);
-      markSourceName('claude_md', mentions.find((item) => /(?:^|\/)(?:claude|agents)\.md$/i.test(item)));
+      markSourceName(
+        'claude_md',
+        mentions.find((item) => /(?:^|\/)(?:claude|agents)\.md$/i.test(item)),
+      );
     }
   }
 
@@ -174,7 +173,9 @@ function classifyContextSignals(turnEvents) {
     }
 
     if (category === 'agent_command') {
-      const commandName = String(attrs['agentic.command.name'] ?? '').trim().toLowerCase();
+      const commandName = String(attrs['agentic.command.name'] ?? '')
+        .trim()
+        .toLowerCase();
       addSourceDelta(sourceDelta, 'skill', inputTokens + outputTokens);
       markSourceName('skill', sourceName ? `/${sourceName}` : 'slash_command');
       if (commandName === 'compact') compactRequested = true;
@@ -209,9 +210,10 @@ function classifyContextSignals(turnEvents) {
     }
   }
 
-  const knownTotal = CONTEXT_SOURCE_KINDS
-    .filter((kind) => kind !== 'unknown')
-    .reduce((acc, kind) => acc + Number(sourceDelta[kind] ?? 0), 0);
+  const knownTotal = CONTEXT_SOURCE_KINDS.filter((kind) => kind !== 'unknown').reduce(
+    (acc, kind) => acc + Number(sourceDelta[kind] ?? 0),
+    0,
+  );
   if (knownTotal <= 0) {
     sourceDelta.unknown = 1;
     markSourceName('unknown', 'unclassified');
@@ -250,7 +252,7 @@ function composeContextEvents({
     estimatedTotalTokens = Math.max(0, calibratedEstimate(fallbackEstimated, calibrationState));
   }
   const { sourceDelta, sourceNames, compactRequested, restoreRequested } = classifyContextSignals(turnEvents);
-  const deltaTokens = previousEstimatedTotal > 0 ? (estimatedTotalTokens - previousEstimatedTotal) : 0;
+  const deltaTokens = previousEstimatedTotal > 0 ? estimatedTotalTokens - previousEstimatedTotal : 0;
   const windowLimitTokens = contextWindowTokens();
   const fillRatio = round6(clamp(estimatedTotalTokens / windowLimitTokens, 0, 1));
 
@@ -448,6 +450,7 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
   const turns = groupByTurns(messages);
   const events = [];
   let previousInput = '';
+  let previousInputTokenSet = null;
   let previousHash = '';
   let hasPreviousTurn = false;
   let previousEstimatedTotal = 0;
@@ -460,6 +463,7 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
 
     const turnEvent = turnEvents[0];
     const input = String(turnEvent.input ?? '');
+    const inputTokenSet = tokenSet(input);
     const inputHash = hashText(input);
 
     if (!hasPreviousTurn) {
@@ -475,11 +479,15 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
       turnEvent.attributes['agentic.turn.input.prev_hash'] = previousHash;
       turnEvent.attributes['agentic.turn.diff.char_delta'] = input.length - previousInput.length;
       turnEvent.attributes['agentic.turn.diff.line_delta'] = lineCount(input) - lineCount(previousInput);
-      turnEvent.attributes['agentic.turn.diff.similarity'] = similarityScore(previousInput, input);
+      turnEvent.attributes['agentic.turn.diff.similarity'] =
+        input === previousInput
+          ? 1
+          : similarityScoreFromTokenSets(previousInputTokenSet ?? tokenSet(previousInput), inputTokenSet);
       turnEvent.attributes['agentic.turn.diff.changed'] = inputHash !== previousHash;
     }
 
     previousInput = input;
+    previousInputTokenSet = inputTokenSet;
     previousHash = inputHash;
     events.push(...turnEvents);
 
