@@ -2,7 +2,7 @@
 // @ts-nocheck
 // BUB-79: Scoped waiver for legacy CLI entrypoint; keep strict at package level and retire incrementally.
 import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
@@ -1361,7 +1361,9 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) 
 
 async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) {
   const runtimeHome = opencodeRuntimeHomeForSetup(homeRoot, opencodeRuntimeHome);
+  const pluginDir = resolveOpencodePluginInstallDir(runtimeHome);
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
+  const packageFile = path.join(pluginDir, 'package.json');
   let present = false;
   try {
     await stat(loaderFile);
@@ -1369,7 +1371,24 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) 
   } catch {
     /* not present */
   }
+
+  let packagePresent = false;
+  try {
+    await stat(packageFile);
+    packagePresent = true;
+  } catch {
+    /* not present */
+  }
+
   if (present && !dryRun) await rm(loaderFile, { force: true });
+  if (packagePresent && !dryRun) await rm(packageFile, { force: true });
+  if (!dryRun) {
+    try {
+      await rmdir(pluginDir);
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+    }
+  }
 
   let unregistered = false;
   if (!dryRun) {
@@ -1387,7 +1406,14 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) 
     }
   }
 
-  return { runtime: 'opencode', ok: true, changed: present || unregistered, dryRun, loaderFile, unregistered };
+  return {
+    runtime: 'opencode',
+    ok: true,
+    changed: present || packagePresent || unregistered,
+    dryRun,
+    loaderFile,
+    unregistered,
+  };
 }
 
 async function runSetupTeardown(options) {
