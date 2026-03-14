@@ -69,7 +69,15 @@ export function syncIssueState(
   now?: string,
 ): { state: IssueState; added: number; reopened: number; autoClosed: number } {
   const timestamp = nowIso(now);
-  const byId = new Map(prev.issues.map((issue) => [issue.id, issue]));
+  const byId = new Map(
+    prev.issues.map((issue) => [
+      issue.id,
+      {
+        ...issue,
+        notes: [...issue.notes],
+      },
+    ]),
+  );
   const activeIds = new Set(pending.map((item) => item.id));
   let added = 0;
   let reopened = 0;
@@ -91,25 +99,35 @@ export function syncIssueState(
       continue;
     }
 
-    existing.title = item.title;
-    existing.source = item.source;
-    existing.updatedAt = timestamp;
+    let next = {
+      ...existing,
+      title: item.title,
+      source: item.source,
+      updatedAt: timestamp,
+    };
     if (existing.status === 'done') {
-      existing.status = 'open';
-      existing.closedAt = undefined;
-      existing.notes.push('reopened by todo pending item');
+      next = {
+        ...next,
+        status: 'open',
+        closedAt: undefined,
+        notes: [...next.notes, 'reopened by todo pending item'],
+      };
       reopened += 1;
     }
+    byId.set(item.id, next);
   }
 
-  for (const issue of byId.values()) {
+  for (const [issueId, issue] of byId.entries()) {
     if (issue.source !== 'todo.md') continue;
     if (activeIds.has(issue.id)) continue;
     if (issue.status === 'done') continue;
-    issue.status = 'done';
-    issue.updatedAt = timestamp;
-    issue.closedAt = timestamp;
-    issue.notes.push('auto-closed because todo item is no longer pending');
+    byId.set(issueId, {
+      ...issue,
+      status: 'done',
+      updatedAt: timestamp,
+      closedAt: timestamp,
+      notes: [...issue.notes, 'auto-closed because todo item is no longer pending'],
+    });
     autoClosed += 1;
   }
 
@@ -133,21 +151,28 @@ export function setIssueStatus(
   const issueId = normalizeId(input.id);
   const timestamp = nowIso(now);
   assertStatus(input.status);
+  const nextStatus: IssueStatus = input.status;
   const issue = prev.issues.find((item) => item.id === issueId);
   if (!issue) throw new Error(`issue not found: ${issueId}`);
 
-  assertAllowedTransition(issue.status, input.status);
+  assertAllowedTransition(issue.status, nextStatus);
 
-  issue.status = input.status;
-  issue.updatedAt = timestamp;
-  if (input.status === 'done') issue.closedAt = timestamp;
-  if (input.status !== 'done') issue.closedAt = undefined;
-  if (input.note && input.note.trim()) issue.notes.push(input.note.trim());
+  const note = input.note?.trim();
+  const issues = prev.issues.map((item) => {
+    if (item.id !== issueId) return item;
+    return {
+      ...item,
+      status: nextStatus,
+      updatedAt: timestamp,
+      closedAt: nextStatus === 'done' ? timestamp : undefined,
+      notes: note ? [...item.notes, note] : [...item.notes],
+    };
+  });
 
   return {
     version: 1,
     updatedAt: timestamp,
-    issues: prev.issues,
+    issues,
   };
 }
 
