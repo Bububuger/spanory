@@ -220,26 +220,10 @@ function fingerprintSession(context, events) {
   for (const event of events) {
     hash.update(String(event.turnId ?? ''));
     hash.update('\u001f');
-    hash.update(String(event.category ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.name ?? ''));
-    hash.update('\u001f');
     hash.update(String(event.startedAt ?? ''));
     hash.update('\u001f');
     hash.update(String(event.endedAt ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.input ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.output ?? ''));
-    hash.update('\u001f');
-    const attrs = event.attributes ?? {};
-    const keys = Object.keys(attrs).sort();
-    for (const key of keys) {
-      hash.update(key);
-      hash.update('=');
-      hash.update(String(attrs[key] ?? ''));
-      hash.update('\u001f');
-    }
+    hash.update('\u001e');
   }
   return hash.digest('hex');
 }
