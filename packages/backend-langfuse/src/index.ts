@@ -1,4 +1,4 @@
-type ObservationType = 'agent' | 'tool' | 'event' | 'span';
+import { langfuseObservationTypeForCategory } from '@bububuger/otlp-core';
 
 type LangfuseMappableEvent = {
   category?: string;
@@ -6,30 +6,13 @@ type LangfuseMappableEvent = {
   [key: string]: any;
 };
 
-function defaultObservationType(category: string | undefined): ObservationType {
-  switch (category) {
-    case 'turn':
-      return 'agent';
-    case 'shell_command':
-    case 'mcp':
-    case 'tool':
-      return 'tool';
-    case 'agent_command':
-      return 'event';
-    case 'agent_task':
-      return 'agent';
-    default:
-      return 'span';
-  }
-}
-
 function normalizeAttributes(event: LangfuseMappableEvent): Record<string, any> {
   const attrs = { ...(event.attributes ?? {}) };
   if (!attrs['agentic.event.category']) {
     attrs['agentic.event.category'] = event.category;
   }
   if (!attrs['langfuse.observation.type']) {
-    attrs['langfuse.observation.type'] = defaultObservationType(event.category);
+    attrs['langfuse.observation.type'] = langfuseObservationTypeForCategory(event.category);
   }
   return attrs;
 }
