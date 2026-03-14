@@ -1367,7 +1367,8 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun }) 
   const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, openclawRuntimeHome);
   if (dryRun) return { runtime: 'openclaw', ok: true, changed: true, dryRun };
   uninstallOpenclawPlugin(runtimeHome);
-  return { runtime: 'openclaw', ok: true, changed: true, dryRun };
+  const pathCleanupResult = await removeSpanoryOpenclawPluginLoadPaths(resolveRuntimeHome('openclaw', runtimeHome));
+  return { runtime: 'openclaw', ok: true, changed: true, dryRun, pathCleanupResult };
 }
 
 async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun }) {
@@ -1523,6 +1524,39 @@ function isSpanoryOpenclawPluginPath(candidatePath) {
   const canonical = canonicalPath(text);
   const pluginName = readOpenclawPluginNameFromDir(canonical);
   return pluginName === '@bububuger/spanory-openclaw-plugin' || pluginName === '@alipay/spanory-openclaw-plugin';
+}
+
+async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome) {
+  const configPath = resolveOpenclawConfigPath(runtimeHome);
+  let configRaw = '';
+  try {
+    configRaw = await readFile(configPath, 'utf-8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+    throw error;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(configRaw);
+  } catch (error) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  }
+
+  const currentPaths = parsed?.plugins?.load?.paths;
+  if (!Array.isArray(currentPaths)) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  const nextPaths = currentPaths.filter((item) => !(typeof item === 'string' && isSpanoryOpenclawPluginPath(item)));
+  if (nextPaths.length === currentPaths.length) {
+    return { changed: false, configPath, backup: null };
+  }
+
+  parsed.plugins.load.paths = nextPaths;
+  const backup = await backupIfExists(configPath);
+  await writeFile(configPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf-8');
+  return { changed: true, configPath, backup };
 }
 
 async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun) {
@@ -1686,7 +1720,22 @@ function uninstallOpenclawPlugin(runtimeHome) {
 async function uninstallOpencodePlugin(runtimeHome) {
   const loaderFile = opencodePluginLoaderPath(runtimeHome);
   await rm(loaderFile, { force: true });
-  return { loaderFile };
+
+  let unregistered = false;
+  const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  try {
+    const raw = await readFile(opencodeConfigPath, 'utf-8');
+    const config = JSON.parse(raw);
+    if (Array.isArray(config.plugin) && config.plugin.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
+      config.plugin = config.plugin.filter((pluginId) => pluginId !== OPENCODE_SPANORY_PLUGIN_ID);
+      await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      unregistered = true;
+    }
+  } catch {
+    /* ignore opencode.json cleanup failures */
+  }
+
+  return { loaderFile, unregistered };
 }
 
 type PluginCommandOptions = {
@@ -2430,7 +2479,7 @@ alert
 
     if (options.webhookUrl) {
       await sendAlertWebhook(options.webhookUrl, result, parseHeaders(options.webhookHeaders));
-      console.log(`webhook=sent url=${options.webhookUrl}`);
+      console.error(`webhook=sent url=${options.webhookUrl}`);
     }
 
     if (options.failOnAlert && alerts.length > 0) {

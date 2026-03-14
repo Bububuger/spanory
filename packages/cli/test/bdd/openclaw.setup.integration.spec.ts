@@ -119,6 +119,47 @@ describe('BDD openclaw setup path normalization', () => {
     assertNormalizedConfigAndOpenclawCalls(openclawConfigPath, commandLogPath, targetPluginDir);
   });
 
+  it('Given spanory plugin paths in openclaw config, When setup teardown runs, Then it removes spanory paths but keeps non-spanory paths unchanged', () => {
+    const { fakeHome, openclawHome, openclawConfigPath, fakeBinDir, commandLogPath, targetPluginDir } =
+      prepareFakeOpenclawEnvironment();
+
+    const output = execFileSync(
+      'node',
+      [
+        entry,
+        'setup',
+        'teardown',
+        '--runtimes',
+        'openclaw',
+        '--home',
+        fakeHome,
+        '--openclaw-runtime-home',
+        openclawHome,
+      ],
+      {
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          HOME: fakeHome,
+          PATH: `${fakeBinDir}:${process.env.PATH ?? ''}`,
+          SPANORY_TEST_OPENCLAW_LOG: commandLogPath,
+          OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+        },
+      },
+    );
+    const report = JSON.parse(output);
+    expect(report.ok).toBe(true);
+
+    const nextConfig = JSON.parse(readFileSync(openclawConfigPath, 'utf-8'));
+    const paths = Array.isArray(nextConfig?.plugins?.load?.paths) ? nextConfig.plugins.load.paths : [];
+    expect(paths).not.toContain('/tmp/legacy/spanory/packages/openclaw-plugin');
+    expect(paths).not.toContain(targetPluginDir);
+    expect(paths.filter((item) => item === '/tmp/other-plugin')).toHaveLength(2);
+
+    const openclawCalls = readFileSync(commandLogPath, 'utf-8');
+    expect(openclawCalls).toContain('plugins uninstall spanory-openclaw-plugin');
+  });
+
   it('Given OTLP endpoint is unset, When setup apply installs openclaw plugin, Then apply stays successful and endpoint check remains visible', () => {
     const { fakeHome, openclawHome, fakeBinDir, commandLogPath } = prepareFakeOpenclawEnvironment();
 
