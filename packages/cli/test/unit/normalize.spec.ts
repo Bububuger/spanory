@@ -370,18 +370,16 @@ describe('normalizeTranscriptMessages', () => {
         {
           role: 'assistant',
           isMeta: false,
-          content: [
-            {
-              type: 'tool_use',
-              id: 'write-1',
-              name: 'Write',
-              input: {
-                file_path: '/tmp/.env',
-                content: 'OPENAI_API_KEY=sk-live-123',
-                token: 'inline-secret-token',
-              },
+          content: [{
+            type: 'tool_use',
+            id: 'write-1',
+            name: 'Write',
+            input: {
+              file_path: '/tmp/.env',
+              content: 'OPENAI_API_KEY=sk-live-123',
+              token: 'inline-secret-token',
             },
-          ],
+          }],
           model: 'claude-sonnet-4-6',
           usage: { input_tokens: 20, output_tokens: 6, total_tokens: 26 },
           timestamp: new Date('2026-03-10T00:00:01.000Z'),
@@ -389,13 +387,11 @@ describe('normalizeTranscriptMessages', () => {
         {
           role: 'user',
           isMeta: false,
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: 'write-1',
-              content: 'OPENAI_API_KEY=sk-live-123\nPRIVATE_KEY=should-not-leak',
-            },
-          ],
+          content: [{
+            type: 'tool_result',
+            tool_use_id: 'write-1',
+            content: 'OPENAI_API_KEY=sk-live-123\nPRIVATE_KEY=should-not-leak',
+          }],
           timestamp: new Date('2026-03-10T00:00:02.000Z'),
         },
       ],
@@ -427,16 +423,14 @@ describe('normalizeTranscriptMessages', () => {
           {
             role: 'assistant',
             isMeta: false,
-            content: [
-              {
-                type: 'tool_use',
-                id: 'web-1',
-                name: 'WebSearch',
-                input: {
-                  query: 'x'.repeat(300),
-                },
+            content: [{
+              type: 'tool_use',
+              id: 'web-1',
+              name: 'WebSearch',
+              input: {
+                query: 'x'.repeat(300),
               },
-            ],
+            }],
             model: 'claude-sonnet-4-6',
             usage: { input_tokens: 20, output_tokens: 6, total_tokens: 26 },
             timestamp: new Date('2026-03-10T01:00:01.000Z'),
@@ -444,21 +438,17 @@ describe('normalizeTranscriptMessages', () => {
           {
             role: 'user',
             isMeta: false,
-            content: [
-              {
-                type: 'tool_result',
-                tool_use_id: 'web-1',
-                content: 'y'.repeat(300),
-              },
-            ],
+            content: [{
+              type: 'tool_result',
+              tool_use_id: 'web-1',
+              content: 'y'.repeat(300),
+            }],
             timestamp: new Date('2026-03-10T01:00:02.000Z'),
           },
         ],
       });
 
-      const web = events.find(
-        (event) => event.category === 'tool' && event.attributes['gen_ai.tool.name'] === 'WebSearch',
-      );
+      const web = events.find((event) => event.category === 'tool' && event.attributes['gen_ai.tool.name'] === 'WebSearch');
       expect(web).toBeTruthy();
       expect(web.input).toContain('"__truncated__":true');
       expect(web.output).toContain('...[truncated]');
@@ -550,12 +540,8 @@ describe('normalizeTranscriptMessages', () => {
       const boundaryKinds = boundaries.map((event) => event.attributes['agentic.context.boundary_kind']);
       expect(boundaryKinds).toContain('compact_before');
       expect(boundaryKinds).toContain('compact_after');
-      const compactBefore = boundaries.find(
-        (event) => event.attributes['agentic.context.boundary_kind'] === 'compact_before',
-      );
-      const compactAfter = boundaries.find(
-        (event) => event.attributes['agentic.context.boundary_kind'] === 'compact_after',
-      );
+      const compactBefore = boundaries.find((event) => event.attributes['agentic.context.boundary_kind'] === 'compact_before');
+      const compactAfter = boundaries.find((event) => event.attributes['agentic.context.boundary_kind'] === 'compact_after');
       expect(compactBefore?.attributes['agentic.context.detection_method']).toBe('hook');
       expect(compactAfter?.attributes['agentic.context.detection_method']).toBe('inferred');
 
@@ -669,10 +655,11 @@ describe('normalizeTranscriptMessages', () => {
 
     const compactAfter = events.filter(
       (event) =>
-        event.category === 'context' &&
-        event.attributes['agentic.context.event_type'] === 'context_boundary' &&
-        event.attributes['agentic.context.boundary_kind'] === 'compact_after',
+        event.category === 'context'
+        && event.attributes['agentic.context.event_type'] === 'context_boundary'
+        && event.attributes['agentic.context.boundary_kind'] === 'compact_after',
     );
     expect(compactAfter).toHaveLength(0);
   });
+
 });
