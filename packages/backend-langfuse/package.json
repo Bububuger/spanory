@@ -6,8 +6,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "check": "tsc -p tsconfig.json --noEmit",
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "check": "npm run build:deps && tsc -p tsconfig.json --noEmit",
+    "build:deps": "npm run --workspace @bububuger/otlp-core build",
+    "build": "npm run build:deps && node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs"
   }
 }

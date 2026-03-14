@@ -20,6 +20,8 @@ export interface OtlpResource {
   environment: string;
 }
 
+export type LangfuseObservationType = 'agent' | 'tool' | 'event' | 'span';
+
 interface OtlpAnyValue {
   stringValue?: string;
   doubleValue?: number;
@@ -75,7 +77,7 @@ function toAnyValue(value: unknown): OtlpAnyValue {
   return { stringValue: JSON.stringify(value) };
 }
 
-function observationTypeForCategory(category: string): string {
+export function langfuseObservationTypeForCategory(category: string | undefined): LangfuseObservationType {
   switch (category) {
     case 'turn':
       return 'agent';
@@ -104,7 +106,10 @@ function observationIdentity(event: SpanoryEvent, idx: number): string {
     return `turn:${turnId}`;
   }
 
-  if ((event.category === 'shell_command' || event.category === 'tool' || event.category === 'agent_task') && toolCallId) {
+  if (
+    (event.category === 'shell_command' || event.category === 'tool' || event.category === 'agent_task') &&
+    toolCallId
+  ) {
     return `${event.category}:${turnId}:${toolCallId}`;
   }
 
@@ -179,13 +184,16 @@ export function parseOtlpHeaders(input?: string): Record<string, string> | undef
 
 export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource): OtlpPayload {
   const traceByTurn = new Map<string, string>();
-  const traceContextByTurn = new Map<string, {
-    traceName: string;
-    traceMetadata: string;
-    traceInput: string;
-    traceOutput: string;
-    hasTurnEvent: boolean;
-  }>();
+  const traceContextByTurn = new Map<
+    string,
+    {
+      traceName: string;
+      traceMetadata: string;
+      traceInput: string;
+      traceOutput: string;
+      hasTurnEvent: boolean;
+    }
+  >();
   const rootByTurn = new Map<string, string>();
   const spans: OtlpSpan[] = [];
   const spanIdSet = new Set<string>();
@@ -194,13 +202,7 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
   for (const event of events) {
     const turnKey = event.turnId || `${event.sessionId}:root`;
     if (!traceByTurn.has(turnKey)) {
-      traceByTurn.set(
-        turnKey,
-        stableHexId(
-          ['trace', event.runtime, event.projectId, event.sessionId, turnKey],
-          32,
-        ),
-      );
+      traceByTurn.set(turnKey, stableHexId(['trace', event.runtime, event.projectId, event.sessionId, turnKey], 32));
     }
 
     if (!traceContextByTurn.has(turnKey)) {
@@ -244,14 +246,7 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
     const occurrence = (identityCountByEvent.get(identity) ?? 0) + 1;
     identityCountByEvent.set(identity, occurrence);
 
-    const eventStableKey = [
-      'span',
-      event.runtime,
-      event.projectId,
-      event.sessionId,
-      identity,
-      occurrence,
-    ];
+    const eventStableKey = ['span', event.runtime, event.projectId, event.sessionId, identity, occurrence];
     let spanId = stableHexId(eventStableKey, 16);
     if (spanIdSet.has(spanId)) {
       spanId = stableHexId([...eventStableKey, 'collision', idx], 16);
@@ -288,7 +283,7 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
           }
         : {}),
       ...(!event.attributes?.['langfuse.observation.type']
-        ? { 'langfuse.observation.type': observationTypeForCategory(event.category) }
+        ? { 'langfuse.observation.type': langfuseObservationTypeForCategory(event.category) }
         : {}),
       'langfuse.observation.id': spanId,
       ...(event.input ? { 'langfuse.observation.input': event.input, 'input.value': event.input } : {}),
@@ -331,7 +326,11 @@ export function compileOtlpSpans(events: SpanoryEvent[], resource: OtlpResource)
   };
 }
 
-export async function sendOtlpHttp(endpoint: string, payload: unknown, headers: Record<string, string> = {}): Promise<void> {
+export async function sendOtlpHttp(
+  endpoint: string,
+  payload: unknown,
+  headers: Record<string, string> = {},
+): Promise<void> {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
