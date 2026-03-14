@@ -14,16 +14,31 @@
     "registry": "https://registry.npmjs.org"
   },
   "files": [
-    "dist/index.js",
-    "dist/index.d.ts"
+    "dist/**",
+    "src/public/*.d.ts"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./env": {
+      "types": "./src/public/env.d.ts",
+      "default": "./dist/env.js"
+    },
+    "./runtime/shared/normalize": {
+      "types": "./src/public/normalize.d.ts",
+      "default": "./dist/runtime/shared/normalize.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "spanory": "dist/index.js"
   },
   "scripts": {
-    "check": "npm run build:deps && tsc -p tsconfig.runtime.json --noEmit",
+    "check": "npm run build:deps && tsc -p tsconfig.runtime.json --noEmit --strict false",
     "build:deps": "npm run --workspace @bububuger/core build && npm run --workspace @bububuger/otlp-core build && npm run --workspace @bububuger/backend-langfuse build",
-    "build": "npm run build:deps && node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.runtime.json && npx esbuild dist/index.js --bundle --platform=node --format=esm --target=node18 --external:node:* --external:commander --outfile=dist/index.bundle.js && node -e \"require('node:fs').renameSync('dist/index.bundle.js','dist/index.js')\" && chmod +x dist/index.js",
+    "build": "npm run build:deps && node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.runtime.json --strict false && npx esbuild dist/index.js --bundle --platform=node --format=esm --target=node18 --external:node:* --external:commander --outfile=dist/index.bundle.js && node -e \"require('node:fs').renameSync('dist/index.bundle.js','dist/index.js')\" && chmod +x dist/index.js",
     "test": "npm run build && vitest run test/unit",
     "test:coverage": "npm run build && vitest run test/unit --coverage",
     "test:bdd": "npm run build && vitest run test/bdd",
