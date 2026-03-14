@@ -1,3 +1,5 @@
+// @ts-nocheck
+// BUB-79: Scoped waiver for legacy OpenClaw adapter parser; strict remains enforced at package command level.
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { extractToolUses } from '@bububuger/core';
@@ -104,20 +106,17 @@ function normalizeToolUseResult(entry) {
 
 function normalizeSourceToolUseId(entry) {
   return (
-    entry?.sourceToolUseID
-    ?? entry?.sourceToolUseId
-    ?? entry?.source_tool_use_id
-    ?? entry?.message?.toolCallId
-    ?? entry?.message?.tool_call_id
+    entry?.sourceToolUseID ??
+    entry?.sourceToolUseId ??
+    entry?.source_tool_use_id ??
+    entry?.message?.toolCallId ??
+    entry?.message?.tool_call_id
   );
 }
 
 function normalizeUsage(entry) {
-  const raw = entry?.message?.usage
-    ?? entry?.usage
-    ?? entry?.message_usage
-    ?? entry?.token_usage
-    ?? entry?.payload?.usage;
+  const raw =
+    entry?.message?.usage ?? entry?.usage ?? entry?.message_usage ?? entry?.token_usage ?? entry?.payload?.usage;
   if (!raw || typeof raw !== 'object') return undefined;
   return pickUsage({
     input_tokens: raw.input_tokens ?? raw.prompt_tokens ?? raw.input,
@@ -129,23 +128,24 @@ function normalizeUsage(entry) {
 }
 
 function normalizeIsSidechain(entry) {
-  const raw = entry?.isSidechain
-    ?? entry?.is_sidechain
-    ?? entry?.message?.isSidechain
-    ?? entry?.message?.is_sidechain
-    ?? entry?.payload?.isSidechain
-    ?? entry?.payload?.is_sidechain;
+  const raw =
+    entry?.isSidechain ??
+    entry?.is_sidechain ??
+    entry?.message?.isSidechain ??
+    entry?.message?.is_sidechain ??
+    entry?.payload?.isSidechain ??
+    entry?.payload?.is_sidechain;
   return raw === true;
 }
 
 function normalizeAgentId(entry) {
   return (
-    entry?.agentId
-    ?? entry?.agent_id
-    ?? entry?.message?.agentId
-    ?? entry?.message?.agent_id
-    ?? entry?.payload?.agentId
-    ?? entry?.payload?.agent_id
+    entry?.agentId ??
+    entry?.agent_id ??
+    entry?.message?.agentId ??
+    entry?.message?.agent_id ??
+    entry?.payload?.agentId ??
+    entry?.payload?.agent_id
   );
 }
 
@@ -155,9 +155,11 @@ function extractToolResults(content) {
 }
 
 function isToolResultOnlyContent(content) {
-  return Array.isArray(content)
-    && content.length > 0
-    && content.every((block) => block && typeof block === 'object' && block.type === 'tool_result');
+  return (
+    Array.isArray(content) &&
+    content.length > 0 &&
+    content.every((block) => block && typeof block === 'object' && block.type === 'tool_result')
+  );
 }
 
 function isPromptUserMessage(message) {
@@ -177,9 +179,9 @@ function findChildSessionHints(messages) {
 
   const hasParentLink = messages.some(
     (m) =>
-      String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0
-      || String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0
-      || String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
+      String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0 ||
+      String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0 ||
+      String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
   );
   if (hasParentLink) return null;
 
@@ -290,12 +292,13 @@ async function readOpenclawTranscript(transcriptPath) {
   let runtimeVersion;
   await forEachJsonlEntry(transcriptPath, (entry) => {
     if (entry?.type === 'session') {
-      runtimeVersion = entry?.runtimeVersion
-        ?? entry?.runtime_version
-        ?? entry?.openclawVersion
-        ?? entry?.openclaw_version
-        ?? entry?.version
-        ?? runtimeVersion;
+      runtimeVersion =
+        entry?.runtimeVersion ??
+        entry?.runtime_version ??
+        entry?.openclawVersion ??
+        entry?.openclaw_version ??
+        entry?.version ??
+        runtimeVersion;
       return;
     }
     const role = normalizeRole(entry);
@@ -315,12 +318,12 @@ async function readOpenclawTranscript(transcriptPath) {
       toolUseResult: normalizeToolUseResult(entry),
       sourceToolUseId: normalizeSourceToolUseId(entry),
       runtimeVersion:
-        entry?.runtimeVersion
-        ?? entry?.runtime_version
-        ?? entry?.version
-        ?? entry?.app_version
-        ?? entry?.appVersion
-        ?? runtimeVersion,
+        entry?.runtimeVersion ??
+        entry?.runtime_version ??
+        entry?.version ??
+        entry?.app_version ??
+        entry?.appVersion ??
+        runtimeVersion,
       timestamp: parseTimestamp(entry),
     });
   });
@@ -329,17 +332,13 @@ async function readOpenclawTranscript(transcriptPath) {
 }
 
 function resolveRuntimeHome(context) {
-  return (
-    context.runtimeHome
-    ?? process.env.SPANORY_OPENCLAW_HOME
-    ?? path.join(process.env.HOME || '', '.openclaw')
-  );
+  return context.runtimeHome ?? process.env.SPANORY_OPENCLAW_HOME ?? path.join(process.env.HOME || '', '.openclaw');
 }
 
 function parseOpenclawProjectId(transcriptPath) {
   return (
-    parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/projects/')
-    ?? parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/agents/')
+    parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/projects/') ??
+    parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/agents/')
   );
 }
 

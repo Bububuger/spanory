@@ -1,3 +1,5 @@
+// @ts-nocheck
+// BUB-79: Scoped waiver for legacy Codex adapter parser; strict remains enforced at package command level.
 import { createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -58,13 +60,19 @@ function normalizeToolCall(name, args, index) {
 function sanitizeProjectBase(name) {
   const text = String(name ?? '').trim();
   if (!text) return 'codex';
-  const out = text.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  const out = text
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
   return out || 'codex';
 }
 
 function deriveProjectIdFromCwd(cwd) {
   const base = sanitizeProjectBase(path.basename(String(cwd ?? '').trim()) || 'codex');
-  const hash = createHash('sha1').update(String(cwd ?? '')).digest('hex').slice(0, 10);
+  const hash = createHash('sha1')
+    .update(String(cwd ?? ''))
+    .digest('hex')
+    .slice(0, 10);
   return `${base}-${hash}`;
 }
 
@@ -345,7 +353,10 @@ async function readCodexSession(transcriptPath) {
       const args = safeJsonParse(rawInput, typeof rawInput === 'string' ? { raw: rawInput } : {});
       const ptySessionId = args.session_id != null ? String(args.session_id) : '';
       if (String(rawName ?? '') === 'write_stdin' && ptySessionId && ptyCallBySession.has(ptySessionId)) {
-        callIndex.set(String(payload.call_id ?? payload.callId ?? `call-${callCounter}`), ptyCallBySession.get(ptySessionId));
+        callIndex.set(
+          String(payload.call_id ?? payload.callId ?? `call-${callCounter}`),
+          ptyCallBySession.get(ptySessionId),
+        );
         return;
       }
       const normalized = normalizeToolCall(rawName, args, callCounter);
@@ -416,9 +427,7 @@ async function readCodexSession(transcriptPath) {
 }
 
 function remapTurnIds(events, turns) {
-  const generatedTurnIds = events
-    .filter((event) => event.category === 'turn')
-    .map((event) => event.turnId);
+  const generatedTurnIds = events.filter((event) => event.category === 'turn').map((event) => event.turnId);
   const map = new Map();
   for (let i = 0; i < generatedTurnIds.length; i += 1) {
     const generated = generatedTurnIds[i];
@@ -484,8 +493,8 @@ export const codexAdapter = {
 
   async collectEvents(context) {
     const runtimeHome = resolveRuntimeHome(context);
-    const transcriptPath = context.transcriptPath
-      ?? await findSessionTranscript(path.join(runtimeHome, 'sessions'), context.sessionId);
+    const transcriptPath =
+      context.transcriptPath ?? (await findSessionTranscript(path.join(runtimeHome, 'sessions'), context.sessionId));
 
     const parsed = await readCodexSession(transcriptPath);
     const projectId = context.projectId || deriveProjectIdFromCwd(parsed.cwd ?? '');

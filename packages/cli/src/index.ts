@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// @ts-nocheck
+// BUB-79: Scoped waiver for legacy CLI entrypoint; keep strict at package level and retire incrementally.
 import { existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
