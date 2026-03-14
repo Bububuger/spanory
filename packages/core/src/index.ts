@@ -1,4 +1,10 @@
 export type SpanoryCategory = 'agent_command' | 'shell_command' | 'mcp' | 'agent_task' | 'turn' | 'tool' | 'reasoning' | 'context';
+export {
+  extractToolUses,
+  GATEWAY_INPUT_METADATA_BLOCK_RE,
+  parseJsonObject,
+  toNumber,
+} from './runtime-primitives.js';
 
 export const CONTEXT_SOURCE_KINDS = [
   'turn',

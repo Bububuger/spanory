@@ -284,6 +284,112 @@ describe('normalizeTranscriptMessages', () => {
     }
   });
 
+  it('redacts file tool content before export', () => {
+    const events = normalizeTranscriptMessages({
+      runtime: 'claude-code',
+      projectId: 'p-redact',
+      sessionId: 's-redact',
+      messages: [
+        {
+          role: 'user',
+          isMeta: false,
+          content: '请写入文件',
+          timestamp: new Date('2026-03-10T00:00:00.000Z'),
+        },
+        {
+          role: 'assistant',
+          isMeta: false,
+          content: [{
+            type: 'tool_use',
+            id: 'write-1',
+            name: 'Write',
+            input: {
+              file_path: '/tmp/.env',
+              content: 'OPENAI_API_KEY=sk-live-123',
+              token: 'inline-secret-token',
+            },
+          }],
+          model: 'claude-sonnet-4-6',
+          usage: { input_tokens: 20, output_tokens: 6, total_tokens: 26 },
+          timestamp: new Date('2026-03-10T00:00:01.000Z'),
+        },
+        {
+          role: 'user',
+          isMeta: false,
+          content: [{
+            type: 'tool_result',
+            tool_use_id: 'write-1',
+            content: 'OPENAI_API_KEY=sk-live-123\nPRIVATE_KEY=should-not-leak',
+          }],
+          timestamp: new Date('2026-03-10T00:00:02.000Z'),
+        },
+      ],
+    });
+
+    const write = events.find((event) => event.category === 'tool' && event.attributes['gen_ai.tool.name'] === 'Write');
+    expect(write).toBeTruthy();
+    expect(write.input).not.toContain('sk-live-123');
+    expect(write.input).toContain('[REDACTED]');
+    expect(write.output).toBe('[REDACTED]');
+  });
+
+  it('truncates non-file tool payloads to configured max bytes', () => {
+    const previous = process.env.SPANORY_TOOL_CONTENT_MAX_BYTES;
+    process.env.SPANORY_TOOL_CONTENT_MAX_BYTES = '48';
+
+    try {
+      const events = normalizeTranscriptMessages({
+        runtime: 'claude-code',
+        projectId: 'p-truncate',
+        sessionId: 's-truncate',
+        messages: [
+          {
+            role: 'user',
+            isMeta: false,
+            content: '执行搜索',
+            timestamp: new Date('2026-03-10T01:00:00.000Z'),
+          },
+          {
+            role: 'assistant',
+            isMeta: false,
+            content: [{
+              type: 'tool_use',
+              id: 'web-1',
+              name: 'WebSearch',
+              input: {
+                query: 'x'.repeat(300),
+              },
+            }],
+            model: 'claude-sonnet-4-6',
+            usage: { input_tokens: 20, output_tokens: 6, total_tokens: 26 },
+            timestamp: new Date('2026-03-10T01:00:01.000Z'),
+          },
+          {
+            role: 'user',
+            isMeta: false,
+            content: [{
+              type: 'tool_result',
+              tool_use_id: 'web-1',
+              content: 'y'.repeat(300),
+            }],
+            timestamp: new Date('2026-03-10T01:00:02.000Z'),
+          },
+        ],
+      });
+
+      const web = events.find((event) => event.category === 'tool' && event.attributes['gen_ai.tool.name'] === 'WebSearch');
+      expect(web).toBeTruthy();
+      expect(web.input).toContain('"__truncated__":true');
+      expect(web.output).toContain('...[truncated]');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.SPANORY_TOOL_CONTENT_MAX_BYTES;
+      } else {
+        process.env.SPANORY_TOOL_CONTENT_MAX_BYTES = previous;
+      }
+    }
+  });
+
   it('emits context snapshot, boundary, and source attribution events for enabled runtimes', () => {
     const runtimes = ['claude-code', 'codex', 'openclaw', 'opencode'];
 

@@ -13,7 +13,7 @@
 ### 1) 通用配置验证
 ```bash
 spanory setup detect
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+spanory setup apply --runtimes claude-code,codex,openclaw,opencode
 spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
@@ -65,7 +65,7 @@ chmod +x ~/.local/bin/spanory
 - 若修复涉及 plugin 安装路径或 hook 脚本内容，再补跑：
 
 ```bash
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode --codex-mode notify
+spanory setup apply --runtimes claude-code,codex,openclaw,opencode
 spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 

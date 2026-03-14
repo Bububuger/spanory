@@ -3,10 +3,9 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "strict": false,
-    "noImplicitAny": false,
     "sourceMap": false,
-    "declaration": true
+    "declaration": true,
+    "noImplicitAny": false
   },
   "include": ["src/**/*.ts"]
 }

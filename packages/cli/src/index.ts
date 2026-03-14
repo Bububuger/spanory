@@ -1672,7 +1672,14 @@ const program = createProgram({
     },
   ),
   installOpencodePlugin: (runtimeHome, pluginDirOverride, deps) => {
-    return installOpencodePluginModule(runtimeHome, pluginDirOverride, deps);
+    return installOpencodePluginModule(
+      runtimeHome,
+      pluginDirOverride,
+      deps ?? {
+        resolveRuntimeHome,
+        resolveOpencodePluginDir,
+      },
+    );
   },
   opencodePluginLoaderPath: (runtimeHome) => opencodePluginLoaderPathModule(runtimeHome, resolveRuntimeHome),
   runOpencodePluginDoctor: (runtimeHome, deps) => runOpencodePluginDoctorModule(
@@ -1762,8 +1769,16 @@ const program = createProgram({
   saveIssueState,
   setIssueStatus,
 });
+
+const normalizeLegacyAlertEvalArgv = (argv) => {
+  if (argv[2] === 'alert' && argv[3] === 'eval') {
+    return [argv[0], argv[1], 'alert', ...argv.slice(4)];
+  }
+  return argv;
+};
+
 loadUserEnv()
-  .then(() => program.parseAsync(process.argv))
+  .then(() => program.parseAsync(normalizeLegacyAlertEvalArgv(process.argv)))
   .catch((error) => {
     console.error(`[spanory] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

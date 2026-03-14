@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -83,7 +83,9 @@ export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps
   } catch (err) {
     if (err?.code === 'ENOENT') {
       await writeFile(opencodeConfigPath, JSON.stringify({ plugin: [OPENCODE_SPANORY_PLUGIN_ID] }, null, 2) + '\n', 'utf-8');
+      return { loaderFile };
     }
+    throw err;
   }
 
   return { loaderFile };
@@ -143,19 +145,37 @@ export async function runOpencodePluginDoctor(runtimeHome, deps) {
   const spoolDir = process.env.SPANORY_OPENCODE_SPOOL_DIR
     ?? path.join(deps.resolveOpencodePluginStateRoot(runtimeHome), 'spool');
   try {
-    await mkdir(spoolDir, { recursive: true });
+    await stat(spoolDir);
+    await access(spoolDir);
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
   } catch (err) {
-    checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
+    if (err?.code === 'ENOENT') {
+      checks.push({
+        id: 'spool_writable',
+        ok: true,
+        detail: `spool dir not created yet: ${spoolDir}`,
+      });
+    } else {
+      checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
+    }
   }
 
   const statusFile = path.join(deps.resolveOpencodePluginStateRoot(runtimeHome), 'plugin-status.json');
   const logFile = path.join(deps.resolveOpencodePluginStateRoot(runtimeHome), 'plugin.log');
   try {
-    await mkdir(path.dirname(logFile), { recursive: true });
+    await stat(logFile);
+    await access(logFile);
     checks.push({ id: 'opencode_plugin_log', ok: true, detail: logFile });
   } catch (err) {
-    checks.push({ id: 'opencode_plugin_log', ok: false, detail: String(err) });
+    if (err?.code === 'ENOENT') {
+      checks.push({
+        id: 'opencode_plugin_log',
+        ok: true,
+        detail: `plugin log not generated yet: ${logFile}`,
+      });
+    } else {
+      checks.push({ id: 'opencode_plugin_log', ok: false, detail: String(err) });
+    }
   }
   try {
     const raw = await readFile(statusFile, 'utf-8');

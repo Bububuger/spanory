@@ -1,6 +1,6 @@
 // @ts-nocheck
 import path from 'node:path';
-import { readFile, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 
 import { Command } from 'commander';
 
@@ -13,6 +13,14 @@ function runtimeDisplayName(runtimeName) {
 
 function runtimeDescription(runtimeName) {
   return `${runtimeDisplayName(runtimeName)} transcript runtime`;
+}
+
+function parsePluginRuntimeName(runtimeName) {
+  const normalized = String(runtimeName ?? '').trim().toLowerCase();
+  if (normalized === 'openclaw' || normalized === 'opencode') {
+    return normalized;
+  }
+  throw new Error(`unsupported runtime for plugin command: ${runtimeName}`);
 }
 
 function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
@@ -124,6 +132,8 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
         }
 
         console.log(`backfill=selected count=${candidates.length}`);
+        let exportedCount = 0;
+        let skippedCount = 0;
 
         for (const candidate of candidates) {
           const context = {
@@ -137,17 +147,27 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
             continue;
           }
 
-          const events = await adapter.collectEvents(context);
-          const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
+          try {
+            const events = await adapter.collectEvents(context);
+            const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
+            await deps.emitSession({
+              runtimeName: adapter.runtimeName,
+              context,
+              events,
+              endpoint,
+              headers,
+              exportJsonPath,
+            });
+            exportedCount += 1;
+          } catch (error) {
+            skippedCount += 1;
+            const message = error?.message ? String(error.message).replace(/\s+/g, ' ') : 'unknown-error';
+            console.log(`backfill=error sessionId=${candidate.sessionId} error=${message}`);
+          }
+        }
 
-          await deps.emitSession({
-            runtimeName: adapter.runtimeName,
-            context,
-            events,
-            endpoint,
-            headers,
-            exportJsonPath,
-          });
+        if (!options.dryRun) {
+          console.log(`backfill=done selected=${candidates.length} exported=${exportedCount} skipped=${skippedCount}`);
         }
       });
   }
@@ -222,18 +242,15 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .description('Install Spanory OpenClaw plugin using openclaw plugins install -l')
       .option('--plugin-dir <path>', 'Plugin directory path (default: packages/openclaw-plugin)')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
-        const pluginDir = path.resolve(options.pluginDir ?? deps.resolveOpenclawPluginDir());
-        const result = deps.runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
-          },
+      .action(async (options) => {
+        const runtimeHome = deps.resolveRuntimeHome('openclaw', options.runtimeHome);
+        const result = await deps.installOpenclawPlugin(runtimeHome, false, {
+          resolveOpenclawPluginDir: () => options.pluginDir ?? deps.resolveOpenclawPluginDir(),
+          runSystemCommand: deps.runSystemCommand,
+          backupIfExists: deps.backupIfExists,
         });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins install failed');
-        }
+        if (result.installStdout) console.log(result.installStdout);
+        if (result.enableStdout) console.log(result.enableStdout);
       });
 
     plugin
@@ -426,8 +443,6 @@ export function createProgram(deps) {
   const alert = program.command('alert').description('Evaluate alert rules against exported telemetry data');
 
   alert
-    .command('eval')
-    .description('Run threshold rules and emit alert events')
     .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
     .requiredOption('--rules <path>', 'Path to alert rules JSON file')
     .option('--webhook-url <url>', 'Optional webhook URL to post alert payload')
@@ -465,67 +480,6 @@ export function createProgram(deps) {
       }
     });
 
-  const issue = program.command('issue').description('Manage local issue status for automation巡检');
-
-  issue
-    .command('sync')
-    .description('Sync pending items from todo.md into issue state file')
-    .option('--todo-file <path>', 'Path to todo markdown file (default: ./todo.md)')
-    .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
-    .action(async (options) => {
-      const todoFile = deps.resolveTodoPath(options.todoFile);
-      const stateFile = deps.resolveIssueStatePath(options.stateFile);
-      const todoRaw = await readFile(todoFile, 'utf-8');
-      const pending = deps.parsePendingTodoItems(todoRaw, 'todo.md');
-      const prev = await deps.loadIssueState(stateFile);
-      const result = deps.syncIssueState(prev, pending);
-      await deps.saveIssueState(stateFile, result.state);
-      console.log(JSON.stringify({
-        stateFile,
-        todoFile,
-        pending: pending.length,
-        added: result.added,
-        reopened: result.reopened,
-        autoClosed: result.autoClosed,
-        total: result.state.issues.length,
-      }, null, 2));
-    });
-
-  issue
-    .command('list')
-    .description('List issues from state file')
-    .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
-    .option('--status <status>', 'Filter by status: open,in_progress,blocked,done')
-    .action(async (options) => {
-      const stateFile = deps.resolveIssueStatePath(options.stateFile);
-      const state = await deps.loadIssueState(stateFile);
-      const statusFilter = options.status ? String(options.status).trim() : '';
-      const rows = statusFilter
-        ? state.issues.filter((item) => item.status === statusFilter)
-        : state.issues;
-      console.log(JSON.stringify({ stateFile, total: rows.length, issues: rows }, null, 2));
-    });
-
-  issue
-    .command('set-status')
-    .description('Update one issue status in state file')
-    .requiredOption('--id <id>', 'Issue id, e.g. T2')
-    .requiredOption('--status <status>', 'Target status: open|in_progress|blocked|done')
-    .option('--note <text>', 'Optional status note')
-    .option('--state-file <path>', 'Path to issue state json file (default: ./docs/issues/state.json)')
-    .action(async (options) => {
-      const stateFile = deps.resolveIssueStatePath(options.stateFile);
-      const prev = await deps.loadIssueState(stateFile);
-      const next = deps.setIssueStatus(prev, {
-        id: options.id,
-        status: options.status,
-        note: options.note,
-      });
-      await deps.saveIssueState(stateFile, next);
-      const issueItem = next.issues.find((item) => item.id === options.id);
-      console.log(JSON.stringify({ stateFile, issue: issueItem }, null, 2));
-    });
-
   program
     .command('hook')
     .description('Minimal hook entrypoint (defaults to runtime payload + ~/.spanory/.env + default export dir)')
@@ -556,6 +510,72 @@ export function createProgram(deps) {
           ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR
           ?? deps.resolveRuntimeExportDir(runtimeName, options.runtimeHome),
       });
+    });
+
+  program
+    .command('install')
+    .description('Install Spanory runtime plugin (shortcut for runtime <runtime> plugin install)')
+    .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
+    .option('--plugin-dir <path>', 'Plugin directory path override')
+    .option('--runtime-home <path>', 'Override runtime home directory')
+    .action(async (options) => {
+      const runtime = parsePluginRuntimeName(options.runtime);
+      if (runtime === 'openclaw') {
+        const runtimeHome = deps.resolveRuntimeHome('openclaw', options.runtimeHome);
+        const result = await deps.installOpenclawPlugin(runtimeHome, false, {
+          resolveOpenclawPluginDir: () => options.pluginDir ?? deps.resolveOpenclawPluginDir(),
+          runSystemCommand: deps.runSystemCommand,
+          backupIfExists: deps.backupIfExists,
+        });
+        if (result.installStdout) console.log(result.installStdout);
+        if (result.enableStdout) console.log(result.enableStdout);
+        return;
+      }
+      const result = await deps.installOpencodePlugin(options.runtimeHome, options.pluginDir);
+      console.log(`installed=${result.loaderFile}`);
+    });
+
+  program
+    .command('doctor')
+    .description('Run Spanory runtime plugin diagnostics (shortcut for runtime <runtime> plugin doctor)')
+    .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
+    .option('--runtime-home <path>', 'Override runtime home directory')
+    .action(async (options) => {
+      const runtime = parsePluginRuntimeName(options.runtime);
+      if (runtime === 'openclaw') {
+        const report = await deps.runOpenclawPluginDoctor(options.runtimeHome);
+        console.log(JSON.stringify(report, null, 2));
+        if (!report.ok) process.exitCode = 2;
+        return;
+      }
+      const report = await deps.runOpencodePluginDoctor(options.runtimeHome);
+      console.log(JSON.stringify(report, null, 2));
+      if (!report.ok) process.exitCode = 2;
+    });
+
+  program
+    .command('uninstall')
+    .description('Uninstall Spanory runtime plugin (shortcut for runtime <runtime> plugin uninstall)')
+    .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
+    .option('--runtime-home <path>', 'Override runtime home directory')
+    .action(async (options) => {
+      const runtime = parsePluginRuntimeName(options.runtime);
+      if (runtime === 'openclaw') {
+        const result = deps.runSystemCommand('openclaw', ['plugins', 'uninstall', deps.openclawPluginId], {
+          env: {
+            ...process.env,
+            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+          },
+        });
+        if (result.stdout.trim()) console.log(result.stdout.trim());
+        if (result.code !== 0) {
+          throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
+        }
+        return;
+      }
+      const loaderFile = deps.opencodePluginLoaderPath(options.runtimeHome);
+      await rm(loaderFile, { force: true });
+      console.log(`removed=${loaderFile}`);
     });
 
   const setup = program.command('setup').description('One-command local runtime integration setup and diagnostics');

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
@@ -204,17 +204,27 @@ export async function runOpenclawPluginDoctor(runtimeHome, deps) {
   const spoolDir = process.env.SPANORY_OPENCLAW_SPOOL_DIR
     ?? path.join(deps.resolveRuntimeStateRoot('openclaw', runtimeHome), 'spanory', 'spool');
   try {
-    await mkdir(spoolDir, { recursive: true });
+    await stat(spoolDir);
+    await access(spoolDir);
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
   } catch (err) {
-    checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
+    if (err?.code === 'ENOENT') {
+      checks.push({
+        id: 'spool_writable',
+        ok: true,
+        detail: `spool dir not created yet: ${spoolDir}`,
+      });
+    } else {
+      checks.push({ id: 'spool_writable', ok: false, detail: String(err) });
+    }
   }
 
   const statusFile = path.join(deps.resolveRuntimeStateRoot('openclaw', runtimeHome), 'spanory', 'plugin-status.json');
   try {
     const raw = await readFile(statusFile, 'utf-8');
     checks.push({ id: 'last_send_status', ok: true, detail: raw.slice(0, 500) });
-  } catch {
+  } catch {}
+  if (!checks.some((item) => item.id === 'last_send_status')) {
     checks.push({
       id: 'last_send_status',
       ok: true,

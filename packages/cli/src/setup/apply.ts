@@ -93,19 +93,35 @@ async function applyCodexWatchSetup({ homeRoot, dryRun }) {
   }
 
   const configPath = path.join(homeRoot, '.codex', 'config.toml');
+  const notifyBackupPath = path.join(homeRoot, '.codex', 'spanory-notify.backup.json');
+  let notifyBackup = null;
   if (existsSync(configPath)) {
     const content = await readFile(configPath, 'utf-8');
+    const notifyLines = content
+      .split('\n')
+      .filter((line) => /^\s*notify\s*=/.test(line))
+      .map((line) => line.trimEnd());
     const cleaned = content
       .split('\n')
       .filter((line) => !/^\s*notify\s*=/.test(line))
       .join('\n');
     if (cleaned !== content && !dryRun) {
+      await mkdir(path.dirname(notifyBackupPath), { recursive: true });
+      await writeFile(notifyBackupPath, `${JSON.stringify({ notifyLines }, null, 2)}\n`, 'utf-8');
       await writeFile(configPath, cleaned, 'utf-8');
       changed = true;
     }
+    if (cleaned !== content) {
+      notifyBackup = {
+        saved: !dryRun,
+        dryRun,
+        backupPath: notifyBackupPath,
+        notifyLineCount: notifyLines.length,
+      };
+    }
   }
 
-  return { runtime: 'codex', ok: true, changed, dryRun, mode: 'watch' };
+  return { runtime: 'codex', ok: true, changed, dryRun, mode: 'watch', notifyBackup };
 }
 
 export async function runSetupApply(options, deps) {

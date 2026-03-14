@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -10,9 +9,9 @@ import { createRequire } from 'node:module';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
 import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/dist/index.js';
 import { loadUserEnv } from '../../cli/dist/env.js';
+import { GATEWAY_INPUT_METADATA_BLOCK_RE, toNumber } from '../../core/dist/index.js';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
-const GATEWAY_INPUT_METADATA_BLOCK_RE = /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```\s*/i;
 const EXECUTION_ENTRY = (() => {
   const candidate = fileURLToPath(import.meta.url);
   try {
@@ -70,11 +69,6 @@ const SPANORY_SERVICE_VERSION = process.env.SPANORY_VERSION
   ?? readSpanoryVersionFromPackageJson()
   ?? DEFAULT_SPANORY_VERSION;
 
-function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
-
 function usageToAttributes(usage) {
   if (!usage || typeof usage !== 'object') return {};
   const attrs = {};
@@ -111,7 +105,7 @@ function usageToAttributes(usage) {
   return attrs;
 }
 
-function mergeUsage(target = {}, usage) {
+function mergeUsage(target: Record<string, number> = {}, usage: any) {
   if (!usage || typeof usage !== 'object') return target;
   const next = { ...target };
   const input = toNumber(usage.input ?? usage.input_tokens ?? usage.prompt_tokens);
@@ -287,7 +281,7 @@ function extractAssistantToolCalls(message) {
   return out;
 }
 
-function sessionIdsFromContext(ctx = {}) {
+function sessionIdsFromContext(ctx: any = {}) {
   const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? 'unknown-session';
   const sessionId = ctx.sessionId ?? sessionKey;
   const projectId = ctx.agentId ?? sessionKey.split(':')[1] ?? 'openclaw';
@@ -300,8 +294,7 @@ function nowIso() {
 }
 
 function pluginStateRoot() {
-  const home = process.env.SPANORY_OPENCLOW_HOME
-    ?? process.env.SPANORY_OPENCLAW_HOME
+  const home = process.env.SPANORY_OPENCLAW_HOME
     ?? process.env.OPENCLAW_STATE_DIR
     ?? path.join(os.homedir(), '.openclaw');
   return path.join(home, 'state', 'spanory');
@@ -472,7 +465,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     return { stateKey: ids.stateKey, ids };
   };
 
-  const getState = (ctx, options = {}) => {
+  const getState = (ctx: any, options: { requireResolved?: boolean } = {}) => {
     const { requireResolved = false } = options;
     const hasResolvedAlias = Boolean(ctx?.sessionId) || (ctx?.sessionKey && sessionAliases.has(ctx.sessionKey));
     if (requireResolved && !hasResolvedAlias) return null;
@@ -576,7 +569,7 @@ export function createOpenclawSpanoryPluginRuntime(logger) {
     state.pendingInputAttributes = {};
   };
 
-  const finalizePendingTurn = (state, options = {}) => {
+  const finalizePendingTurn = (state: any, options: { force?: boolean; requireOutput?: boolean } = {}) => {
     const { force = false, requireOutput = false } = options;
     if (!state.pendingTurnId) return false;
     const output = state.pendingOutputParts.map((part) => String(part ?? '')).filter(Boolean).join('\n').trim();

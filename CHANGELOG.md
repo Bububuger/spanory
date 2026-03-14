@@ -22,6 +22,84 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - `@bububuger/spanory` publish payload narrowed to runtime entry files only (`dist/index.js`, `dist/index.d.ts`).
 - Added package-level install regression check: `npm run --workspace @bububuger/spanory pack:test-install`.
 
+## [0.1.33] - 2026-03-13
+
+### Fixed
+- openclaw plugin is bundled and included in the published package to prevent missing plugin artifacts at runtime.
+
+## [0.1.32] - 2026-03-13
+
+### Fixed
+- bundled package plugin directory resolution now correctly locates both opencode and openclaw plugin payloads.
+
+## [0.1.31] - 2026-03-13
+
+### Fixed
+- opencode setup now registers the plugin in `opencode.json` during installation.
+
+## [0.1.30] - 2026-03-13
+
+### Fixed
+- opencode setup now writes a plugin-local `package.json` with `type: module` to keep module loading compatible.
+
+## [0.1.29] - 2026-03-13
+
+### Fixed
+- setup flow now imports `openSync` correctly for codex watch configuration updates.
+
+## [0.1.28] - 2026-03-13
+
+### Changed
+- removed all remaining codex notify mode setup artifacts.
+
+## [0.1.27] - 2026-03-13
+
+### Added
+- setup apply flow now auto-starts the codex watch process.
+
+## [0.1.26] - 2026-03-13
+
+### Fixed
+- restored codex notify configuration helper functions in setup flow.
+
+## [0.1.25] - 2026-03-13
+
+### Fixed
+- openclaw plugin now waits for environment loading to finish before sending OTLP data.
+
+## [0.1.24] - 2026-03-13
+
+### Fixed
+- openclaw plugin now loads user environment variables during register.
+
+## [0.1.23] - 2026-03-13
+
+### Changed
+- setup flow removed codex notify mode.
+
+## [0.1.22] - 2026-03-13
+
+### Added
+- setup command now supports teardown to remove runtime integrations.
+
+### Fixed
+- alipay CLI now includes the missing `commander` runtime dependency.
+
+## [0.1.21] - 2026-03-13
+
+### Added
+- setup now defaults to codex watch mode and normalizes openclaw plugin paths.
+
+## [0.1.20] - 2026-03-13
+
+### Changed
+- CI GitHub Actions baseline upgraded to Node 24 compatible action majors.
+- JavaScript Actions runtime is pinned to Node 24.
+
+### Fixed
+- CI test execution now uses a stable core test glob on bash runners.
+- alipay workspace now defines missing check/test scripts required by CI.
+
 ## [Unreleased]
 
 ### Added
