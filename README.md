@@ -343,6 +343,14 @@ spanory alert \
 
 Supports webhook notifications and CI integration with non-zero exit codes on alert.
 
+### Exit Codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Command succeeded. |
+| `1` | Unexpected runtime error (crash / unhandled rejection). |
+| `2` | Command completed with failed checks or alerts (for example: `spanory alert eval --fail-on-alert`). |
+
 ## Troubleshooting
 
 ### 1) `ERR_MODULE_NOT_FOUND` after local linking

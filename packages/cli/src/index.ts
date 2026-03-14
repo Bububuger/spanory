@@ -2265,7 +2265,14 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version(CLI_VERSION, '-v, --version');
+  .version(CLI_VERSION, '-v, --version')
+  .addHelpText(
+    'after',
+    '\nExit codes:\n'
+      + '  0  Success\n'
+      + '  1  Unhandled runtime error (crash)\n'
+      + '  2  Command completed with failed checks or alerts\n',
+  );
 
 const runtime = program.command('runtime').description('Runtime-specific parsers and exporters');
 for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
