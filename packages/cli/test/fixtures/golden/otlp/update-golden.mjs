@@ -2,14 +2,12 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { compileOtlp } from '../../../../dist/otlp.js';
+import { compileOtlpSpans as compileOtlp } from '../../../../../otlp-core/dist/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const files = (await readdir(__dirname))
-  .filter((name) => name.endsWith('.input.json'))
-  .sort();
+const files = (await readdir(__dirname)).filter((name) => name.endsWith('.input.json')).sort();
 
 for (const name of files) {
   const inputPath = path.join(__dirname, name);

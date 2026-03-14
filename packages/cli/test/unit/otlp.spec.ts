@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compileOtlp, parseHeaders } from '../../src/otlp.ts';
+import { compileOtlpSpans as compileOtlp, parseOtlpHeaders as parseHeaders } from '../../../otlp-core/dist/index.js';
 
 describe('otlp compiler', () => {
   it('creates parent-child spans and langfuse parity attrs', () => {
@@ -48,7 +48,9 @@ describe('otlp compiler', () => {
     expect(resourceAttrs['deployment.environment.name']).toBe('test');
     expect(resourceAttrs['deployment.environment']).toBeUndefined();
 
-    const attrs = Object.fromEntries(spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+    const attrs = Object.fromEntries(
+      spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]),
+    );
     expect(attrs['langfuse.trace.name']).toBeTruthy();
     expect(attrs['langfuse.trace.input']).toBe('hi');
     expect(attrs['langfuse.trace.output']).toBe('hello');
@@ -189,8 +191,12 @@ describe('otlp compiler', () => {
     expect(spans).toHaveLength(2);
     expect(spans[1].parentSpanId).toBe(spans[0].spanId);
 
-    const rootAttrs = Object.fromEntries(spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
-    const toolAttrs = Object.fromEntries(spans[1].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+    const rootAttrs = Object.fromEntries(
+      spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]),
+    );
+    const toolAttrs = Object.fromEntries(
+      spans[1].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]),
+    );
 
     expect(rootAttrs['agentic.runtime.name']).toBe('openclaw');
     expect(rootAttrs['langfuse.session.id']).toBe('oc-s1');
@@ -240,8 +246,12 @@ describe('otlp compiler', () => {
     const spans = payload.resourceSpans[0].scopeSpans[0].spans;
     expect(spans).toHaveLength(2);
 
-    const rootAttrs = Object.fromEntries(spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
-    const toolAttrs = Object.fromEntries(spans[1].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]));
+    const rootAttrs = Object.fromEntries(
+      spans[0].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]),
+    );
+    const toolAttrs = Object.fromEntries(
+      spans[1].attributes.map((a) => [a.key, a.value.stringValue ?? a.value.doubleValue]),
+    );
 
     expect(rootAttrs['langfuse.trace.input']).toBe('plugin smoke input 2');
     expect(rootAttrs['langfuse.trace.output']).toBe('plugin smoke output 2');

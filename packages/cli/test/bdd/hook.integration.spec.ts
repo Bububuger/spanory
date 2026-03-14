@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, existsSync, mkdirSync, cpSync, appendFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, mkdirSync, cpSync, appendFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFile, execFileSync, spawn } from 'node:child_process';
@@ -31,11 +31,10 @@ describe('BDD hook ingestion', () => {
       transcript_path: transcript,
     });
 
-    execFileSync(
-      'node',
-      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
-      { input: payload, env: { ...cleanEnv, HOME: fakeHome } },
-    );
+    execFileSync('node', [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir], {
+      input: payload,
+      env: { ...cleanEnv, HOME: fakeHome },
+    });
 
     const outFile = path.join(exportDir, 'session-a.json');
     expect(existsSync(outFile)).toBe(true);
@@ -51,11 +50,10 @@ describe('BDD hook ingestion', () => {
 
   it('Given open stdin without payload, When hook command runs, Then process fails fast without blocking', async () => {
     await new Promise<void>((resolve, reject) => {
-      const child = spawn(
-        'node',
-        [entry, 'runtime', 'claude-code', 'hook'],
-        { env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe'] },
-      );
+      const child = spawn('node', [entry, 'runtime', 'claude-code', 'hook'], {
+        env: cleanEnv,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
       let stderr = '';
       child.stderr.on('data', (chunk) => {
@@ -101,11 +99,10 @@ describe('BDD hook ingestion', () => {
       transcript_path: transcript,
     });
 
-    execFileSync(
-      'node',
-      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
-      { input: payload, env: { ...cleanEnv, HOME: fakeHome } },
-    );
+    execFileSync('node', [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir], {
+      input: payload,
+      env: { ...cleanEnv, HOME: fakeHome },
+    });
 
     expect(existsSync(outFile)).toBe(true);
   });
@@ -126,17 +123,49 @@ describe('BDD hook ingestion', () => {
     });
     const env = { ...cleanEnv, HOME: fakeHome };
 
-    execFileSync(
-      'node',
-      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
-      { input: payload, env },
-    );
+    execFileSync('node', [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir], {
+      input: payload,
+      env,
+    });
 
-    const second = execFileSync(
-      'node',
-      [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir],
-      { input: payload, env, encoding: 'utf8' },
-    );
+    const second = execFileSync('node', [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir], {
+      input: payload,
+      env,
+      encoding: 'utf8',
+    });
+
+    expect(second).toContain('skip=unchanged-turn sessionId=session-a');
+  });
+
+  it('Given same turn timestamps but changed usage attrs, When hook command reruns, Then second run is skipped as unchanged', () => {
+    const fakeHome = mkdtempSync(path.join(tmpdir(), 'spanory-home-'));
+    const projectDir = path.join(fakeHome, '.claude', 'projects', 'test-project');
+    mkdirSync(projectDir, { recursive: true });
+    const fixture = path.resolve('test/fixtures/claude/projects/test-project/session-a.jsonl');
+    const transcript = path.join(projectDir, 'session-a.jsonl');
+    cpSync(fixture, transcript);
+
+    const exportDir = mkdtempSync(path.join(tmpdir(), 'spanory-hook-'));
+    const payload = JSON.stringify({
+      hook_event_name: 'SessionEnd',
+      session_id: 'session-a',
+      transcript_path: transcript,
+    });
+    const env = { ...cleanEnv, HOME: fakeHome };
+
+    execFileSync('node', [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir], {
+      input: payload,
+      env,
+    });
+
+    const mutatedTranscript = readFileSync(transcript, 'utf8').replace('"output_tokens":3', '"output_tokens":4');
+    writeFileSync(transcript, mutatedTranscript);
+
+    const second = execFileSync('node', [entry, 'runtime', 'claude-code', 'hook', '--export-json-dir', exportDir], {
+      input: payload,
+      env,
+      encoding: 'utf8',
+    });
 
     expect(second).toContain('skip=unchanged-turn sessionId=session-a');
   });
@@ -178,9 +207,9 @@ describe('BDD hook ingestion', () => {
 
     appendFileSync(
       transcript,
-      '\n'
-      + '{"type":"user","timestamp":"2026-03-01T12:02:00.000Z","message":{"content":[{"type":"text","text":"第三轮问题"}]}}\n'
-      + '{"type":"assistant","timestamp":"2026-03-01T12:02:01.000Z","message":{"id":"msg-f-3","model":"claude-opus-4-6","usage":{"input_tokens":6,"output_tokens":3,"total_tokens":9},"content":[{"type":"text","text":"第三轮回答"}]}}',
+      '\n' +
+        '{"type":"user","timestamp":"2026-03-01T12:02:00.000Z","message":{"content":[{"type":"text","text":"第三轮问题"}]}}\n' +
+        '{"type":"assistant","timestamp":"2026-03-01T12:02:01.000Z","message":{"id":"msg-f-3","model":"claude-opus-4-6","usage":{"input_tokens":6,"output_tokens":3,"total_tokens":9},"content":[{"type":"text","text":"第三轮回答"}]}}',
     );
 
     execFileSync(
