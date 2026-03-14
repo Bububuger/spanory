@@ -15,7 +15,9 @@ function runtimeDescription(runtimeName) {
 }
 
 function parsePluginRuntimeName(runtimeName) {
-  const normalized = String(runtimeName ?? '').trim().toLowerCase();
+  const normalized = String(runtimeName ?? '')
+    .trim()
+    .toLowerCase();
   if (normalized === 'openclaw' || normalized === 'opencode') {
     return normalized;
   }
@@ -37,9 +39,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
   const hasTranscriptAdapter = Boolean(deps.runtimeAdapters[runtimeName]);
 
   if (hasTranscriptAdapter) {
-    const exportCmd = runtimeCmd
-      .command('export')
-      .description(`Export one ${displayName} session as OTLP spans`);
+    const exportCmd = runtimeCmd.command('export').description(`Export one ${displayName} session as OTLP spans`);
 
     if (runtimeName !== 'codex') {
       exportCmd.requiredOption('--project-id <id>', `${displayName} project id (folder under runtime projects root)`);
@@ -49,16 +49,19 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
 
     exportCmd
       .requiredOption('--session-id <id>', `${displayName} session id (jsonl filename without extension)`)
-      .option('--transcript-path <path>', 'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl')
+      .option(
+        '--transcript-path <path>',
+        'Override transcript path instead of <runtime-home>/projects/<project>/<session>.jsonl',
+      )
       .option('--runtime-home <path>', 'Override runtime home directory')
       .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
       .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
       .option('--export-json <path>', 'Write parsed events and OTLP payload to a local JSON file')
       .addHelpText(
         'after',
-        '\nExamples:\n'
-          + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n`
-          + `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
+        '\nExamples:\n' +
+          `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n` +
+          `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
       )
       .action(async (options) => {
         const adapter = deps.getRuntimeAdapter(runtimeName);
@@ -90,19 +93,21 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
       .addHelpText(
         'after',
-        '\nExamples:\n'
-          + `  echo "{...}" | spanory runtime ${runtimeName} hook\n`
-          + `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${deps.resolveRuntimeExportDir(runtimeName)}\n`,
+        '\nExamples:\n' +
+          `  echo "{...}" | spanory runtime ${runtimeName} hook\n` +
+          `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${deps.resolveRuntimeExportDir(runtimeName)}\n`,
       )
-      .action(async (options) => deps.runHookMode({
-        runtimeName,
-        runtimeHome: options.runtimeHome,
-        endpoint: options.endpoint,
-        headers: options.headers,
-        lastTurnOnly: options.lastTurnOnly,
-        force: options.force,
-        exportJsonDir: options.exportJsonDir,
-      }));
+      .action(async (options) =>
+        deps.runHookMode({
+          runtimeName,
+          runtimeHome: options.runtimeHome,
+          endpoint: options.endpoint,
+          headers: options.headers,
+          lastTurnOnly: options.lastTurnOnly,
+          force: options.force,
+          exportJsonDir: options.exportJsonDir,
+        }),
+      );
 
     const backfillCmd = runtimeCmd
       .command('backfill')
@@ -124,9 +129,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .option('--dry-run', 'Print selected sessions without sending OTLP', false)
       .addHelpText(
         'after',
-        '\nExamples:\n'
-          + `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n`
-          + `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
+        '\nExamples:\n' +
+          `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n` +
+          `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
       )
       .action(async (options) => {
         const adapter = deps.getRuntimeAdapter(runtimeName);
@@ -157,7 +162,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
 
           try {
             const events = await adapter.collectEvents(context);
-            const exportJsonPath = options.exportJsonDir ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`) : undefined;
+            const exportJsonPath = options.exportJsonDir
+              ? path.join(options.exportJsonDir, `${candidate.sessionId}.json`)
+              : undefined;
             await deps.emitSession({
               runtimeName: adapter.runtimeName,
               context,
@@ -197,9 +204,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
       .addHelpText(
         'after',
-        '\nExamples:\n'
-          + '  spanory runtime codex watch\n'
-          + '  spanory runtime codex watch --include-existing --once --settle-ms 0\n',
+        '\nExamples:\n' +
+          '  spanory runtime codex watch\n' +
+          '  spanory runtime codex watch --include-existing --once --settle-ms 0\n',
       )
       .action(async (options) => {
         await deps.runCodexWatch(options);
@@ -219,14 +226,17 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
         }
         const proxy = deps.createCodexProxyServer({
           upstreamBaseUrl: options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL,
-          spoolDir: options.spoolDir
-            ?? process.env.SPANORY_CODEX_PROXY_SPOOL_DIR
-            ?? path.join(deps.resolveRuntimeStateRoot('codex'), 'spanory', 'proxy-spool'),
+          spoolDir:
+            options.spoolDir ??
+            process.env.SPANORY_CODEX_PROXY_SPOOL_DIR ??
+            path.join(deps.resolveRuntimeStateRoot('codex'), 'spanory', 'proxy-spool'),
           maxBodyBytes: Number(options.maxBodyBytes),
           logger: console,
         });
         await proxy.start({ host, port });
-        console.log(`proxy=listening url=${proxy.url()} upstream=${options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com'}`);
+        console.log(
+          `proxy=listening url=${proxy.url()} upstream=${options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com'}`,
+        );
         await new Promise((resolve) => {
           const stop = async () => {
             process.off('SIGINT', stop);
@@ -241,9 +251,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
   }
 
   if (runtimeName === 'openclaw') {
-    const plugin = runtimeCmd
-      .command('plugin')
-      .description('Manage Spanory OpenClaw plugin runtime integration');
+    const plugin = runtimeCmd.command('plugin').description('Manage Spanory OpenClaw plugin runtime integration');
 
     plugin
       .command('install')
@@ -269,7 +277,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'enable', deps.openclawPluginId], {
           env: {
             ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+            ...(options.runtimeHome
+              ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) }
+              : {}),
           },
         });
         if (result.stdout.trim()) console.log(result.stdout.trim());
@@ -286,7 +296,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'disable', deps.openclawPluginId], {
           env: {
             ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+            ...(options.runtimeHome
+              ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) }
+              : {}),
           },
         });
         if (result.stdout.trim()) console.log(result.stdout.trim());
@@ -303,7 +315,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'uninstall', deps.openclawPluginId], {
           env: {
             ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+            ...(options.runtimeHome
+              ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) }
+              : {}),
           },
         });
         if (result.stdout.trim()) console.log(result.stdout.trim());
@@ -324,9 +338,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
   }
 
   if (runtimeName === 'opencode') {
-    const plugin = runtimeCmd
-      .command('plugin')
-      .description('Manage Spanory OpenCode plugin runtime integration');
+    const plugin = runtimeCmd.command('plugin').description('Manage Spanory OpenCode plugin runtime integration');
 
     plugin
       .command('install')
@@ -461,12 +473,12 @@ export function createProgram(deps) {
     .option('--fail-on-alert', 'Exit with non-zero code when alert count > 0', false)
     .addHelpText(
       'after',
-      '\nRule file format:\n'
-        + '  {\n'
-        + '    "rules": [\n'
-        + '      {"id":"high-token","scope":"session","metric":"usage.total","op":"gt","threshold":10000}\n'
-        + '    ]\n'
-        + '  }\n',
+      '\nRule file format:\n' +
+        '  {\n' +
+        '    "rules": [\n' +
+        '      {"id":"high-token","scope":"session","metric":"usage.total","op":"gt","threshold":10000}\n' +
+        '    ]\n' +
+        '  }\n',
     )
     .action(async (options) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
@@ -503,9 +515,7 @@ export function createProgram(deps) {
     .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
     .addHelpText(
       'after',
-      '\nMinimal usage in SessionEnd hook command:\n'
-        + '  spanory hook\n'
-        + '  spanory hook --runtime openclaw\n',
+      '\nMinimal usage in SessionEnd hook command:\n' + '  spanory hook\n' + '  spanory hook --runtime openclaw\n',
     )
     .action(async (options) => {
       const runtimeName = options.runtime ?? process.env.SPANORY_HOOK_RUNTIME ?? 'claude-code';
@@ -517,9 +527,9 @@ export function createProgram(deps) {
         lastTurnOnly: options.lastTurnOnly,
         force: options.force,
         exportJsonDir:
-          options.exportJsonDir
-          ?? process.env.SPANORY_HOOK_EXPORT_JSON_DIR
-          ?? deps.resolveRuntimeExportDir(runtimeName, options.runtimeHome),
+          options.exportJsonDir ??
+          process.env.SPANORY_HOOK_EXPORT_JSON_DIR ??
+          deps.resolveRuntimeExportDir(runtimeName, options.runtimeHome),
       });
     });
 
@@ -575,7 +585,9 @@ export function createProgram(deps) {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'uninstall', deps.openclawPluginId], {
           env: {
             ...process.env,
-            ...(options.runtimeHome ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) } : {}),
+            ...(options.runtimeHome
+              ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) }
+              : {}),
           },
         });
         if (result.stdout.trim()) console.log(result.stdout.trim());
@@ -616,7 +628,9 @@ export function createProgram(deps) {
     .option('--home <path>', 'Home directory root override (default: $HOME)')
     .option('--spanory-bin <path>', 'Spanory binary/command to write into runtime configs', 'spanory')
     .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
+    .option('--openclaw-plugin-dir <path>', 'Override OpenClaw plugin directory (default: packages/openclaw-plugin)')
     .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+    .option('--opencode-plugin-dir <path>', 'Override OpenCode plugin directory (default: packages/opencode-plugin)')
     .option('--dry-run', 'Only print planned changes without writing files', false)
     .action(async (options) => {
       const report = await deps.runSetupApply(options);
@@ -667,7 +681,8 @@ export function createProgram(deps) {
     .option('--scope <scope>', 'Install scope override: global|local')
     .action(async (options) => {
       const manager = options.manager === 'tnpm' ? 'tnpm' : deps.detectUpgradePackageManager();
-      const scope = options.scope === 'local' ? 'local' : options.scope === 'global' ? 'global' : deps.detectUpgradeScope();
+      const scope =
+        options.scope === 'local' ? 'local' : options.scope === 'global' ? 'global' : deps.detectUpgradeScope();
       const invocation = deps.resolveUpgradeInvocation(scope, manager);
 
       if (options.dryRun) {
@@ -683,11 +698,17 @@ export function createProgram(deps) {
         return;
       }
 
-      console.log(JSON.stringify({
-        ok: true,
-        ...invocation,
-        output,
-      }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            ...invocation,
+            output,
+          },
+          null,
+          2,
+        ),
+      );
     });
 
   return program;

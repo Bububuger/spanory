@@ -170,7 +170,7 @@ export async function runSetupApply(options, deps) {
       try {
         if (!dryRun) {
           await deps.installOpenclawPlugin(runtimeHome, dryRun, {
-            resolveOpenclawPluginDir: deps.resolveOpenclawPluginDir,
+            resolveOpenclawPluginDir: () => options.openclawPluginDir ?? deps.resolveOpenclawPluginDir(),
             runSystemCommand: deps.runSystemCommand,
             backupIfExists: deps.backupIfExists,
           });
@@ -201,7 +201,7 @@ export async function runSetupApply(options, deps) {
     const runtimeHome = deps.opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome);
     try {
       if (!dryRun) {
-        await deps.installOpencodePlugin(runtimeHome, undefined, {
+        await deps.installOpencodePlugin(runtimeHome, options.opencodePluginDir, {
           resolveRuntimeHome: deps.resolveRuntimeHome,
           resolveOpencodePluginDir: deps.resolveOpencodePluginDir,
           resolveOpencodePluginStateRoot: deps.resolveOpencodePluginStateRoot,
