@@ -16,7 +16,11 @@ import { codexAdapter } from './runtime/codex/adapter.js';
 import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { mapCodexSessionsWithStat } from './runtime/codex/sessions.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
-import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import {
+  compileOtlpSpans as compileOtlp,
+  parseOtlpHeaders as parseHeaders,
+  sendOtlpHttp as sendOtlp,
+} from '../../otlp-core/dist/index.js';
 import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
 import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
