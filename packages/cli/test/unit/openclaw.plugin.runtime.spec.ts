@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -8,6 +8,78 @@ import { describe, expect, it } from 'vitest';
 import { createOpenclawSpanoryPluginRuntime } from '../../../openclaw-plugin/src/index.ts';
 
 describe('openclaw plugin runtime', () => {
+  it('logs and drops unreadable spool files during flush', async () => {
+    const prevHome = process.env.SPANORY_OPENCLAW_HOME;
+    const prevSpool = process.env.SPANORY_OPENCLAW_SPOOL_DIR;
+    const prevEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    const prevFlushDelay = process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS;
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-openclaw-plugin-spool-parse-failure-'));
+    const spoolDir = path.join(tempRoot, 'state', 'spanory', 'spool');
+    process.env.SPANORY_OPENCLAW_HOME = tempRoot;
+    process.env.SPANORY_OPENCLAW_SPOOL_DIR = spoolDir;
+    process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS = '20';
+
+    try {
+      await mkdir(spoolDir, { recursive: true });
+      const badSpoolName = 'bad-spool.json';
+      await writeFile(path.join(spoolDir, badSpoolName), '{ bad json', 'utf-8');
+
+      const payloads = [];
+      const warnings = [];
+      const server = createServer((req, res) => {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => {
+          payloads.push(JSON.parse(Buffer.concat(chunks).toString('utf-8')));
+          res.statusCode = 200;
+          res.end('ok');
+        });
+      });
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const addr = server.address();
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://127.0.0.1:${addr.port}/otel`;
+
+      const runtime = createOpenclawSpanoryPluginRuntime({
+        warn: (message) => warnings.push(String(message)),
+      });
+
+      const ctx = {
+        sessionKey: 'agent:main:spool-parse-failure-session',
+        agentId: 'main',
+        sessionId: 'spool-parse-failure-session',
+      };
+      runtime.onLlmInput({ prompt: 'flush spool' }, ctx);
+      runtime.onLlmOutput(
+        {
+          model: 'openclaw-pro',
+          assistantTexts: ['ok'],
+          usage: { input: 1, output: 1, total: 2 },
+        },
+        ctx,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await runtime.onGatewayStop();
+      await new Promise((resolve) => server.close(resolve));
+
+      expect(payloads.length).toBeGreaterThan(0);
+      expect(warnings.some((warn) => warn.includes('bad-spool.json'))).toBe(true);
+      expect(warnings.some((warn) => warn.includes('SyntaxError'))).toBe(true);
+
+      const spoolFiles = await readdir(spoolDir);
+      expect(spoolFiles).not.toContain(badSpoolName);
+    } finally {
+      if (prevHome === undefined) delete process.env.SPANORY_OPENCLAW_HOME;
+      else process.env.SPANORY_OPENCLAW_HOME = prevHome;
+      if (prevSpool === undefined) delete process.env.SPANORY_OPENCLAW_SPOOL_DIR;
+      else process.env.SPANORY_OPENCLAW_SPOOL_DIR = prevSpool;
+      if (prevEndpoint === undefined) delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      else process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prevEndpoint;
+      if (prevFlushDelay === undefined) delete process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS;
+      else process.env.SPANORY_OPENCLAW_FLUSH_DELAY_MS = prevFlushDelay;
+    }
+  });
+
   it('flushes per turn without waiting for session_end and writes success status', async () => {
     const prevHome = process.env.SPANORY_OPENCLAW_HOME;
     const prevSpool = process.env.SPANORY_OPENCLAW_SPOOL_DIR;
