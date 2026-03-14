@@ -1661,9 +1661,9 @@ async function installOpencodePlugin(runtimeHome: string, pluginDirOverride?: st
         JSON.stringify({ plugin: [OPENCODE_SPANORY_PLUGIN_ID] }, null, 2) + '\n',
         'utf-8',
       );
-      return { loaderFile };
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome);
