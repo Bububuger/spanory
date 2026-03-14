@@ -12,6 +12,23 @@ OPENCODE_PLUGIN_SRC="$REPO_ROOT/packages/opencode-plugin"
 OPENCODE_PLUGIN_DST="$PACKAGE_DIR/opencode-plugin"
 OPENCODE_PLUGIN_DIST_SRC="$OPENCODE_PLUGIN_SRC/dist"
 
+normalize_dist_only_package_scripts() {
+  local package_json="$1"
+  local package_label="$2"
+  node - "$package_json" "$package_label" <<'NODE'
+const fs = require('node:fs');
+
+const [packageJsonPath, packageLabel] = process.argv.slice(2);
+const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+pkg.scripts = {
+  check: `node -e "console.log('${packageLabel}:check:noop (dist-only payload)')"`,
+  build: `node -e "console.log('${packageLabel}:build:noop (dist copied by prepare-bin)')"`,
+  test: `node -e "console.log('${packageLabel}:test:noop')"`,
+};
+fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
+NODE
+}
+
 # Build JS CLI distribution
 echo "Building @bububuger/spanory dist ..."
 npm run --workspace @bububuger/spanory build --prefix "$REPO_ROOT"
@@ -45,6 +62,7 @@ echo "Synced CLI dist -> $CLI_DIST_DST"
 rm -rf "$OPENCLAW_PLUGIN_DST"
 mkdir -p "$OPENCLAW_PLUGIN_DST"
 cp "$OPENCLAW_PLUGIN_SRC/package.json" "$OPENCLAW_PLUGIN_DST/package.json"
+normalize_dist_only_package_scripts "$OPENCLAW_PLUGIN_DST/package.json" "openclaw-plugin"
 cp "$OPENCLAW_PLUGIN_SRC/openclaw.plugin.json" "$OPENCLAW_PLUGIN_DST/openclaw.plugin.json"
 cp -r "$OPENCLAW_PLUGIN_DIST_SRC" "$OPENCLAW_PLUGIN_DST/dist"
 echo "Synced openclaw-plugin dist payload"
@@ -53,6 +71,7 @@ echo "Synced openclaw-plugin dist payload"
 rm -rf "$OPENCODE_PLUGIN_DST"
 mkdir -p "$OPENCODE_PLUGIN_DST"
 cp "$OPENCODE_PLUGIN_SRC/package.json" "$OPENCODE_PLUGIN_DST/package.json"
+normalize_dist_only_package_scripts "$OPENCODE_PLUGIN_DST/package.json" "opencode-plugin"
 cp -r "$OPENCODE_PLUGIN_DIST_SRC" "$OPENCODE_PLUGIN_DST/dist"
 echo "Synced opencode-plugin dist payload"
 

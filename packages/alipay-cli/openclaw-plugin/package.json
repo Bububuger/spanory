@@ -11,9 +11,8 @@
     ]
   },
   "scripts": {
-    "check": "npm run build:deps && tsc -p tsconfig.json --noEmit",
-    "build:deps": "npm run --workspace @bububuger/spanory build",
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && npx esbuild dist/index.js --bundle --platform=node --format=esm --outfile=dist/index.bundle.js --external:node:* && node -e \"require('node:fs').renameSync('dist/index.bundle.js','dist/index.js')\"",
-    "test": "npm run build:deps && npm run build && node --test test/*.test.mjs"
+    "check": "node -e \"console.log('openclaw-plugin:check:noop (dist-only payload)')\"",
+    "build": "node -e \"console.log('openclaw-plugin:build:noop (dist copied by prepare-bin)')\"",
+    "test": "node -e \"console.log('openclaw-plugin:test:noop')\""
   }
 }
