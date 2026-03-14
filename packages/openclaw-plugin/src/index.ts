@@ -333,7 +333,7 @@ async function enqueueSpool(item) {
   });
 }
 
-async function readSpoolItems() {
+async function readSpoolItems(logger) {
   const root = spoolRoot();
   await mkdir(root, { recursive: true });
   const names = (await readdir(root)).filter((name) => name.endsWith('.json')).sort();
@@ -343,7 +343,8 @@ async function readSpoolItems() {
     try {
       const raw = await readFile(file, 'utf-8');
       out.push({ file, payload: JSON.parse(raw) });
-    } catch {
+    } catch (err) {
+      logger?.warn?.(`[${PLUGIN_ID}] dropping unreadable spool file ${file}: ${String(err)}`);
       await rm(file, { force: true });
     }
   }
@@ -402,7 +403,7 @@ function createRuntimeQueue(logger) {
   let pipeline = Promise.resolve();
 
   const flushSpool = async () => {
-    const items = await readSpoolItems();
+    const items = await readSpoolItems(logger);
     for (const item of items) {
       try {
         await sendWithRetry(item.payload.payload);
