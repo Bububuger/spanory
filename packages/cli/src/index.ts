@@ -1653,9 +1653,9 @@ async function installOpencodePlugin(runtimeHome: string, pluginDirOverride?: st
         JSON.stringify({ plugin: [OPENCODE_SPANORY_PLUGIN_ID] }, null, 2) + '\n',
         'utf-8',
       );
-      return { loaderFile };
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome);
@@ -1943,7 +1943,7 @@ async function runSetupApply(options) {
     } else {
       const runtimeHome = openclawRuntimeHomeForSetup(homeRoot, options.openclawRuntimeHome);
       try {
-        if (!dryRun) await installOpenclawPlugin(runtimeHome, dryRun, undefined);
+        if (!dryRun) await installOpenclawPlugin(runtimeHome, dryRun, options.openclawPluginDir);
         const doctor = await runOpenclawPluginDoctor(runtimeHome);
         results.push({
           runtime: 'openclaw',
@@ -1964,7 +1964,7 @@ async function runSetupApply(options) {
   if (selected.includes('opencode')) {
     const runtimeHome = opencodeRuntimeHomeForSetup(homeRoot, options.opencodeRuntimeHome);
     try {
-      if (!dryRun) await installOpencodePlugin(runtimeHome);
+      if (!dryRun) await installOpencodePlugin(runtimeHome, options.opencodePluginDir);
       const doctor = await runOpencodePluginDoctor(runtimeHome);
       results.push({
         runtime: 'opencode',
@@ -2514,7 +2514,9 @@ setup
   .option('--home <path>', 'Home directory root override (default: $HOME)')
   .option('--spanory-bin <path>', 'Spanory binary/command to write into runtime configs', 'spanory')
   .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
+  .option('--openclaw-plugin-dir <path>', 'Override OpenClaw plugin directory (default: packages/openclaw-plugin)')
   .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+  .option('--opencode-plugin-dir <path>', 'Override OpenCode plugin directory (default: packages/opencode-plugin)')
   .option('--dry-run', 'Only print planned changes without writing files', false)
   .action(async (options) => {
     const report = await runSetupApply(options);
