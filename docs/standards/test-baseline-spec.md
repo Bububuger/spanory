@@ -20,6 +20,11 @@
 - 范围：plugin spool/retry/status、hook 去重、runtime 上报链路。
 - 要求：覆盖关键时序与错误恢复路径。
 
+## 测试运行器约定
+- 库包默认使用 Node 内置测试运行器：`node --test`（当前覆盖 `core`、`otlp-core`、`backend-langfuse`、`openclaw-plugin`、`opencode-plugin`）。
+- `packages/cli` 使用 `vitest`（含 unit/bdd/golden 等测试链路与覆盖能力）。
+- 新增测试优先沿用所属包既有运行器；若需切换运行器，必须在同一变更中更新本规范并说明原因。
+
 ## 测试基线命令（强制）
 ```bash
 npm run check

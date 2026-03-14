@@ -72,24 +72,33 @@ describe('BDD setup command', () => {
     expect(notifyMatches).toHaveLength(0);
     expect(codexConfigRaw).not.toContain('spanory-codex-notify.sh');
 
-    const doctor = execFileSync(
-      'node',
-      [
-        entry,
-        'setup',
-        'doctor',
-        '--runtimes',
-        'claude-code,codex',
-        '--home',
-        fakeHome,
-      ],
-      { encoding: 'utf-8', env: { ...process.env, HOME: fakeHome } },
-    );
+    let doctor;
+    try {
+      doctor = execFileSync(
+        'node',
+        [
+          entry,
+          'setup',
+          'doctor',
+          '--runtimes',
+          'claude-code,codex',
+          '--home',
+          fakeHome,
+        ],
+        { encoding: 'utf-8', env: { ...process.env, HOME: fakeHome } },
+      );
+    } catch (error) {
+      const stdout = error && typeof error === 'object' && 'stdout' in error ? error.stdout : '';
+      doctor = Buffer.isBuffer(stdout) ? stdout.toString('utf-8') : String(stdout ?? '');
+    }
     const doctorReport = JSON.parse(doctor);
-    expect(doctorReport.ok).toBe(true);
+    expect(doctorReport.ok).toBe(false);
     expect(doctorReport.checks.some((check) => check.id === 'claude_hook_stop' && check.ok)).toBe(true);
     expect(doctorReport.checks.some((check) => check.id === 'codex_watch_mode' && check.ok)).toBe(true);
     expect(doctorReport.checks.some((check) => check.id === 'codex_notify_script_absent' && check.ok)).toBe(true);
+    expect(doctorReport.checks.some((check) => check.id === 'codex_watch_running' && !check.ok && check.running === false)).toBe(
+      true,
+    );
 
     const teardown = execFileSync(
       'node',
