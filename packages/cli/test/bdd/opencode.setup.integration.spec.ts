@@ -100,4 +100,50 @@ describe('BDD opencode setup apply', () => {
       rmSync(homeDir, { recursive: true, force: true });
     }
   });
+
+  it('Given opencode plugin files exist, When setup teardown runs, Then package.json and empty plugin directory are removed', () => {
+    const homeDir = mkdtempSync(path.join(tmpdir(), 'spanory-opencode-teardown-home-'));
+    const runtimeHome = path.join(homeDir, '.opencode');
+    const pluginDir = path.join(runtimeHome, 'plugin');
+    const loaderFile = path.join(pluginDir, 'spanory-opencode-plugin.js');
+    const packageJson = path.join(pluginDir, 'package.json');
+    const configPath = path.join(runtimeHome, 'opencode.json');
+
+    try {
+      mkdirSync(pluginDir, { recursive: true });
+      writeFileSync(loaderFile, 'export default {}\n', 'utf-8');
+      writeFileSync(packageJson, '{"type":"module"}\n', 'utf-8');
+      writeFileSync(
+        configPath,
+        JSON.stringify({ plugin: ['spanory-opencode-plugin', 'other-plugin'] }, null, 2) + '\n',
+        'utf-8',
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        [
+          entry,
+          'setup',
+          'teardown',
+          '--runtimes',
+          'opencode',
+          '--home',
+          homeDir,
+          '--opencode-runtime-home',
+          runtimeHome,
+        ],
+        { encoding: 'utf-8' },
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(existsSync(loaderFile)).toBe(false);
+      expect(existsSync(packageJson)).toBe(false);
+      expect(existsSync(pluginDir)).toBe(false);
+      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      expect(config.plugin).toEqual(['other-plugin']);
+    } finally {
+      rmSync(homeDir, { recursive: true, force: true });
+    }
+  });
 });
