@@ -1,4 +1,12 @@
-function defaultObservationType(category) {
+type ObservationType = 'agent' | 'tool' | 'event' | 'span';
+
+type LangfuseMappableEvent = {
+  category?: string;
+  attributes?: Record<string, any>;
+  [key: string]: any;
+};
+
+function defaultObservationType(category: string | undefined): ObservationType {
   switch (category) {
     case 'turn':
       return 'agent';
@@ -15,7 +23,7 @@ function defaultObservationType(category) {
   }
 }
 
-function normalizeAttributes(event) {
+function normalizeAttributes(event: LangfuseMappableEvent): Record<string, any> {
   const attrs = { ...(event.attributes ?? {}) };
   if (!attrs['agentic.event.category']) {
     attrs['agentic.event.category'] = event.category;
@@ -26,7 +34,7 @@ function normalizeAttributes(event) {
   return attrs;
 }
 
-export function toLangfuseEvents(events) {
+export function toLangfuseEvents(events: any[]): any[] {
   return events.map((event) => ({
     ...event,
     attributes: normalizeAttributes(event),
@@ -35,8 +43,7 @@ export function toLangfuseEvents(events) {
 
 export const langfuseBackendAdapter = {
   backendName: 'langfuse',
-  mapEvents(events) {
+  mapEvents(events: any[]) {
     return toLangfuseEvents(events);
   },
 };
-
