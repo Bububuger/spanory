@@ -2424,7 +2424,7 @@ alert
 
     if (options.webhookUrl) {
       await sendAlertWebhook(options.webhookUrl, result, parseHeaders(options.webhookHeaders));
-      console.log(`webhook=sent url=${options.webhookUrl}`);
+      console.error(`webhook=sent url=${options.webhookUrl}`);
     }
 
     if (options.failOnAlert && alerts.length > 0) {
