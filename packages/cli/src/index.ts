@@ -16,7 +16,11 @@ import { codexAdapter } from './runtime/codex/adapter.js';
 import { createCodexProxyServer } from './runtime/codex/proxy.js';
 import { mapCodexSessionsWithStat } from './runtime/codex/sessions.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
-import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
+import {
+  compileOtlpSpans as compileOtlp,
+  parseOtlpHeaders as parseHeaders,
+  sendOtlpHttp as sendOtlp,
+} from '../../otlp-core/dist/index.js';
 import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
 import { waitForFileMtimeToSettle } from './runtime/shared/file-settle.js';
 import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
@@ -216,26 +220,10 @@ function fingerprintSession(context, events) {
   for (const event of events) {
     hash.update(String(event.turnId ?? ''));
     hash.update('\u001f');
-    hash.update(String(event.category ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.name ?? ''));
-    hash.update('\u001f');
     hash.update(String(event.startedAt ?? ''));
     hash.update('\u001f');
     hash.update(String(event.endedAt ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.input ?? ''));
-    hash.update('\u001f');
-    hash.update(String(event.output ?? ''));
-    hash.update('\u001f');
-    const attrs = event.attributes ?? {};
-    const keys = Object.keys(attrs).sort();
-    for (const key of keys) {
-      hash.update(key);
-      hash.update('=');
-      hash.update(String(attrs[key] ?? ''));
-      hash.update('\u001f');
-    }
+    hash.update('\u001e');
   }
   return hash.digest('hex');
 }
