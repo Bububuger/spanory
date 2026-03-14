@@ -60,7 +60,14 @@ export async function loadExportedEvents(inputPath) {
   const sessions = [];
   for (const file of files) {
     const raw = await readFile(file, 'utf-8');
-    const parsed = JSON.parse(raw);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[report] skip malformed export file: ${file} (${message})`);
+      continue;
+    }
     if (!Array.isArray(parsed.events)) continue;
     sessions.push({
       file,
