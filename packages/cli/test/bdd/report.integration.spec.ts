@@ -13,16 +13,44 @@ const cleanEnv = {
 };
 
 describe('BDD report command', () => {
+  it.each([
+    ['session', 'test/fixtures/exported/session-a.json', 'session-summary'],
+    ['mcp', 'test/fixtures/exported/session-a.json', 'mcp-summary'],
+    ['command', 'test/fixtures/exported/session-a.json', 'command-summary'],
+    ['agent', 'test/fixtures/exported/session-a.json', 'agent-summary'],
+    ['cache', 'test/fixtures/exported/session-a.json', 'cache-summary'],
+    ['tool', 'test/fixtures/exported/session-a.json', 'tool-summary'],
+    ['context', 'test/fixtures/exported/session-context.json', 'context-summary'],
+    ['turn-diff', 'test/fixtures/exported/session-a.json', 'turn-diff-summary'],
+  ])(
+    'Given SPANORY_INPUT_JSON, When report %s runs without --input-json, Then returns %s',
+    (subcommand, inputJson, expectedView) => {
+      const out = execFileSync('node', [entry, 'report', subcommand], {
+        env: { ...cleanEnv, SPANORY_INPUT_JSON: inputJson },
+      }).toString('utf8');
+
+      const data = JSON.parse(out);
+      expect(data.view).toBe(expectedView);
+      expect(Array.isArray(data.rows)).toBe(true);
+    },
+  );
+
+  it('Given --input-json and SPANORY_INPUT_JSON, When report session runs, Then CLI option wins', () => {
+    const out = execFileSync(
+      'node',
+      [entry, 'report', 'session', '--input-json', 'test/fixtures/exported/session-a.json'],
+      { env: { ...cleanEnv, SPANORY_INPUT_JSON: 'test/fixtures/exported/session-context.json' } },
+    ).toString('utf8');
+
+    const data = JSON.parse(out);
+    expect(data.view).toBe('session-summary');
+    expect(data.rows[0].sessionId).toBe('session-a');
+  });
+
   it('Given exported json, When report session runs, Then returns session-summary rows', () => {
     const out = execFileSync(
       'node',
-      [
-        entry,
-        'report',
-        'session',
-        '--input-json',
-        'test/fixtures/exported/session-a.json',
-      ],
+      [entry, 'report', 'session', '--input-json', 'test/fixtures/exported/session-a.json'],
       { env: cleanEnv },
     ).toString('utf8');
 
@@ -34,13 +62,7 @@ describe('BDD report command', () => {
   it('Given exported json, When report mcp runs, Then includes mcp summary rows', () => {
     const out = execFileSync(
       'node',
-      [
-        entry,
-        'report',
-        'mcp',
-        '--input-json',
-        'test/fixtures/exported/session-a.json',
-      ],
+      [entry, 'report', 'mcp', '--input-json', 'test/fixtures/exported/session-a.json'],
       { env: cleanEnv },
     ).toString('utf8');
 
@@ -52,13 +74,7 @@ describe('BDD report command', () => {
   it('Given exported json, When report cache runs, Then returns cache summary rows', () => {
     const out = execFileSync(
       'node',
-      [
-        entry,
-        'report',
-        'cache',
-        '--input-json',
-        'test/fixtures/exported/session-a.json',
-      ],
+      [entry, 'report', 'cache', '--input-json', 'test/fixtures/exported/session-a.json'],
       { env: cleanEnv },
     ).toString('utf8');
 
@@ -70,13 +86,7 @@ describe('BDD report command', () => {
   it('Given exported json, When report tool runs, Then returns tool summary rows', () => {
     const out = execFileSync(
       'node',
-      [
-        entry,
-        'report',
-        'tool',
-        '--input-json',
-        'test/fixtures/exported/session-a.json',
-      ],
+      [entry, 'report', 'tool', '--input-json', 'test/fixtures/exported/session-a.json'],
       { env: cleanEnv },
     ).toString('utf8');
 
@@ -88,13 +98,7 @@ describe('BDD report command', () => {
   it('Given exported json, When report turn-diff runs, Then returns turn diff rows', () => {
     const out = execFileSync(
       'node',
-      [
-        entry,
-        'report',
-        'turn-diff',
-        '--input-json',
-        'test/fixtures/exported/session-a.json',
-      ],
+      [entry, 'report', 'turn-diff', '--input-json', 'test/fixtures/exported/session-a.json'],
       { env: cleanEnv },
     ).toString('utf8');
 
@@ -106,13 +110,7 @@ describe('BDD report command', () => {
   it('Given context exported json, When report context runs, Then returns context summary rows', () => {
     const out = execFileSync(
       'node',
-      [
-        entry,
-        'report',
-        'context',
-        '--input-json',
-        'test/fixtures/exported/session-context.json',
-      ],
+      [entry, 'report', 'context', '--input-json', 'test/fixtures/exported/session-context.json'],
       { env: cleanEnv },
     ).toString('utf8');
 

@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { codexAdapter } from './runtime/codex/adapter.js';
@@ -2361,12 +2361,21 @@ for (const runtimeName of ['claude-code', 'codex', 'openclaw', 'opencode']) {
   registerRuntimeCommands(runtime, runtimeName);
 }
 
+function createReportInputJsonOption() {
+  return new Option(
+    '--input-json <path>',
+    'Path to exported JSON file or directory of JSON files (fallback: SPANORY_INPUT_JSON)',
+  )
+    .env('SPANORY_INPUT_JSON')
+    .makeOptionMandatory(true);
+}
+
 const report = program.command('report').description('Aggregate exported session JSON into infra-level views');
 
 report
   .command('session')
   .description('Session-level summary view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'session-summary', rows: summarizeSessions(sessions) }, null, 2));
@@ -2375,7 +2384,7 @@ report
 report
   .command('mcp')
   .description('MCP server aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'mcp-summary', rows: summarizeMcp(sessions) }, null, 2));
@@ -2384,7 +2393,7 @@ report
 report
   .command('command')
   .description('Agent command aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'command-summary', rows: summarizeCommands(sessions) }, null, 2));
@@ -2393,7 +2402,7 @@ report
 report
   .command('agent')
   .description('Agent activity summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'agent-summary', rows: summarizeAgents(sessions) }, null, 2));
@@ -2402,7 +2411,7 @@ report
 report
   .command('cache')
   .description('Cache usage summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'cache-summary', rows: summarizeCache(sessions) }, null, 2));
@@ -2411,7 +2420,7 @@ report
 report
   .command('tool')
   .description('Tool usage aggregation view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'tool-summary', rows: summarizeTools(sessions) }, null, 2));
@@ -2420,7 +2429,7 @@ report
 report
   .command('context')
   .description('Context observability summary per session')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'context-summary', rows: summarizeContext(sessions) }, null, 2));
@@ -2429,7 +2438,7 @@ report
 report
   .command('turn-diff')
   .description('Turn input diff summary view')
-  .requiredOption('--input-json <path>', 'Path to exported JSON file or directory of JSON files')
+  .addOption(createReportInputJsonOption())
   .action(async (options) => {
     const sessions = await loadExportedEvents(options.inputJson);
     console.log(JSON.stringify({ view: 'turn-diff-summary', rows: summarizeTurnDiff(sessions) }, null, 2));
