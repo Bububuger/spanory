@@ -1692,6 +1692,7 @@ async function installOpencodePlugin(runtimeHome: string, pluginDirOverride?: st
   await writeFile(loaderFile, loader, 'utf-8');
 
   const opencodeConfigPath = path.join(resolveRuntimeHome('opencode', runtimeHome), 'opencode.json');
+  const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome);
   try {
     const raw = await readFile(opencodeConfigPath, 'utf-8');
     const config = JSON.parse(raw);
@@ -1712,7 +1713,6 @@ async function installOpencodePlugin(runtimeHome: string, pluginDirOverride?: st
     }
   }
 
-  const runtimeDirs = await ensureOpencodePluginRuntimeDirs(runtimeHome);
   return { loaderFile, runtimeDirs };
 }
 
@@ -2373,7 +2373,7 @@ program
   .description('Cross-runtime observability CLI for agent sessions')
   .showHelpAfterError()
   .showSuggestionAfterError(true)
-  .version(CLI_VERSION, '-v, --version')
+  .version(CLI_VERSION, '-V, --version')
   .addHelpText(
     'after',
     '\nExit codes:\n' +
