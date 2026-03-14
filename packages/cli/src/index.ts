@@ -2098,7 +2098,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName) {
       .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
       .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
       .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+      .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
       .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
       .addHelpText(
         'after',
@@ -2495,7 +2495,7 @@ program
   .option('--endpoint <url>', 'OTLP HTTP endpoint (fallback: OTEL_EXPORTER_OTLP_ENDPOINT)')
   .option('--headers <kv>', 'OTLP HTTP headers, comma-separated k=v (fallback: OTEL_EXPORTER_OTLP_HEADERS)')
   .option('--export-json-dir <dir>', 'Write <sessionId>.json into this directory')
-  .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', false)
+  .option('--last-turn-only', 'Export only the newest turn and dedupe by turn fingerprint', true)
   .option('--force', 'Force export even if session payload fingerprint is unchanged', false)
   .addHelpText(
     'after',
