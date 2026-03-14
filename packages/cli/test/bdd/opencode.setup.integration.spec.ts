@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
@@ -51,6 +51,50 @@ describe('BDD opencode setup apply', () => {
       const endpointCheck = runtimeResult.doctor.checks.find((item) => item.id === 'otlp_endpoint');
       expect(endpointCheck.ok).toBe(false);
       expect(endpointCheck.detail).toContain('OTEL_EXPORTER_OTLP_ENDPOINT is unset');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(homeDir, { recursive: true, force: true });
+    }
+  });
+
+  it('Given OTLP endpoint is configured and opencode.json is missing, When setup apply installs opencode plugin, Then runtime dirs are created and doctor passes spool/log checks', () => {
+    const homeDir = mkdtempSync(path.join(tmpdir(), 'spanory-opencode-setup-home-'));
+    const runtimeHome = path.join(homeDir, '.opencode');
+    mkdirSync(runtimeHome, { recursive: true });
+
+    const { root, pluginEntry } = createFakeOpencodePluginEntry('spanory-opencode-plugin-entry-');
+    try {
+      const env = {
+        ...process.env,
+        HOME: homeDir,
+        SPANORY_OPENCODE_PLUGIN_ENTRY: pluginEntry,
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
+      };
+
+      const result = spawnSync(
+        process.execPath,
+        [entry, 'setup', 'apply', '--runtimes', 'opencode', '--home', homeDir, '--opencode-runtime-home', runtimeHome],
+        { encoding: 'utf-8', env },
+      );
+
+      expect(result.status).toBe(0);
+      const report = JSON.parse(result.stdout);
+      expect(report.ok).toBe(true);
+
+      const runtimeResult = report.results.find((item) => item.runtime === 'opencode');
+      expect(runtimeResult.ok).toBe(true);
+      const spoolCheck = runtimeResult.doctor.checks.find((item) => item.id === 'spool_writable');
+      expect(spoolCheck.ok).toBe(true);
+      const logCheck = runtimeResult.doctor.checks.find((item) => item.id === 'opencode_plugin_log');
+      expect(logCheck.ok).toBe(true);
+
+      const opencodeConfigPath = path.join(runtimeHome, 'opencode.json');
+      const createdConfig = JSON.parse(readFileSync(opencodeConfigPath, 'utf-8'));
+      expect(createdConfig.plugin).toContain('spanory-opencode-plugin');
+
+      const stateRoot = path.join(runtimeHome, 'state', 'spanory');
+      expect(existsSync(path.join(stateRoot, 'spool'))).toBe(true);
+      expect(existsSync(stateRoot)).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(homeDir, { recursive: true, force: true });
