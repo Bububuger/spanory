@@ -49,7 +49,7 @@ jobs:
         run: npm run --workspace @bububuger/spanory test:coverage
 
       - name: BDD Tests
-        run: npm exec --workspace @bububuger/spanory -- vitest run test/bdd
+        run: npm run test:bdd
 
   binary-smoke:
     name: Binary Smoke (Linux)
