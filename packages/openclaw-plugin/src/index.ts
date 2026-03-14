@@ -6,10 +6,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-import { langfuseBackendAdapter } from '../../backend-langfuse/dist/index.js';
-import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '../../otlp-core/dist/index.js';
+import { langfuseBackendAdapter } from '@bububuger/backend-langfuse';
+import { buildResource, compileOtlpSpans, parseOtlpHeaders, sendOtlpHttp } from '@bububuger/otlp-core';
 import { loadUserEnv } from '@bububuger/spanory/env';
-import { GATEWAY_INPUT_METADATA_BLOCK_RE, toNumber } from '../../core/dist/index.js';
+import { GATEWAY_INPUT_METADATA_BLOCK_RE, toNumber } from '@bububuger/core';
 
 const PLUGIN_ID = 'spanory-openclaw-plugin';
 const EXECUTION_ENTRY = (() => {
