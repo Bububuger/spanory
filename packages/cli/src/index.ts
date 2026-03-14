@@ -73,34 +73,7 @@ const requireFromHere = createRequire(EXECUTION_ENTRY);
 const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
 const DEFAULT_VERSION = 'unknown';
-
-function readVersionFromPackageJson() {
-  const packageNameCandidates = ['@bububuger/spanory', '@spanory/cli'];
-  for (const packageName of packageNameCandidates) {
-    try {
-      const pkgJsonPath = requireFromHere.resolve(`${packageName}/package.json`);
-      const parsed = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-      const version = String(parsed?.version ?? '').trim();
-      if (version) return version;
-    } catch {}
-  }
-
-  const candidates = [
-    path.join(CLI_PACKAGE_DIR, 'package.json'),
-    path.resolve(process.cwd(), 'packages', 'cli', 'package.json'),
-  ];
-  for (const file of candidates) {
-    if (!existsSync(file)) continue;
-    try {
-      const parsed = JSON.parse(readFileSync(file, 'utf8'));
-      const version = String(parsed?.version ?? '').trim();
-      if (version) return version;
-    } catch {}
-  }
-  return null;
-}
-
-const CLI_VERSION = process.env.SPANORY_VERSION ?? readVersionFromPackageJson() ?? DEFAULT_VERSION;
+const CLI_VERSION = process.env.SPANORY_VERSION ?? DEFAULT_VERSION;
 
 function getResource() {
   return {
