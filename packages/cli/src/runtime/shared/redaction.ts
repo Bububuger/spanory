@@ -70,4 +70,14 @@ function redactBody(value: unknown, maxBytes: number, options: RedactBodyOptions
   };
 }
 
-export { REDACTED, SENSITIVE_KEY_RE, redactBody, truncateText };
+function redactSecretText(value: unknown): string {
+  return String(value ?? '')
+    .replace(/(authorization\s*[:=]\s*)(basic|bearer)\s+[^\s"']+/gi, '$1[REDACTED]')
+    .replace(/\bsk-ant-[a-z0-9_-]{8,}\b/gi, REDACTED)
+    .replace(/\b(?:ghp|ghs)_[A-Za-z0-9_]{8,}\b/g, REDACTED)
+    .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, REDACTED)
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, REDACTED)
+    .replace(/\b(sk|pk)_[a-z0-9_-]{8,}\b/gi, REDACTED);
+}
+
+export { REDACTED, SENSITIVE_KEY_RE, redactBody, redactSecretText, truncateText };

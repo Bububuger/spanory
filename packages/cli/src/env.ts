@@ -21,6 +21,11 @@ export function resolveLegacyUserEnvPath(): string {
   return home ? path.join(home, '.env') : '';
 }
 
+function shouldLoadLegacyUserEnvFallback(): boolean {
+  const flag = process.env.SPANORY_LEGACY_USER_ENV_FALLBACK;
+  return flag === '1' || flag?.toLowerCase() === 'true';
+}
+
 export function parseSimpleDotEnv(raw: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const line of String(raw).split('\n')) {
@@ -59,7 +64,6 @@ export function parseSimpleDotEnv(raw: string): Record<string, string> {
 export async function loadUserEnv() {
   const spanoryHome = resolveSpanoryHome();
   const envPath = resolveSpanoryEnvPath();
-  const legacyEnvPath = resolveLegacyUserEnvPath();
   if (!spanoryHome || !envPath) return;
 
   try {
@@ -69,7 +73,12 @@ export async function loadUserEnv() {
     // best effort only
   }
 
-  const candidates = [envPath, legacyEnvPath].filter(Boolean);
+  const candidates = [envPath];
+  if (shouldLoadLegacyUserEnvFallback()) {
+    const legacyEnvPath = resolveLegacyUserEnvPath();
+    if (legacyEnvPath) candidates.push(legacyEnvPath);
+  }
+
   for (const candidate of candidates) {
     try {
       const raw = await readFile(candidate, 'utf-8');
