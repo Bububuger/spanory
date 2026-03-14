@@ -1,4 +1,6 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -11,6 +13,18 @@ const cleanEnv = {
   SPANORY_OTLP_ENDPOINT: '',
   SPANORY_OTLP_HEADERS: '',
 };
+
+function runCli(args: string[]): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile('node', [entry, ...args], { env: cleanEnv }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`alert command failed: ${stderr || error.message}`));
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
 
 describe('BDD alert command', () => {
   it('Given matching rules, When alert runs, Then alert rows are emitted', () => {
@@ -110,5 +124,41 @@ describe('BDD alert command', () => {
 
     const data = JSON.parse(out);
     expect(data.alerts.length).toBeGreaterThan(0);
+  });
+
+  it('Given webhook option, When alert runs, Then stdout stays pure JSON and status goes to stderr', async () => {
+    const server = createServer((req, res) => {
+      req.resume();
+      req.on('end', () => {
+        res.statusCode = 200;
+        res.end('ok');
+      });
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('failed to resolve webhook server address');
+      const url = `http://127.0.0.1:${address.port}`;
+
+      const { stdout, stderr } = await runCli([
+        'alert',
+        '--input-json',
+        'test/fixtures/exported/session-a.json',
+        '--rules',
+        'test/fixtures/alert-rules.json',
+        '--webhook-url',
+        url,
+      ]);
+
+      expect(() => JSON.parse(stdout)).not.toThrow();
+      expect(stdout).not.toContain('webhook=sent');
+      expect(stderr).toContain(`webhook=sent url=${url}`);
+    } finally {
+      await new Promise((resolve) => {
+        server.close(() => resolve(undefined));
+      });
+    }
   });
 });
