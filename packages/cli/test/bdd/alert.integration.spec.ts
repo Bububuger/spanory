@@ -12,14 +12,13 @@ const cleanEnv = {
   SPANORY_OTLP_HEADERS: '',
 };
 
-describe('BDD alert eval command', () => {
-  it('Given matching rules, When alert eval runs, Then alert rows are emitted', () => {
+describe('BDD alert command', () => {
+  it('Given matching rules, When alert runs, Then alert rows are emitted', () => {
     const out = execFileSync(
       'node',
       [
         entry,
         'alert',
-        'eval',
         '--input-json',
         'test/fixtures/exported/session-a.json',
         '--rules',
@@ -32,14 +31,13 @@ describe('BDD alert eval command', () => {
     expect(data.alerts.length).toBeGreaterThan(0);
   });
 
-  it('Given matching rules and fail-on-alert, When alert eval runs, Then process exits non-zero', () => {
+  it('Given matching rules and fail-on-alert, When alert runs, Then process exits non-zero', () => {
     expect(() => {
       execFileSync(
         'node',
         [
           entry,
           'alert',
-          'eval',
           '--input-json',
           'test/fixtures/exported/session-a.json',
           '--rules',
@@ -51,13 +49,12 @@ describe('BDD alert eval command', () => {
     }).toThrowError();
   });
 
-  it('Given extended session metrics rules, When alert eval runs, Then new metric alerts are emitted', () => {
+  it('Given extended session metrics rules, When alert runs, Then new metric alerts are emitted', () => {
     const out = execFileSync(
       'node',
       [
         entry,
         'alert',
-        'eval',
         '--input-json',
         'test/fixtures/exported/session-a.json',
         '--rules',
@@ -75,13 +72,12 @@ describe('BDD alert eval command', () => {
     expect(ids.has('diff-char-max-high')).toBe(true);
   });
 
-  it('Given context session metrics rules, When alert eval runs, Then context metric alerts are emitted', () => {
+  it('Given context session metrics rules, When alert runs, Then context metric alerts are emitted', () => {
     const out = execFileSync(
       'node',
       [
         entry,
         'alert',
-        'eval',
         '--input-json',
         'test/fixtures/exported/session-context.json',
         '--rules',
@@ -95,5 +91,24 @@ describe('BDD alert eval command', () => {
     expect(ids.has('context-fill-high')).toBe(true);
     expect(ids.has('context-delta-ratio-high')).toBe(true);
     expect(ids.has('context-compact-frequent')).toBe(true);
+  });
+
+  it('Given legacy invocation, When alert eval runs, Then it remains available', () => {
+    const out = execFileSync(
+      'node',
+      [
+        entry,
+        'alert',
+        'eval',
+        '--input-json',
+        'test/fixtures/exported/session-a.json',
+        '--rules',
+        'test/fixtures/alert-rules.json',
+      ],
+      { env: cleanEnv },
+    ).toString('utf8');
+
+    const data = JSON.parse(out);
+    expect(data.alerts.length).toBeGreaterThan(0);
   });
 });

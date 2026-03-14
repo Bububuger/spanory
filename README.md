@@ -335,7 +335,7 @@ spanory report turn-diff --input-json /path/to/exported-or-dir
 ### Rule-Based Alerts
 
 ```bash
-spanory alert eval \
+spanory alert \
   --input-json /path/to/exported-or-dir \
   --rules /path/to/rules.json \
   --fail-on-alert
