@@ -11,7 +11,7 @@
 
 ## Commit and Review
 
-- Use conventional commit style where possible (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
+- Use conventional commit style (`feat:`, `fix:`, `docs:`, `test:`, `chore:`); non-conforming prefixes (for example `codex:`) are blocked by commit hooks.
 - Include test evidence in PR description.
 - For medium/large changes (multi-file, refactor, build/release path updates), add a record in `docs/standards/change-context-log.md`.
 - PRs should explain:
