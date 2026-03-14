@@ -48,6 +48,6 @@
    - `npm run build`
 4. Publish:
    - **GitHub (public)**: `git push origin vX.Y.Z`, GitHub Actions runs `.github/workflows/release.yml` to build binaries and publish GitHub Release.
-   - **Internal release (maintainers only)**: see `docs/RELEASE_INTERNAL.md`
+   - **Internal release (maintainers only)**: run `bash scripts/publish-internal.sh` (details: `docs/RELEASE_INTERNAL.md`)
 5. Update global install to verify:
    - `npm install -g @bububuger/spanory@latest && spanory --version`

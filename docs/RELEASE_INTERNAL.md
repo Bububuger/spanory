@@ -18,7 +18,6 @@ tags: [release, internal]
 
 ```bash
 bash scripts/publish-internal.sh
-# 或手动: cd packages/alipay-cli && tnpm publish
 ```
 
 ## 3. 内部安装验证
