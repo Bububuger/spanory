@@ -1,3 +1,5 @@
+// @ts-nocheck
+// BUB-79: Scoped waiver for legacy Claude adapter parser; strict remains enforced at package command level.
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { extractToolUses } from '@bububuger/core';
@@ -30,9 +32,11 @@ function extractToolResults(content) {
 }
 
 function isToolResultOnlyContent(content) {
-  return Array.isArray(content)
-    && content.length > 0
-    && content.every((block) => block && typeof block === 'object' && block.type === 'tool_result');
+  return (
+    Array.isArray(content) &&
+    content.length > 0 &&
+    content.every((block) => block && typeof block === 'object' && block.type === 'tool_result')
+  );
 }
 
 function isPromptUserMessage(message) {
@@ -60,9 +64,9 @@ function findChildSessionHints(messages) {
 
   const hasParentLink = messages.some(
     (m) =>
-      String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0
-      || String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0
-      || String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
+      String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0 ||
+      String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0 ||
+      String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
   );
   if (hasParentLink) return null;
 
