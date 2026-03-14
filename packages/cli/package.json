@@ -45,10 +45,10 @@
     "pack:test-install": "bash test/pack-test-install.sh",
     "test:golden:update": "npm run build && node test/fixtures/golden/otlp/update-golden.mjs && node test/fixtures/golden/codex/update-golden.mjs",
     "build:bundle": "npm run --workspace @bububuger/backend-langfuse build && npm run --workspace @bububuger/otlp-core build && npm run build && mkdir -p build && esbuild dist/index.js --bundle --platform=node --format=cjs --target=node18 --define:process.env.SPANORY_VERSION=\\\"$npm_package_version\\\" --minify --outfile=build/spanory.cjs",
-    "build:bin:macos-arm64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-arm64 --output ../../dist/spanory-macos-arm64",
-    "build:bin:macos-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-macos-x64 --output ../../dist/spanory-macos-x64",
-    "build:bin:linux-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-linux-x64 --output ../../dist/spanory-linux-x64",
-    "build:bin:win-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node18-win-x64 --output ../../dist/spanory-win-x64.exe"
+    "build:bin:macos-arm64": "npm run build:bundle && pkg build/spanory.cjs --targets node20-macos-arm64 --output ../../dist/spanory-macos-arm64",
+    "build:bin:macos-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node20-macos-x64 --output ../../dist/spanory-macos-x64",
+    "build:bin:linux-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node20-linux-x64 --output ../../dist/spanory-linux-x64",
+    "build:bin:win-x64": "npm run build:bundle && pkg build/spanory.cjs --targets node20-win-x64 --output ../../dist/spanory-win-x64.exe"
   },
   "dependencies": {
     "commander": "^14.0.1"
