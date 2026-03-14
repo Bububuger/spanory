@@ -1,8 +1,6 @@
 import path from 'node:path';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import { describe, expect, it } from 'vitest';
@@ -77,8 +75,12 @@ describe('BDD opencode plugin management', () => {
     const result = runInstall(runtimeHome, pluginDir);
     const configPath = path.join(runtimeHome, 'opencode.json');
     const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+    const spoolDir = path.join(runtimeHome, 'state', 'spanory', 'spool');
+    const pluginLogDir = path.join(runtimeHome, 'state', 'spanory');
 
     expect(result.status).toBe(0);
     expect(config.plugin).toContain(OPENCODE_SPANORY_PLUGIN_ID);
+    expect(existsSync(spoolDir)).toBe(true);
+    expect(existsSync(pluginLogDir)).toBe(true);
   });
 });
