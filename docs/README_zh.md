@@ -276,26 +276,18 @@ tail -n 120 ~/.spanory/opencode/plugin.log
 spanory runtime opencode plugin doctor
 ```
 
-## Codex 接入（解析主链路 + 代理劫持）
+## Codex 接入（会话解析 + Notify Hook）
 
-### 1) 会话解析（export/backfill）
-
-Codex transcript 默认目录：
-
-- `~/.codex/sessions/YYYY/MM/DD/<session-id>.jsonl`
-
-导出单个会话：
+Codex runtime 基于 `~/.codex/sessions/**/*.jsonl` 支持 `export/backfill/hook/watch`。
 
 ```bash
+# 导出单个 codex session
 spanory runtime codex export \
   --session-id <SESSION_ID> \
   --endpoint "$OTEL_EXPORTER_OTLP_ENDPOINT" \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
-```
 
-批量回跑：
-
-```bash
+# 按 mtime 批量回跑 codex sessions
 spanory runtime codex backfill \
   --since 2026-03-01T00:00:00Z \
   --limit 50 \
@@ -303,7 +295,7 @@ spanory runtime codex backfill \
   --headers "$OTEL_EXPORTER_OTLP_HEADERS"
 ```
 
-### 2) notify 增量导出（turn 级）
+Codex notify payload 可用于近实时的 turn 级增量导出：
 
 ```bash
 echo '{"event":"agent-turn-complete","thread_id":"<SESSION_ID>","turn_id":"<TURN_ID>","cwd":"<PROJECT_CWD>"}' | \
@@ -328,7 +320,9 @@ spanory runtime codex watch --last-turn-only
 spanory runtime codex watch --include-existing --once --settle-ms 0
 ```
 
-### 3) 代理劫持采集（full_redacted）
+### 可选：代理劫持采集（full_redacted）
+
+使用 OpenAI-compatible 本地代理可采集全量 request/response，并进行强脱敏。
 
 启动本地 OpenAI-compatible 代理：
 

@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 import { describe, expect, it } from 'vitest';
 
@@ -158,5 +158,35 @@ describe('BDD openclaw setup path normalization', () => {
 
     const openclawCalls = readFileSync(commandLogPath, 'utf-8');
     expect(openclawCalls).toContain('plugins uninstall spanory-openclaw-plugin');
+  });
+
+  it('Given OTLP endpoint is unset, When setup apply installs openclaw plugin, Then apply stays successful and endpoint check remains visible', () => {
+    const { fakeHome, openclawHome, fakeBinDir, commandLogPath } = prepareFakeOpenclawEnvironment();
+
+    const env = {
+      ...process.env,
+      HOME: fakeHome,
+      PATH: `${fakeBinDir}:${process.env.PATH ?? ''}`,
+      SPANORY_TEST_OPENCLAW_LOG: commandLogPath,
+    };
+    delete env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+    const result = spawnSync(
+      process.execPath,
+      [entry, 'setup', 'apply', '--runtimes', 'openclaw', '--home', fakeHome, '--openclaw-runtime-home', openclawHome],
+      {
+        encoding: 'utf-8',
+        env,
+      },
+    );
+
+    expect(result.status).toBe(0);
+    const report = JSON.parse(result.stdout);
+    expect(report.ok).toBe(true);
+    const runtimeResult = report.results.find((item) => item.runtime === 'openclaw');
+    expect(runtimeResult.ok).toBe(true);
+    const endpointCheck = runtimeResult.doctor.checks.find((item) => item.id === 'otlp_endpoint');
+    expect(endpointCheck.ok).toBe(false);
+    expect(endpointCheck.detail).toContain('OTEL_EXPORTER_OTLP_ENDPOINT is unset');
   });
 });

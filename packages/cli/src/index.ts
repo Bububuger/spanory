@@ -847,6 +847,12 @@ function parsePluginEnabledFromInfoOutput(output) {
   return undefined;
 }
 
+const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint']);
+
+function computePluginDoctorOk(checks) {
+  return checks.every((item) => item.ok || NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS.has(item.id));
+}
+
 async function runOpenclawPluginDoctor(runtimeHome) {
   const checks = [];
 
@@ -897,7 +903,7 @@ async function runOpenclawPluginDoctor(runtimeHome) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = computePluginDoctorOk(checks);
   return { ok, checks };
 }
 
@@ -1002,7 +1008,7 @@ async function runOpencodePluginDoctor(runtimeHome) {
     });
   }
 
-  const ok = checks.every((item) => item.ok);
+  const ok = computePluginDoctorOk(checks);
   return { ok, checks };
 }
 
