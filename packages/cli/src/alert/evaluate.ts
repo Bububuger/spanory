@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { readFile } from 'node:fs/promises';
-import { parseJsonObject } from '@bububuger/core';
+import { parseJsonObject } from '../utils/json.js';
 
 import {
   summarizeAgents,
@@ -70,9 +70,7 @@ function parseJsonArray(value) {
 }
 
 function summarizeContextForSession(events) {
-  const snapshots = events.filter(
-    (event) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot',
-  );
+  const snapshots = events.filter((event) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
   const attributions = events.filter(
     (event) => event?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
   );
@@ -161,8 +159,8 @@ function summarizeContextForSession(events) {
       }
     }
     if (
-      String(attrs['agentic.context.event_type'] ?? '') === 'context_boundary'
-      && String(attrs['agentic.context.boundary_kind'] ?? '') === 'compact_after'
+      String(attrs['agentic.context.event_type'] ?? '') === 'context_boundary' &&
+      String(attrs['agentic.context.boundary_kind'] ?? '') === 'compact_after'
     ) {
       compactCount += 1;
     }
@@ -245,18 +243,16 @@ function buildEvaluationContext(rules, sessions) {
   const agentRows = needsSession || needsAgent ? summarizeAgents(sessions) : [];
   const contextBySessionId = needsSession
     ? new Map(
-      sessions.map((session) => [
-        session.context?.sessionId ?? session.events?.[0]?.sessionId,
-        summarizeContextForSession(session.events ?? []),
-      ]),
-    )
+        sessions.map((session) => [
+          session.context?.sessionId ?? session.events?.[0]?.sessionId,
+          summarizeContextForSession(session.events ?? []),
+        ]),
+      )
     : new Map();
 
   return {
     sessionRows: needsSession ? summarizeSessions(sessions) : [],
-    cacheBySessionId: needsSession
-      ? new Map(summarizeCache(sessions).map((row) => [row.sessionId, row]))
-      : new Map(),
+    cacheBySessionId: needsSession ? new Map(summarizeCache(sessions).map((row) => [row.sessionId, row])) : new Map(),
     agentRows,
     agentBySessionId: needsSession ? new Map(agentRows.map((row) => [row.sessionId, row])) : new Map(),
     turnDiffBySessionId: needsSession ? buildTurnDiffBySessionId(summarizeTurnDiff(sessions)) : new Map(),
