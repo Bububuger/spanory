@@ -14,6 +14,7 @@ import { Command } from 'commander';
 import { claudeCodeAdapter } from './runtime/claude/adapter.js';
 import { codexAdapter } from './runtime/codex/adapter.js';
 import { createCodexProxyServer } from './runtime/codex/proxy.js';
+import { mapCodexSessionsWithStat } from './runtime/codex/sessions.js';
 import { openclawAdapter } from './runtime/openclaw/adapter.js';
 import { compileOtlp, parseHeaders, sendOtlp } from './otlp.js';
 import { loadUserEnv, resolveSpanoryEnvPath, resolveSpanoryHome } from './env.js';
@@ -67,7 +68,7 @@ const EXECUTION_ENTRY = (() => {
 const requireFromHere = createRequire(EXECUTION_ENTRY);
 const CLI_FILE_DIR = path.dirname(EXECUTION_ENTRY);
 const CLI_PACKAGE_DIR = path.resolve(CLI_FILE_DIR, '..');
-const DEFAULT_VERSION = '0.1.1';
+const DEFAULT_VERSION = 'unknown';
 
 function readVersionFromPackageJson() {
   const packageNameCandidates = ['@bububuger/spanory', '@spanory/cli'];
@@ -569,16 +570,7 @@ type ListCodexSessionsOptions = {
 async function listCodexSessions(runtimeHome: string, options: ListCodexSessionsOptions = {}) {
   const sessionsRoot = path.join(runtimeHome, 'sessions');
   const files = await listJsonlFilesRecursively(sessionsRoot);
-  const withStat = await Promise.all(
-    files.map(async (fullPath) => {
-      const fileStat = await stat(fullPath);
-      return {
-        transcriptPath: fullPath,
-        sessionId: sessionIdFromFilename(path.basename(fullPath)),
-        mtimeMs: fileStat.mtimeMs,
-      };
-    }),
-  );
+  const withStat = await mapCodexSessionsWithStat(files);
 
   const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
   const untilMs = options.until ? new Date(options.until).getTime() : undefined;
