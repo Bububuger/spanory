@@ -1,6 +1,10 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { evaluateRules } from '../../src/alert/evaluate.ts';
+import { evaluateRules, loadAlertRules } from '../../src/alert/evaluate.ts';
 
 const sessions = [
   {
@@ -207,5 +211,67 @@ describe('alert evaluator', () => {
       'delta-ratio-max',
       'compact-count',
     ]);
+  });
+});
+
+describe('loadAlertRules', () => {
+  it('rejects malformed rule field types without leaking raw JSON', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'spanory-alert-rules-'));
+    const rulesPath = path.join(tempRoot, 'rules.json');
+    const baseRule = {
+      id: 'r1',
+      scope: 'session',
+      metric: 'usage.total',
+      op: 'gt',
+      threshold: 20,
+    };
+    const invalidRules = [
+      {
+        rule: { ...baseRule, id: { secret: 'TOP_SECRET_ID' } },
+        expectedMessage: '"id" must be a non-empty string',
+      },
+      {
+        rule: { ...baseRule, scope: 1 },
+        expectedMessage: '"scope" must be a non-empty string',
+      },
+      {
+        rule: { ...baseRule, metric: false },
+        expectedMessage: '"metric" must be a non-empty string',
+      },
+      {
+        rule: { ...baseRule, op: [] },
+        expectedMessage: '"op" must be a non-empty string',
+      },
+      {
+        rule: { ...baseRule, threshold: '20' },
+        expectedMessage: '"threshold" must be a finite number',
+      },
+    ];
+
+    try {
+      for (const testCase of invalidRules) {
+        await writeFile(
+          rulesPath,
+          JSON.stringify({
+            rules: [testCase.rule],
+          }),
+          'utf-8',
+        );
+
+        let error;
+        try {
+          await loadAlertRules(rulesPath);
+        } catch (caught) {
+          error = caught;
+        }
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message).toContain('invalid rule at index 0');
+        expect(error.message).toContain(testCase.expectedMessage);
+        expect(error.message).not.toContain('TOP_SECRET_ID');
+      }
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 });

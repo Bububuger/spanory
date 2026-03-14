@@ -327,8 +327,11 @@ spanory runtime claude-code backfill \
 ```bash
 spanory report session --input-json /path/to/exported.json
 spanory report mcp --input-json /path/to/exported-or-dir
-spanory report tool --input-json /path/to/exported-or-dir
+spanory report command --input-json /path/to/exported-or-dir
+spanory report agent --input-json /path/to/exported-or-dir
 spanory report cache --input-json /path/to/exported-or-dir
+spanory report tool --input-json /path/to/exported-or-dir
+spanory report context --input-json /path/to/exported-or-dir
 spanory report turn-diff --input-json /path/to/exported-or-dir
 ```
 
