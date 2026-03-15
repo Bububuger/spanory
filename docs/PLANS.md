@@ -30,9 +30,7 @@ tags: [plans, roadmap, index]
 
 详见 [exec-plans/tech-debt-tracker.md](./exec-plans/tech-debt-tracker.md)。
 
-## Symphony 工作计划
+## 过程文件
 
-Symphony/Codex 生成的阶段性 plan/todo 归档在：
-- `docs/plans/archive/` — 计划归档
-- `docs/todos/archive/` — 任务归档
-- 当前活跃: 根目录 `plan.md` / `todo.md`
+Agent 会话产生的 plan/todo 存档保留在本地，不纳入版本控制（已加入 .gitignore）。
+活跃执行计划放入 `docs/exec-plans/`。

@@ -24,4 +24,20 @@ local/
 packages/alipay-cli/bin/spanory-*
 packages/alipay-cli/opencode-plugin
 
+# agent session artifacts (plan/todo archives from OpenClaw/Codex)
+docs/plans/archive/
+docs/plans/history/
+docs/todos/archive/
+docs/todos/history/
 
+# root-level process files (managed outside repo)
+plan.md
+todo.md
+review.md
+docs.md
+WORKFLOW.md
+PROJECT_REVIEW_REPORT.md
+
+# mutable issue tracking state
+docs/issues/state.json
+docs/issues/tracker.json
