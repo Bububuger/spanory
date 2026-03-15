@@ -461,10 +461,7 @@ Key points:
 
 ## Roadmap
 
-- [x] Codex runtime adapter + proxy capture
-- [ ] LangSmith backend adapter
-- [ ] Langfuse-friendly naming/timeline conventions
-- [ ] Local UI for viewing session summaries and reports
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full project evolution and future plans.
 
 ## Contributing
 
