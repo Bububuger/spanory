@@ -1,6 +1,6 @@
 {
   "name": "@alipay/spanory",
-  "version": "0.1.33",
+  "version": "0.1.35",
   "description": "Spanory CLI for cross-runtime agent observability",
   "type": "module",
   "license": "MIT",
