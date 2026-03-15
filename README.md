@@ -152,15 +152,15 @@ For Langfuse OTLP, use `Authorization=Basic <base64(public_key:secret_key)>`.
 
 ### Local Setup (Recommended: one command for 4 runtimes)
 
-`setup apply` is idempotent and configures all supported runtimes (Codex defaults to non-proxy watch daemon mode):
+`install` is idempotent and configures all supported runtimes (Codex defaults to non-proxy watch daemon mode):
 
 ```bash
-spanory setup detect
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode
-spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+spanory status
+spanory install --runtimes claude-code,codex,openclaw,opencode
+spanory doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
-What `setup apply` does:
+What `install` does:
 
 - Claude Code: writes/updates `Stop` + `SessionEnd` hook command to `spanory hook --last-turn-only`
 - Codex: removes legacy `~/.codex/bin/spanory-codex-notify.sh` and `notify = [...]` from `~/.codex/config.toml`, then starts `spanory runtime codex watch --last-turn-only` in background (`~/.spanory/codex-watch.pid`, `~/.spanory/logs/codex-watch.log`)
@@ -170,7 +170,7 @@ What `setup apply` does:
 Dry-run example:
 
 ```bash
-spanory setup apply \
+spanory install \
   --runtimes claude-code,codex,openclaw,opencode \
   --dry-run
 ```
@@ -189,12 +189,12 @@ Requirements:
 Run:
 1) npm install
 2) npm install -g ./packages/cli
-3) spanory setup detect
-4) spanory setup apply --runtimes claude-code,codex,openclaw,opencode
-5) spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+3) spanory status
+4) spanory install --runtimes claude-code,codex,openclaw,opencode
+5) spanory doctor --runtimes claude-code,codex,openclaw,opencode
 
 Output:
-- setup detect/apply/doctor JSON results
+- status/install/doctor JSON results
 - final pass/fail summary and next-step troubleshooting for failed checks
 ```
 

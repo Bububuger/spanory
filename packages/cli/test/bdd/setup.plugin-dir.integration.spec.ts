@@ -71,8 +71,7 @@ describe('BDD setup apply plugin directory forwarding', () => {
         'node',
         [
           entry,
-          'setup',
-          'apply',
+          'install',
           '--runtimes',
           'openclaw',
           '--home',
@@ -116,8 +115,7 @@ describe('BDD setup apply plugin directory forwarding', () => {
         'node',
         [
           entry,
-          'setup',
-          'apply',
+          'install',
           '--runtimes',
           'opencode',
           '--home',

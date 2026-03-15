@@ -1,4 +1,3 @@
-
 import path from 'node:path';
 
 import { Command, Option } from 'commander';
@@ -12,16 +11,6 @@ function runtimeDisplayName(runtimeName: string) {
 
 function runtimeDescription(runtimeName: string) {
   return `${runtimeDisplayName(runtimeName)} transcript runtime`;
-}
-
-function parsePluginRuntimeName(runtimeName: string) {
-  const normalized = String(runtimeName ?? '')
-    .trim()
-    .toLowerCase();
-  if (normalized === 'openclaw' || normalized === 'opencode') {
-    return normalized;
-  }
-  throw new Error(`unsupported runtime for plugin command: ${runtimeName}`);
 }
 
 function createReportInputJsonOption() {
@@ -176,7 +165,9 @@ function registerRuntimeCommands(runtimeRoot: Command, runtimeName: string, deps
             exportedCount += 1;
           } catch (error: unknown) {
             skippedCount += 1;
-            const message = (error as Error)?.message ? String((error as Error).message).replace(/\s+/g, ' ') : 'unknown-error';
+            const message = (error as Error)?.message
+              ? String((error as Error).message).replace(/\s+/g, ' ')
+              : 'unknown-error';
             console.log(`backfill=error sessionId=${candidate.sessionId} error=${message}`);
           }
         }
@@ -535,91 +526,7 @@ export function createProgram(deps: Record<string, any>) {
 
   program
     .command('install')
-    .description('Install Spanory runtime plugin (shortcut for runtime <runtime> plugin install)')
-    .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
-    .option('--plugin-dir <path>', 'Plugin directory path override')
-    .option('--runtime-home <path>', 'Override runtime home directory')
-    .action(async (options: Record<string, any>) => {
-      const runtime = parsePluginRuntimeName(options.runtime);
-      if (runtime === 'openclaw') {
-        const runtimeHome = deps.resolveRuntimeHome('openclaw', options.runtimeHome);
-        const result = await deps.installOpenclawPlugin(runtimeHome, false, {
-          resolveOpenclawPluginDir: () => options.pluginDir ?? deps.resolveOpenclawPluginDir(),
-          runSystemCommand: deps.runSystemCommand,
-          backupIfExists: deps.backupIfExists,
-        });
-        if (result.installStdout) console.log(result.installStdout);
-        if (result.enableStdout) console.log(result.enableStdout);
-        return;
-      }
-      const result = await deps.installOpencodePlugin(options.runtimeHome, options.pluginDir);
-      console.log(`installed=${result.loaderFile}`);
-    });
-
-  program
-    .command('doctor')
-    .description('Run Spanory runtime plugin diagnostics (shortcut for runtime <runtime> plugin doctor)')
-    .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
-    .option('--runtime-home <path>', 'Override runtime home directory')
-    .action(async (options: Record<string, any>) => {
-      const runtime = parsePluginRuntimeName(options.runtime);
-      if (runtime === 'openclaw') {
-        const report = await deps.runOpenclawPluginDoctor(options.runtimeHome);
-        console.log(JSON.stringify(report, null, 2));
-        if (!report.ok) process.exitCode = 2;
-        return;
-      }
-      const report = await deps.runOpencodePluginDoctor(options.runtimeHome);
-      console.log(JSON.stringify(report, null, 2));
-      if (!report.ok) process.exitCode = 2;
-    });
-
-  program
-    .command('uninstall')
-    .description('Uninstall Spanory runtime plugin (shortcut for runtime <runtime> plugin uninstall)')
-    .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
-    .option('--runtime-home <path>', 'Override runtime home directory')
-    .action(async (options: Record<string, any>) => {
-      const runtime = parsePluginRuntimeName(options.runtime);
-      if (runtime === 'openclaw') {
-        const result = deps.runSystemCommand('openclaw', ['plugins', 'uninstall', deps.openclawPluginId], {
-          env: {
-            ...process.env,
-            ...(options.runtimeHome
-              ? { OPENCLAW_STATE_DIR: deps.resolveRuntimeHome('openclaw', options.runtimeHome) }
-              : {}),
-          },
-        });
-        if (result.stdout.trim()) console.log(result.stdout.trim());
-        if (result.code !== 0) {
-          throw new Error(result.stderr || result.error || 'openclaw plugins uninstall failed');
-        }
-        return;
-      }
-      const result = await deps.uninstallOpencodePlugin(options.runtimeHome);
-      const loaderFile = result.loaderFile ?? deps.opencodePluginLoaderPath(options.runtimeHome);
-      console.log(`removed=${loaderFile}`);
-      if (result.unregistered) {
-        console.log(`unregistered=${deps.opencodePluginId}`);
-      }
-    });
-
-  const setup = program.command('setup').description('One-command local runtime integration setup and diagnostics');
-
-  setup
-    .command('detect')
-    .description('Detect local runtime availability and setup status')
-    .option('--home <path>', 'Home directory root override (default: $HOME)')
-    .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home for reporting')
-    .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home for reporting')
-    .action(async (options: Record<string, any>) => {
-      const report = await deps.runSetupDetect(options);
-      console.log(JSON.stringify(report, null, 2));
-    });
-
-  setup
-    .command('apply')
-    .description('Apply idempotent local setup for selected runtimes')
+    .description('Install Spanory integration for local runtimes')
     .option(
       '--runtimes <csv>',
       `Comma-separated runtimes (default: ${deps.defaultSetupRuntimes.join(',')})`,
@@ -638,9 +545,27 @@ export function createProgram(deps: Record<string, any>) {
       if (!report.ok) process.exitCode = 2;
     });
 
-  setup
+  program
+    .command('uninstall')
+    .description('Remove Spanory integration from local runtimes')
+    .option(
+      '--runtimes <csv>',
+      `Comma-separated runtimes (default: ${deps.defaultSetupRuntimes.join(',')})`,
+      deps.defaultSetupRuntimes.join(','),
+    )
+    .option('--home <path>', 'Home directory root override (default: $HOME)')
+    .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
+    .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
+    .option('--dry-run', 'Only print planned changes without writing files', false)
+    .action(async (options: Record<string, any>) => {
+      const report = await deps.runSetupTeardown(options);
+      console.log(JSON.stringify(report, null, 2));
+      if (!report.ok) process.exitCode = 2;
+    });
+
+  program
     .command('doctor')
-    .description('Run setup diagnostics for selected runtimes')
+    .description('Run Spanory integration diagnostics for local runtimes')
     .option(
       '--runtimes <csv>',
       `Comma-separated runtimes (default: ${deps.defaultSetupRuntimes.join(',')})`,
@@ -655,22 +580,15 @@ export function createProgram(deps: Record<string, any>) {
       if (!report.ok) process.exitCode = 2;
     });
 
-  setup
-    .command('teardown')
-    .description('Remove all Spanory integration from local runtimes')
-    .option(
-      '--runtimes <csv>',
-      `Comma-separated runtimes (default: ${deps.defaultSetupRuntimes.join(',')})`,
-      deps.defaultSetupRuntimes.join(','),
-    )
+  program
+    .command('status')
+    .description('Detect local runtime availability and Spanory integration status')
     .option('--home <path>', 'Home directory root override (default: $HOME)')
-    .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
-    .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-    .option('--dry-run', 'Only print planned changes without writing files', false)
+    .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home for reporting')
+    .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home for reporting')
     .action(async (options: Record<string, any>) => {
-      const report = await deps.runSetupTeardown(options);
+      const report = await deps.runSetupDetect(options);
       console.log(JSON.stringify(report, null, 2));
-      if (!report.ok) process.exitCode = 2;
     });
 
   program

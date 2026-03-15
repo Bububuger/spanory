@@ -38,7 +38,7 @@ describe('BDD opencode setup apply', () => {
 
       const result = spawnSync(
         process.execPath,
-        [entry, 'setup', 'apply', '--runtimes', 'opencode', '--home', homeDir, '--opencode-runtime-home', runtimeHome],
+        [entry, 'install', '--runtimes', 'opencode', '--home', homeDir, '--opencode-runtime-home', runtimeHome],
         { encoding: 'utf-8', env },
       );
 
@@ -73,7 +73,7 @@ describe('BDD opencode setup apply', () => {
 
       const result = spawnSync(
         process.execPath,
-        [entry, 'setup', 'apply', '--runtimes', 'opencode', '--home', homeDir, '--opencode-runtime-home', runtimeHome],
+        [entry, 'install', '--runtimes', 'opencode', '--home', homeDir, '--opencode-runtime-home', runtimeHome],
         { encoding: 'utf-8', env },
       );
 
@@ -121,17 +121,7 @@ describe('BDD opencode setup apply', () => {
 
       const result = spawnSync(
         process.execPath,
-        [
-          entry,
-          'setup',
-          'teardown',
-          '--runtimes',
-          'opencode',
-          '--home',
-          homeDir,
-          '--opencode-runtime-home',
-          runtimeHome,
-        ],
+        [entry, 'uninstall', '--runtimes', 'opencode', '--home', homeDir, '--opencode-runtime-home', runtimeHome],
         { encoding: 'utf-8' },
       );
 

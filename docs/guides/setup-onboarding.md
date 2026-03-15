@@ -1,25 +1,25 @@
 ---
 type: file
-summary: "Setup 一键接入流程：detect/apply/doctor 命令与各 runtime 配置效果"
+summary: "一键接入流程：install/doctor/status 命令与各 runtime 配置效果"
 created: 2026-03-13T22:00:00+08:00
-modified: 2026-03-13T22:00:00+08:00
+modified: 2026-03-15T22:00:00+08:00
 tags: [setup, onboarding, runtime, cli]
 ---
 
-# Setup 一键接入
+# 一键接入
 
 ## 命令
 
 ```bash
-spanory setup detect                                          # 检测已安装的 runtime
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode                      # 配置 hook/plugin
-spanory setup doctor --runtimes claude-code,codex,openclaw,opencode                      # 健康检查
+spanory status                                                    # 检测已安装的 runtime
+spanory install --runtimes claude-code,codex,openclaw,opencode    # 配置 hook/plugin
+spanory doctor --runtimes claude-code,codex,openclaw,opencode     # 健康检查
 ```
 
 ## 各 Runtime 配置效果
 
-| Runtime | setup apply 做什么 | doctor 检查什么 |
-|---------|-------------------|----------------|
+| Runtime | install 做什么 | doctor 检查什么 |
+|---------|---------------|----------------|
 | Claude Code | 写入 Stop + SessionEnd hook | hook 文件存在且格式正确 |
 | Codex | 清理 notify 注入并启动 watch 守护进程 | watch 守护进程状态正常 |
 | OpenClaw | 安装 plugin | plugin 可加载 |

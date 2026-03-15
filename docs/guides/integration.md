@@ -13,8 +13,8 @@ export SPANORY_BACKEND=langfuse
 ## 一键接入
 
 ```bash
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode
-spanory setup doctor
+spanory install --runtimes claude-code,codex,openclaw,opencode
+spanory doctor
 ```
 
 ## Agent 自动接入提示词
@@ -26,10 +26,10 @@ spanory setup doctor
 
 1. 安装: npm install -g @bububuger/spanory (或 tnpm install -g @alipay/spanory)
 2. 配置环境变量（LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, OTEL endpoint）
-3. 执行: spanory setup apply --runtimes claude-code,codex,openclaw,opencode
+3. 执行: spanory install --runtimes claude-code,codex,openclaw,opencode
 4. 重启运行时使配置生效
-5. 验证: spanory setup doctor
-6. 排查: spanory setup detect && env | grep -E "OTEL|SPANORY|LANGFUSE"
+5. 验证: spanory doctor
+6. 排查: spanory status && env | grep -E "OTEL|SPANORY|LANGFUSE"
 ```
 
 ## Symphony 编排（可选）

@@ -79,7 +79,7 @@ describe('BDD openclaw setup path normalization', () => {
 
     const output = execFileSync(
       'node',
-      [entry, 'setup', 'apply', '--runtimes', 'openclaw', '--home', fakeHome, '--openclaw-runtime-home', openclawHome],
+      [entry, 'install', '--runtimes', 'openclaw', '--home', fakeHome, '--openclaw-runtime-home', openclawHome],
       {
         encoding: 'utf-8',
         env: {
@@ -125,17 +125,7 @@ describe('BDD openclaw setup path normalization', () => {
 
     const output = execFileSync(
       'node',
-      [
-        entry,
-        'setup',
-        'teardown',
-        '--runtimes',
-        'openclaw',
-        '--home',
-        fakeHome,
-        '--openclaw-runtime-home',
-        openclawHome,
-      ],
+      [entry, 'uninstall', '--runtimes', 'openclaw', '--home', fakeHome, '--openclaw-runtime-home', openclawHome],
       {
         encoding: 'utf-8',
         env: {
@@ -173,7 +163,7 @@ describe('BDD openclaw setup path normalization', () => {
 
     const result = spawnSync(
       process.execPath,
-      [entry, 'setup', 'apply', '--runtimes', 'openclaw', '--home', fakeHome, '--openclaw-runtime-home', openclawHome],
+      [entry, 'install', '--runtimes', 'openclaw', '--home', fakeHome, '--openclaw-runtime-home', openclawHome],
       {
         encoding: 'utf-8',
         env,

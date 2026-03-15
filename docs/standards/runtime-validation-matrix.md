@@ -12,13 +12,13 @@
 
 ### 1) 通用配置验证
 ```bash
-spanory setup detect
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode
-spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+spanory status
+spanory install --runtimes claude-code,codex,openclaw,opencode
+spanory doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
 通过标准：
-- `setup doctor` 返回 `ok: true`。
+- `doctor` 返回 `ok: true`。
 - 每个 runtime 的关键 check 为 `ok: true`。
 
 ### 2) CLI Export 型 runtime（claude-code/openclaw/codex）
@@ -65,8 +65,8 @@ chmod +x ~/.local/bin/spanory
 - 若修复涉及 plugin 安装路径或 hook 脚本内容，再补跑：
 
 ```bash
-spanory setup apply --runtimes claude-code,codex,openclaw,opencode
-spanory setup doctor --runtimes claude-code,codex,openclaw,opencode
+spanory install --runtimes claude-code,codex,openclaw,opencode
+spanory doctor --runtimes claude-code,codex,openclaw,opencode
 ```
 
 #### 步骤 B：触发真实对话
