@@ -1,0 +1,12 @@
+{
+  "name": "Bububuger/spanory",
+  "description": "Cross-runtime observability toolkit for AI agent systems — unified tracing for Claude Code, OpenClaw & OpenCode via OpenTelemetry + Langfuse",
+  "accepts": [
+    {
+      "network": "eip155:8453",
+      "asset": "USDC",
+      "address": "YOUR_WALLET_ADDRESS"
+    }
+  ],
+  "resources": []
+}
