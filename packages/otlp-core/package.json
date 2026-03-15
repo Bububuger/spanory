@@ -1,6 +1,6 @@
 {
   "name": "@bububuger/otlp-core",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
