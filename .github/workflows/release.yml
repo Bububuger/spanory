@@ -97,6 +97,7 @@ jobs:
 
       - name: Sync CLI Version With Tag
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
         run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @bububuger/spanory || true
 
       - name: Build Binary
