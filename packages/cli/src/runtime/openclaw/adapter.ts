@@ -1,28 +1,27 @@
-// @ts-nocheck
+
 // BUB-79: Scoped waiver for legacy OpenClaw adapter parser; strict remains enforced at package command level.
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { extractToolUses } from '@bububuger/core';
-
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
+import { extractToolUses } from '../shared/content.js';
 import { forEachJsonlEntry } from '../shared/jsonl.js';
 import { normalizeTranscriptMessages, parseProjectIdFromTranscriptPath, pickUsage } from '../shared/normalize.js';
 
 const INFER_WINDOW_EPSILON_MS = 1200;
 
-function parseTimestamp(entry) {
+function parseTimestamp(entry: Record<string, any>) {
   const raw = entry?.timestamp ?? entry?.created_at ?? entry?.createdAt;
   const date = raw ? new Date(raw) : new Date();
   if (Number.isNaN(date.getTime())) return new Date();
   return date;
 }
 
-function normalizeToolName(name) {
+function normalizeToolName(name: string) {
   if (name === 'exec') return 'Bash';
   return name;
 }
 
-function normalizeContentBlocks(content) {
+function normalizeContentBlocks(content: unknown) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
   const blocks = [];
@@ -61,7 +60,7 @@ function normalizeContentBlocks(content) {
   return blocks;
 }
 
-function normalizeRole(entry) {
+function normalizeRole(entry: Record<string, any>) {
   if (entry?.type === 'message') {
     const role = entry?.message?.role;
     if (role === 'toolResult') return 'user';
@@ -75,7 +74,7 @@ function normalizeRole(entry) {
   return null;
 }
 
-function normalizeContent(entry) {
+function normalizeContent(entry: Record<string, any>) {
   if (entry?.type === 'message') {
     const role = entry?.message?.role;
     if (role === 'toolResult') {
@@ -92,19 +91,19 @@ function normalizeContent(entry) {
   return normalizeContentBlocks(entry?.message?.content ?? entry?.content ?? entry?.payload?.content ?? '');
 }
 
-function normalizeModel(entry) {
+function normalizeModel(entry: Record<string, any>) {
   return entry?.message?.model ?? entry?.model ?? entry?.payload?.model;
 }
 
-function normalizeMessageId(entry) {
+function normalizeMessageId(entry: Record<string, any>) {
   return entry?.message?.id ?? entry?.messageId ?? entry?.message_id ?? entry?.id;
 }
 
-function normalizeToolUseResult(entry) {
+function normalizeToolUseResult(entry: Record<string, any>) {
   return entry?.toolUseResult ?? entry?.tool_use_result ?? entry?.tool_result;
 }
 
-function normalizeSourceToolUseId(entry) {
+function normalizeSourceToolUseId(entry: Record<string, any>) {
   return (
     entry?.sourceToolUseID ??
     entry?.sourceToolUseId ??
@@ -114,7 +113,7 @@ function normalizeSourceToolUseId(entry) {
   );
 }
 
-function normalizeUsage(entry) {
+function normalizeUsage(entry: Record<string, any>) {
   const raw =
     entry?.message?.usage ?? entry?.usage ?? entry?.message_usage ?? entry?.token_usage ?? entry?.payload?.usage;
   if (!raw || typeof raw !== 'object') return undefined;
@@ -127,7 +126,7 @@ function normalizeUsage(entry) {
   });
 }
 
-function normalizeIsSidechain(entry) {
+function normalizeIsSidechain(entry: Record<string, any>) {
   const raw =
     entry?.isSidechain ??
     entry?.is_sidechain ??
@@ -138,7 +137,7 @@ function normalizeIsSidechain(entry) {
   return raw === true;
 }
 
-function normalizeAgentId(entry) {
+function normalizeAgentId(entry: Record<string, any>) {
   return (
     entry?.agentId ??
     entry?.agent_id ??
@@ -149,12 +148,12 @@ function normalizeAgentId(entry) {
   );
 }
 
-function extractToolResults(content) {
+function extractToolResults(content: unknown) {
   if (!Array.isArray(content)) return [];
-  return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_result');
+  return content.filter((block: any) => block && typeof block === 'object' && block.type === 'tool_result');
 }
 
-function isToolResultOnlyContent(content) {
+function isToolResultOnlyContent(content: unknown) {
   return (
     Array.isArray(content) &&
     content.length > 0 &&
@@ -162,7 +161,7 @@ function isToolResultOnlyContent(content) {
   );
 }
 
-function isPromptUserMessage(message) {
+function isPromptUserMessage(message: Record<string, any>) {
   if (!message || message.role !== 'user' || message.isMeta) return false;
   const { content } = message;
   if (typeof content === 'string') return content.trim().length > 0;
@@ -171,14 +170,14 @@ function isPromptUserMessage(message) {
   return content.length > 0;
 }
 
-function findChildSessionHints(messages) {
+function findChildSessionHints(messages: Record<string, any>[]) {
   const hasSidechainSignal = messages.some(
-    (m) => m?.isSidechain === true || String(m?.agentId ?? '').trim().length > 0,
+    (m: Record<string, any>) => m?.isSidechain === true || String(m?.agentId ?? '').trim().length > 0,
   );
   if (!hasSidechainSignal) return null;
 
   const hasParentLink = messages.some(
-    (m) =>
+    (m: Record<string, any>) =>
       String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0 ||
       String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0 ||
       String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
@@ -192,7 +191,7 @@ function findChildSessionHints(messages) {
   return { childStartedAt };
 }
 
-function extractTaskWindows(messages, sessionId) {
+function extractTaskWindows(messages: Record<string, any>[], sessionId: string) {
   const sorted = [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   const windows = [];
   const byCallId = new Map();
@@ -239,7 +238,7 @@ function extractTaskWindows(messages, sessionId) {
   return windows;
 }
 
-async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) {
+async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }: { transcriptPath: string; messages: Record<string, any>[] }) {
   const hints = findChildSessionHints(messages);
   if (!hints) return messages;
 
@@ -278,7 +277,7 @@ async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) 
   candidates.sort((a, b) => a.score - b.score);
   const best = candidates[0];
 
-  return messages.map((msg) => ({
+  return messages.map((msg: Record<string, any>) => ({
     ...msg,
     parentSessionId: best.parentSessionId,
     parentTurnId: best.parentTurnId,
@@ -287,9 +286,9 @@ async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) 
   }));
 }
 
-async function readOpenclawTranscript(transcriptPath) {
-  const messages = [];
-  let runtimeVersion;
+async function readOpenclawTranscript(transcriptPath: string) {
+  const messages: Record<string, any>[] = [];
+  let runtimeVersion: string | undefined;
   await forEachJsonlEntry(transcriptPath, (entry) => {
     if (entry?.type === 'session') {
       runtimeVersion =
@@ -331,18 +330,18 @@ async function readOpenclawTranscript(transcriptPath) {
   return messages;
 }
 
-function resolveRuntimeHome(context) {
+function resolveRuntimeHome(context: Record<string, any>) {
   return context.runtimeHome ?? process.env.SPANORY_OPENCLAW_HOME ?? path.join(process.env.HOME || '', '.openclaw');
 }
 
-function parseOpenclawProjectId(transcriptPath) {
+function parseOpenclawProjectId(transcriptPath: string) {
   return (
     parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/projects/') ??
     parseProjectIdFromTranscriptPath(transcriptPath, '/.openclaw/agents/')
   );
 }
 
-async function resolveTranscriptPath(context) {
+async function resolveTranscriptPath(context: Record<string, any>) {
   if (context.transcriptPath) return context.transcriptPath;
   const runtimeHome = resolveRuntimeHome(context);
   const candidates = [
@@ -364,7 +363,7 @@ export const openclawAdapter = {
   runtimeName: 'openclaw',
   capabilities: RUNTIME_CAPABILITIES.openclaw,
 
-  resolveContextFromHook(payload) {
+  resolveContextFromHook(payload: Record<string, any>) {
     const sessionId = payload.sessionId;
     const transcriptPath = payload.transcriptPath;
     if (!sessionId || !transcriptPath) return null;
@@ -373,7 +372,7 @@ export const openclawAdapter = {
     return { projectId, sessionId, transcriptPath };
   },
 
-  async collectEvents(context) {
+  async collectEvents(context: Record<string, any>) {
     const transcriptPath = await resolveTranscriptPath(context);
     const loaded = await readOpenclawTranscript(transcriptPath);
     const messages = await inferParentLinkFromSiblingSessions({ transcriptPath, messages: loaded });
@@ -381,7 +380,7 @@ export const openclawAdapter = {
       runtime: 'openclaw',
       projectId: context.projectId,
       sessionId: context.sessionId,
-      messages,
+      messages: messages as import('../../types.js').TranscriptMessage[],
     });
   },
 };

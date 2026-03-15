@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // BUB-79: Scoped waiver for legacy Codex adapter parser; strict remains enforced at package command level.
 import { createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
@@ -8,13 +8,13 @@ import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
 import { forEachJsonlEntry } from '../shared/jsonl.js';
 import { normalizeTranscriptMessages, pickUsage } from '../shared/normalize.js';
 
-function parseTimestamp(raw) {
+function parseTimestamp(raw: any) {
   const date = raw ? new Date(raw) : new Date();
   if (Number.isNaN(date.getTime())) return new Date();
   return date;
 }
 
-function safeJsonParse(raw, fallback = {}) {
+function safeJsonParse(raw: any, fallback: Record<string, any> = {}) {
   if (typeof raw !== 'string') {
     if (raw && typeof raw === 'object') return raw;
     return fallback;
@@ -28,7 +28,7 @@ function safeJsonParse(raw, fallback = {}) {
   return fallback;
 }
 
-function normalizeToolCall(name, args, index) {
+function normalizeToolCall(name: any, args: Record<string, any>, index: number) {
   const normalizedName = String(name ?? '').trim();
   const shellTools = new Set(['exec_command', 'shell_command', 'write_stdin']);
   const agentTaskTools = new Set(['spawn_agent', 'wait', 'close_agent']);
@@ -57,7 +57,7 @@ function normalizeToolCall(name, args, index) {
   };
 }
 
-function sanitizeProjectBase(name) {
+function sanitizeProjectBase(name: any) {
   const text = String(name ?? '').trim();
   if (!text) return 'codex';
   const out = text
@@ -67,7 +67,7 @@ function sanitizeProjectBase(name) {
   return out || 'codex';
 }
 
-function deriveProjectIdFromCwd(cwd) {
+function deriveProjectIdFromCwd(cwd: any) {
   const base = sanitizeProjectBase(path.basename(String(cwd ?? '').trim()) || 'codex');
   const hash = createHash('sha1')
     .update(String(cwd ?? ''))
@@ -76,7 +76,7 @@ function deriveProjectIdFromCwd(cwd) {
   return `${base}-${hash}`;
 }
 
-function usageFromTotals(start, end) {
+function usageFromTotals(start: Record<string, any> | undefined, end: Record<string, any> | undefined) {
   if (!start || !end) return undefined;
   const input = Math.max(0, Number(end.input_tokens ?? 0) - Number(start.input_tokens ?? 0));
   const output = Math.max(0, Number(end.output_tokens ?? 0) - Number(start.output_tokens ?? 0));
@@ -89,13 +89,13 @@ function usageFromTotals(start, end) {
   });
 }
 
-function extractPtySessionId(output) {
+function extractPtySessionId(output: any) {
   const text = String(output ?? '');
   const match = text.match(/session ID\s+(\d+)/i);
   return match ? match[1] : undefined;
 }
 
-function extractWallTimeMs(output) {
+function extractWallTimeMs(output: any) {
   const text = String(output ?? '');
   const match = text.match(/Wall time:\s*([0-9]+(?:\.[0-9]+)?)\s*seconds?/i);
   if (!match) return undefined;
@@ -104,7 +104,7 @@ function extractWallTimeMs(output) {
   return Math.floor(seconds * 1000);
 }
 
-function createTurn(turnId, startedAt) {
+function createTurn(turnId: string, startedAt: string) {
   return {
     turnId,
     startedAt,
@@ -121,13 +121,13 @@ function createTurn(turnId, startedAt) {
   };
 }
 
-async function findSessionTranscript(sessionsRoot, sessionId) {
+async function findSessionTranscript(sessionsRoot: string, sessionId: string) {
   const targetName = `${sessionId}.jsonl`;
   const stack = [sessionsRoot];
 
   while (stack.length > 0) {
-    const dir = stack.pop();
-    let entries = [];
+    const dir = stack.pop()!;
+    let entries: import('node:fs').Dirent[] = [];
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -148,12 +148,12 @@ async function findSessionTranscript(sessionsRoot, sessionId) {
   throw new Error(`codex session transcript not found: ${targetName} under ${sessionsRoot}`);
 }
 
-function toIso(timestamp) {
+function toIso(timestamp: any) {
   return parseTimestamp(timestamp).toISOString();
 }
 
-function buildMessagesFromTurns(turns, runtimeVersion) {
-  const messages = [];
+function buildMessagesFromTurns(turns: Record<string, any>[], runtimeVersion: string | undefined) {
+  const messages: Record<string, any>[] = [];
 
   for (const turn of turns) {
     const input = String(turn.userInput ?? '').trim() || '(no user message captured)';
@@ -221,23 +221,23 @@ function buildMessagesFromTurns(turns, runtimeVersion) {
   return messages;
 }
 
-async function readCodexSession(transcriptPath) {
-  const turns = [];
-  let currentTurn = null;
+async function readCodexSession(transcriptPath: string) {
+  const turns: Record<string, any>[] = [];
+  let currentTurn: Record<string, any> | null = null;
   let pendingUserInput = '';
-  let sessionMeta = null;
+  let sessionMeta: Record<string, any> | null = null;
   let callCounter = 0;
   const callIndex = new Map();
   const ptyCallBySession = new Map();
 
-  function finalizeCurrentTurn(at) {
+  function finalizeCurrentTurn(at: any) {
     if (!currentTurn) return;
     currentTurn.endedAt = at ? toIso(at) : currentTurn.endedAt;
     turns.push(currentTurn);
     currentTurn = null;
   }
 
-  function ensureCurrentTurn(at) {
+  function ensureCurrentTurn(at: any) {
     if (currentTurn) return currentTurn;
     currentTurn = createTurn(`turn-codex-${turns.length + 1}`, toIso(at));
     if (pendingUserInput) {
@@ -332,7 +332,7 @@ async function readCodexSession(transcriptPath) {
     if (payload.type === 'message' && payload.role === 'assistant' && Array.isArray(payload.content)) {
       const turn = ensureCurrentTurn(entry.timestamp);
       const text = payload.content
-        .map((block) => {
+        .map((block: any) => {
           if (block?.type === 'output_text' || block?.type === 'input_text') return String(block.text ?? '');
           if (typeof block?.text === 'string') return block.text;
           if (typeof block?.output_text === 'string') return block.output_text;
@@ -417,8 +417,8 @@ async function readCodexSession(transcriptPath) {
 
   finalizeCurrentTurn(new Date().toISOString());
 
-  const runtimeVersion = String(sessionMeta?.cli_version ?? '').trim() || undefined;
-  const cwd = String(sessionMeta?.cwd ?? '').trim() || undefined;
+  const runtimeVersion = String((sessionMeta as Record<string, any> | null)?.cli_version ?? '').trim() || undefined;
+  const cwd = String((sessionMeta as Record<string, any> | null)?.cwd ?? '').trim() || undefined;
   return {
     turns,
     runtimeVersion,
@@ -426,8 +426,8 @@ async function readCodexSession(transcriptPath) {
   };
 }
 
-function remapTurnIds(events, turns) {
-  const generatedTurnIds = events.filter((event) => event.category === 'turn').map((event) => event.turnId);
+function remapTurnIds(events: Record<string, any>[], turns: Record<string, any>[]) {
+  const generatedTurnIds = events.filter((event: Record<string, any>) => event.category === 'turn').map((event: Record<string, any>) => event.turnId);
   const map = new Map();
   for (let i = 0; i < generatedTurnIds.length; i += 1) {
     const generated = generatedTurnIds[i];
@@ -435,7 +435,7 @@ function remapTurnIds(events, turns) {
     if (generated && rawTurnId) map.set(generated, rawTurnId);
   }
 
-  return events.map((event) => {
+  return events.map((event: Record<string, any>) => {
     const mappedTurnId = map.get(event.turnId);
     if (!mappedTurnId) return event;
     return {
@@ -446,10 +446,10 @@ function remapTurnIds(events, turns) {
   });
 }
 
-function attachCwdAttribute(events, cwd) {
+function attachCwdAttribute(events: Record<string, any>[], cwd: string | undefined) {
   if (!cwd) return events;
   const sanitizedCwd = deriveProjectIdFromCwd(cwd);
-  return events.map((event) => ({
+  return events.map((event: Record<string, any>) => ({
     ...event,
     attributes: {
       ...(event.attributes ?? {}),
@@ -458,9 +458,9 @@ function attachCwdAttribute(events, cwd) {
   }));
 }
 
-function attachTurnCompletionAttribute(events, turns) {
-  const completionByTurnId = new Map(turns.map((turn) => [turn.turnId, Boolean(turn.completed)]));
-  return events.map((event) => {
+function attachTurnCompletionAttribute(events: Record<string, any>[], turns: Record<string, any>[]) {
+  const completionByTurnId = new Map(turns.map((turn: Record<string, any>) => [turn.turnId, Boolean(turn.completed)]));
+  return events.map((event: Record<string, any>) => {
     if (event.category !== 'turn') return event;
     return {
       ...event,
@@ -472,7 +472,7 @@ function attachTurnCompletionAttribute(events, turns) {
   });
 }
 
-function resolveRuntimeHome(context) {
+function resolveRuntimeHome(context: Record<string, any>) {
   return context.runtimeHome ?? process.env.SPANORY_CODEX_HOME ?? path.join(process.env.HOME || '', '.codex');
 }
 
@@ -480,7 +480,7 @@ export const codexAdapter = {
   runtimeName: 'codex',
   capabilities: RUNTIME_CAPABILITIES.codex,
 
-  resolveContextFromHook(payload) {
+  resolveContextFromHook(payload: Record<string, any>) {
     const sessionId = payload.sessionId;
     if (!sessionId) return null;
     const projectId = payload.cwd ? deriveProjectIdFromCwd(payload.cwd) : 'codex';
@@ -491,7 +491,7 @@ export const codexAdapter = {
     };
   },
 
-  async collectEvents(context) {
+  async collectEvents(context: Record<string, any>) {
     const runtimeHome = resolveRuntimeHome(context);
     const transcriptPath =
       context.transcriptPath ?? (await findSessionTranscript(path.join(runtimeHome, 'sessions'), context.sessionId));
@@ -503,7 +503,7 @@ export const codexAdapter = {
       runtime: 'codex',
       projectId,
       sessionId: context.sessionId,
-      messages,
+      messages: messages as import('../../types.js').TranscriptMessage[],
     });
     const withRawTurnIds = remapTurnIds(normalized, parsed.turns);
     const withCompletion = attachTurnCompletionAttribute(withRawTurnIds, parsed.turns);

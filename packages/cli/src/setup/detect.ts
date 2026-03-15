@@ -1,13 +1,13 @@
-// @ts-nocheck
+
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { isSpanoryHookCommand, parseSetupRuntimes, setupHomeRoot } from './apply.js';
 
-export async function runSetupDetect(options, deps) {
+export async function runSetupDetect(options: Record<string, any>, deps: Record<string, any>) {
   const homeRoot = setupHomeRoot(options.home);
-  const report = {
+  const report: { homeRoot: string; runtimes: any[] } = {
     homeRoot,
     runtimes: [],
   };
@@ -64,10 +64,10 @@ export async function runSetupDetect(options, deps) {
   return report;
 }
 
-export async function runSetupDoctor(options, deps) {
+export async function runSetupDoctor(options: Record<string, any>, deps: Record<string, any>): Promise<{ ok: boolean; checks: any[] }> {
   const homeRoot = setupHomeRoot(options.home);
   const selected = parseSetupRuntimes(options.runtimes, deps.defaultSetupRuntimes);
-  const checks = [];
+  const checks: any[] = [];
 
   if (selected.includes('claude-code')) {
     const settingsPath = path.join(homeRoot, '.claude', 'settings.json');

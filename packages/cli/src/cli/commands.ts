@@ -1,20 +1,20 @@
-// @ts-nocheck
+
 import path from 'node:path';
 
 import { Command, Option } from 'commander';
 
-function runtimeDisplayName(runtimeName) {
+function runtimeDisplayName(runtimeName: string) {
   if (runtimeName === 'codex') return 'Codex';
   if (runtimeName === 'openclaw') return 'OpenClaw';
   if (runtimeName === 'opencode') return 'OpenCode';
   return 'Claude Code';
 }
 
-function runtimeDescription(runtimeName) {
+function runtimeDescription(runtimeName: string) {
   return `${runtimeDisplayName(runtimeName)} transcript runtime`;
 }
 
-function parsePluginRuntimeName(runtimeName) {
+function parsePluginRuntimeName(runtimeName: string) {
   const normalized = String(runtimeName ?? '')
     .trim()
     .toLowerCase();
@@ -33,7 +33,7 @@ function createReportInputJsonOption() {
     .makeOptionMandatory(true);
 }
 
-function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
+function registerRuntimeCommands(runtimeRoot: Command, runtimeName: string, deps: Record<string, any>) {
   const runtimeCmd = runtimeRoot.command(runtimeName).description(runtimeDescription(runtimeName));
   const displayName = runtimeDisplayName(runtimeName);
   const hasTranscriptAdapter = Boolean(deps.runtimeAdapters[runtimeName]);
@@ -63,7 +63,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
           `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234\n` +
           `  spanory runtime ${runtimeName} export --project-id my-project --session-id 1234 --endpoint http://localhost:3000/api/public/otel/v1/traces\n`,
       )
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const adapter = deps.getRuntimeAdapter(runtimeName);
         const context = {
           projectId: options.projectId ?? 'codex',
@@ -97,7 +97,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
           `  echo "{...}" | spanory runtime ${runtimeName} hook\n` +
           `  cat payload.json | spanory runtime ${runtimeName} hook --export-json-dir ${deps.resolveRuntimeExportDir(runtimeName)}\n`,
       )
-      .action(async (options) =>
+      .action(async (options: Record<string, any>) =>
         deps.runHookMode({
           runtimeName,
           runtimeHome: options.runtimeHome,
@@ -133,7 +133,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
           `  spanory runtime ${runtimeName} backfill --project-id my-project --since 2026-02-27T00:00:00Z --limit 20\n` +
           `  spanory runtime ${runtimeName} backfill --project-id my-project --session-ids a,b,c --dry-run\n`,
       )
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const adapter = deps.getRuntimeAdapter(runtimeName);
         const endpoint = deps.resolveEndpoint(options.endpoint);
         const headers = deps.resolveHeaders(options.headers);
@@ -174,9 +174,9 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
               exportJsonPath,
             });
             exportedCount += 1;
-          } catch (error) {
+          } catch (error: unknown) {
             skippedCount += 1;
-            const message = error?.message ? String(error.message).replace(/\s+/g, ' ') : 'unknown-error';
+            const message = (error as Error)?.message ? String((error as Error).message).replace(/\s+/g, ' ') : 'unknown-error';
             console.log(`backfill=error sessionId=${candidate.sessionId} error=${message}`);
           }
         }
@@ -208,7 +208,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
           '  spanory runtime codex watch\n' +
           '  spanory runtime codex watch --include-existing --once --settle-ms 0\n',
       )
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         await deps.runCodexWatch(options);
       });
 
@@ -219,7 +219,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .option('--upstream <url>', 'Upstream OpenAI-compatible base URL')
       .option('--spool-dir <path>', 'Capture spool directory')
       .option('--max-body-bytes <n>', 'Maximum bytes to keep per redacted body', '131072')
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const { host, port } = deps.parseListenAddress(options.listen);
         if (!Number.isFinite(port) || port <= 0) {
           throw new Error(`invalid --listen port: ${options.listen}`);
@@ -237,7 +237,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
         console.log(
           `proxy=listening url=${proxy.url()} upstream=${options.upstream ?? process.env.SPANORY_CODEX_PROXY_UPSTREAM ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com'}`,
         );
-        await new Promise((resolve) => {
+        await new Promise<void>((resolve) => {
           const stop = async () => {
             process.off('SIGINT', stop);
             process.off('SIGTERM', stop);
@@ -258,7 +258,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .description('Install Spanory OpenClaw plugin using openclaw plugins install -l')
       .option('--plugin-dir <path>', 'Plugin directory path (default: packages/openclaw-plugin)')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const runtimeHome = deps.resolveRuntimeHome('openclaw', options.runtimeHome);
         const result = await deps.installOpenclawPlugin(runtimeHome, false, {
           resolveOpenclawPluginDir: () => options.pluginDir ?? deps.resolveOpenclawPluginDir(),
@@ -273,7 +273,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .command('enable')
       .description('Enable Spanory OpenClaw plugin')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
+      .action((options: Record<string, any>) => {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'enable', deps.openclawPluginId], {
           env: {
             ...process.env,
@@ -292,7 +292,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .command('disable')
       .description('Disable Spanory OpenClaw plugin')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
+      .action((options: Record<string, any>) => {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'disable', deps.openclawPluginId], {
           env: {
             ...process.env,
@@ -311,7 +311,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .command('uninstall')
       .description('Uninstall Spanory OpenClaw plugin')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action((options) => {
+      .action((options: Record<string, any>) => {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'uninstall', deps.openclawPluginId], {
           env: {
             ...process.env,
@@ -330,7 +330,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .command('doctor')
       .description('Run local diagnostic checks for Spanory OpenClaw plugin')
       .option('--runtime-home <path>', 'Override runtime home directory')
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const report = await deps.runOpenclawPluginDoctor(options.runtimeHome);
         console.log(JSON.stringify(report, null, 2));
         if (!report.ok) process.exitCode = 2;
@@ -345,7 +345,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .description('Install Spanory OpenCode plugin loader into ~/.config/opencode/plugin')
       .option('--plugin-dir <path>', 'Plugin directory path (default: packages/opencode-plugin)')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const result = await deps.installOpencodePlugin(options.runtimeHome, options.pluginDir);
         console.log(`installed=${result.loaderFile}`);
       });
@@ -354,7 +354,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .command('uninstall')
       .description('Remove Spanory OpenCode plugin loader')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const result = await deps.uninstallOpencodePlugin(options.runtimeHome);
         const loaderFile = result.loaderFile ?? deps.opencodePluginLoaderPath(options.runtimeHome);
         console.log(`removed=${loaderFile}`);
@@ -367,7 +367,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
       .command('doctor')
       .description('Run local diagnostic checks for Spanory OpenCode plugin')
       .option('--runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-      .action(async (options) => {
+      .action(async (options: Record<string, any>) => {
         const report = await deps.runOpencodePluginDoctor(options.runtimeHome);
         console.log(JSON.stringify(report, null, 2));
         if (!report.ok) process.exitCode = 2;
@@ -375,7 +375,7 @@ function registerRuntimeCommands(runtimeRoot, runtimeName, deps) {
   }
 }
 
-export function createProgram(deps) {
+export function createProgram(deps: Record<string, any>) {
   const program = new Command();
   program
     .name('spanory')
@@ -395,7 +395,7 @@ export function createProgram(deps) {
     .command('session')
     .description('Session-level summary view')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'session-summary', rows: deps.summarizeSessions(sessions) }, null, 2));
     });
@@ -404,7 +404,7 @@ export function createProgram(deps) {
     .command('mcp')
     .description('MCP server aggregation view')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'mcp-summary', rows: deps.summarizeMcp(sessions) }, null, 2));
     });
@@ -413,7 +413,7 @@ export function createProgram(deps) {
     .command('command')
     .description('Agent command aggregation view')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'command-summary', rows: deps.summarizeCommands(sessions) }, null, 2));
     });
@@ -422,7 +422,7 @@ export function createProgram(deps) {
     .command('agent')
     .description('Agent activity summary per session')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'agent-summary', rows: deps.summarizeAgents(sessions) }, null, 2));
     });
@@ -431,7 +431,7 @@ export function createProgram(deps) {
     .command('cache')
     .description('Cache usage summary per session')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'cache-summary', rows: deps.summarizeCache(sessions) }, null, 2));
     });
@@ -440,7 +440,7 @@ export function createProgram(deps) {
     .command('tool')
     .description('Tool usage aggregation view')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'tool-summary', rows: deps.summarizeTools(sessions) }, null, 2));
     });
@@ -449,7 +449,7 @@ export function createProgram(deps) {
     .command('context')
     .description('Context observability summary per session')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'context-summary', rows: deps.summarizeContext(sessions) }, null, 2));
     });
@@ -458,7 +458,7 @@ export function createProgram(deps) {
     .command('turn-diff')
     .description('Turn input diff summary view')
     .addOption(createReportInputJsonOption())
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       console.log(JSON.stringify({ view: 'turn-diff-summary', rows: deps.summarizeTurnDiff(sessions) }, null, 2));
     });
@@ -480,7 +480,7 @@ export function createProgram(deps) {
         '    ]\n' +
         '  }\n',
     )
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const sessions = await deps.loadExportedEvents(options.inputJson);
       const rules = await deps.loadAlertRules(options.rules);
       const alerts = deps.evaluateRules(rules, sessions);
@@ -517,7 +517,7 @@ export function createProgram(deps) {
       'after',
       '\nMinimal usage in SessionEnd hook command:\n' + '  spanory hook\n' + '  spanory hook --runtime openclaw\n',
     )
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const runtimeName = options.runtime ?? process.env.SPANORY_HOOK_RUNTIME ?? 'claude-code';
       await deps.runHookMode({
         runtimeName,
@@ -539,7 +539,7 @@ export function createProgram(deps) {
     .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
     .option('--plugin-dir <path>', 'Plugin directory path override')
     .option('--runtime-home <path>', 'Override runtime home directory')
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const runtime = parsePluginRuntimeName(options.runtime);
       if (runtime === 'openclaw') {
         const runtimeHome = deps.resolveRuntimeHome('openclaw', options.runtimeHome);
@@ -561,7 +561,7 @@ export function createProgram(deps) {
     .description('Run Spanory runtime plugin diagnostics (shortcut for runtime <runtime> plugin doctor)')
     .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
     .option('--runtime-home <path>', 'Override runtime home directory')
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const runtime = parsePluginRuntimeName(options.runtime);
       if (runtime === 'openclaw') {
         const report = await deps.runOpenclawPluginDoctor(options.runtimeHome);
@@ -579,7 +579,7 @@ export function createProgram(deps) {
     .description('Uninstall Spanory runtime plugin (shortcut for runtime <runtime> plugin uninstall)')
     .requiredOption('--runtime <name>', 'Target runtime (openclaw|opencode)')
     .option('--runtime-home <path>', 'Override runtime home directory')
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const runtime = parsePluginRuntimeName(options.runtime);
       if (runtime === 'openclaw') {
         const result = deps.runSystemCommand('openclaw', ['plugins', 'uninstall', deps.openclawPluginId], {
@@ -612,7 +612,7 @@ export function createProgram(deps) {
     .option('--home <path>', 'Home directory root override (default: $HOME)')
     .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home for reporting')
     .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home for reporting')
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const report = await deps.runSetupDetect(options);
       console.log(JSON.stringify(report, null, 2));
     });
@@ -632,7 +632,7 @@ export function createProgram(deps) {
     .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
     .option('--opencode-plugin-dir <path>', 'Override OpenCode plugin directory (default: packages/opencode-plugin)')
     .option('--dry-run', 'Only print planned changes without writing files', false)
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const report = await deps.runSetupApply(options);
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 2;
@@ -649,7 +649,7 @@ export function createProgram(deps) {
     .option('--home <path>', 'Home directory root override (default: $HOME)')
     .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
     .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const report = await deps.runSetupDoctor(options);
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 2;
@@ -667,7 +667,7 @@ export function createProgram(deps) {
     .option('--openclaw-runtime-home <path>', 'Override OpenClaw runtime home (default: ~/.openclaw)')
     .option('--opencode-runtime-home <path>', 'Override OpenCode runtime home (default: ~/.config/opencode)')
     .option('--dry-run', 'Only print planned changes without writing files', false)
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const report = await deps.runSetupTeardown(options);
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 2;
@@ -679,7 +679,7 @@ export function createProgram(deps) {
     .option('--dry-run', 'Print upgrade command without executing', false)
     .option('--manager <name>', 'Package manager override: npm|tnpm')
     .option('--scope <scope>', 'Install scope override: global|local')
-    .action(async (options) => {
+    .action(async (options: Record<string, any>) => {
       const manager = options.manager === 'tnpm' ? 'tnpm' : deps.detectUpgradePackageManager();
       const scope =
         options.scope === 'local' ? 'local' : options.scope === 'global' ? 'global' : deps.detectUpgradeScope();

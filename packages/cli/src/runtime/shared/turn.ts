@@ -1,5 +1,4 @@
-// @ts-nocheck
-
+import type { Attributes, TranscriptMessage } from '../../types.js';
 import {
   extractReasoningBlocks,
   extractText,
@@ -16,7 +15,7 @@ import { normalizeUserInput, runtimeVersionAttributes } from './gateway.js';
 import { REDACTED, redactBody, truncateText } from './redaction.js';
 import { addUsage, modelAttributes, usageAttributes } from './usage.js';
 
-function actorHeuristic(messages) {
+function actorHeuristic(messages: TranscriptMessage[]): { role: string; confidence: number } {
   const hasSidechainSignal = messages.some(
     (m) => m?.isSidechain === true || (typeof m?.agentId === 'string' && m.agentId.trim().length > 0),
   );
@@ -24,7 +23,7 @@ function actorHeuristic(messages) {
   return { role: 'main', confidence: 0.95 };
 }
 
-function firstNonEmptyString(values) {
+function firstNonEmptyString(values: unknown[]): string {
   for (const value of values) {
     const text = String(value ?? '').trim();
     if (text) return text;
@@ -32,7 +31,7 @@ function firstNonEmptyString(values) {
   return '';
 }
 
-function inferParentLinkAttributes(messages) {
+function inferParentLinkAttributes(messages: TranscriptMessage[]): Record<string, string> {
   const agentId = firstNonEmptyString(
     messages.map((m) => m?.agentId ?? m?.agent_id ?? m?.message?.agentId ?? m?.message?.agent_id),
   );
@@ -77,7 +76,7 @@ function inferParentLinkAttributes(messages) {
     messages.map((m) => m?.parentLinkConfidence ?? m?.parent_link_confidence),
   );
 
-  const attrs = {};
+  const attrs: Record<string, string> = {};
   if (agentId) {
     attrs['gen_ai.agent.id'] = agentId;
   }
@@ -104,7 +103,7 @@ function toolContentMaxBytes() {
   return DEFAULT_TOOL_CONTENT_MAX_BYTES;
 }
 
-function isFileTool(toolName, toolInput) {
+function isFileTool(toolName: string, toolInput: Record<string, unknown>): boolean {
   const normalizedName = String(toolName ?? '')
     .trim()
     .toLowerCase();
@@ -116,7 +115,7 @@ function isFileTool(toolName, toolInput) {
   );
 }
 
-function serializeToolInput(toolName, toolInput) {
+function serializeToolInput(toolName: string, toolInput: Record<string, unknown>): string {
   const maxBytes = toolContentMaxBytes();
   const payload = redactBody(toolInput ?? {}, maxBytes, {
     extraSensitiveKeyPattern: isFileTool(toolName, toolInput)
@@ -126,24 +125,44 @@ function serializeToolInput(toolName, toolInput) {
   return JSON.stringify(payload);
 }
 
-function serializeToolOutput(toolName, toolInput, toolOutput) {
+function serializeToolOutput(toolName: string, toolInput: Record<string, unknown>, toolOutput: string): string {
   if (isFileTool(toolName, toolInput)) return REDACTED;
   return truncateText(toolOutput, toolContentMaxBytes());
 }
 
-export function createTurn(messages, turnId, projectId, sessionId, runtime) {
+export interface TurnEvent {
+  runtime: string;
+  projectId: string;
+  sessionId: string;
+  turnId: string;
+  category: string;
+  name: string;
+  startedAt: string;
+  endedAt: string;
+  input: string;
+  output: string;
+  attributes: Record<string, string | number | boolean>;
+}
+
+export function createTurn(
+  messages: TranscriptMessage[],
+  turnId: string,
+  projectId: string,
+  sessionId: string,
+  runtime: string,
+): TurnEvent[] {
   const user =
     messages.find(isPromptUserMessage) ?? messages.find((m) => m.role === 'user' && !m.isMeta) ?? messages[0];
   const assistantsRaw = messages.filter((m) => m.role === 'assistant');
-  const assistantOrder = [];
-  const assistantLatest = new Map();
+  const assistantOrder: string[] = [];
+  const assistantLatest = new Map<string, TranscriptMessage>();
   for (let i = 0; i < assistantsRaw.length; i += 1) {
     const msg = assistantsRaw[i];
     const key = msg.messageId ? `id:${msg.messageId}` : `idx:${i}`;
     if (!assistantLatest.has(key)) assistantOrder.push(key);
     assistantLatest.set(key, msg);
   }
-  const assistants = assistantOrder.map((key) => assistantLatest.get(key)).filter(Boolean);
+  const assistants = assistantOrder.map((key) => assistantLatest.get(key)!).filter(Boolean);
   const start = user?.timestamp ?? messages[0]?.timestamp ?? new Date();
   const end = messages[messages.length - 1]?.timestamp ?? start;
 
@@ -158,18 +177,18 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
   const runtimeAttrs = runtimeVersionAttributes(runtimeVersion);
   const normalizedInput = normalizeUserInput(user?.content);
 
-  const totalUsage = {};
-  let latestModel;
+  const totalUsage: Record<string, number> = {};
+  let latestModel: string | undefined;
   for (const msg of assistants) {
     if (msg.model) latestModel = msg.model;
-    addUsage(totalUsage, msg.usage);
+    addUsage(totalUsage, msg.usage as Record<string, number> | undefined);
   }
   const usage = Object.keys(totalUsage).length ? totalUsage : undefined;
   const actor = actorHeuristic(messages);
   const parentLinkAttrs = inferParentLinkAttributes(messages);
   const sharedAttrs = { ...runtimeAttrs, ...parentLinkAttrs };
 
-  const events = [
+  const events: TurnEvent[] = [
     {
       runtime,
       projectId,
@@ -195,7 +214,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
     },
   ];
 
-  const resultByToolId = new Map();
+  const resultByToolId = new Map<string, { content: string; endedAt: string }>();
   for (const msg of messages) {
     if (msg.role !== 'user') continue;
     const resultAt = isoFromUnknownTimestamp(msg.timestamp, end);
@@ -248,7 +267,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
     for (const reasoning of reasoningBlocks) {
       const reasoningText = String(reasoning?.text ?? '').trim();
       if (!reasoningText) continue;
-      const reasoningAt = isoFromUnknownTimestamp(reasoning?.timestamp, assistant.timestamp);
+      const reasoningAt = isoFromUnknownTimestamp(reasoning?.timestamp, assistant.timestamp ?? end);
       events.push({
         runtime,
         projectId,
@@ -274,10 +293,10 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
     for (const tu of toolUses) {
       const toolName = String(tu.name ?? '');
       const toolId = String(tu.id ?? '');
-      const toolInput = tu.input ?? {};
+      const toolInput = (tu.input ?? {}) as Record<string, unknown>;
       const toolResult = resultByToolId.get(toolId);
       const toolOutput = toolResult?.content ?? '';
-      const t = assistant.timestamp.toISOString();
+      const t = (assistant.timestamp ?? end).toISOString();
       const toolEndedAt = toolResult?.endedAt ?? t;
 
       if (toolName === 'Bash') {
@@ -303,7 +322,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
             ...modelAttributes(assistant.model),
-            ...usageAttributes(assistant.usage),
+            ...usageAttributes(assistant.usage as Record<string, number> | undefined),
           },
         });
         continue;
@@ -331,7 +350,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
             'gen_ai.operation.name': 'execute_tool',
             ...(serverName ? { 'agentic.mcp.server.name': serverName } : {}),
             ...modelAttributes(assistant.model),
-            ...usageAttributes(assistant.usage),
+            ...usageAttributes(assistant.usage as Record<string, number> | undefined),
           },
         });
         continue;
@@ -357,7 +376,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'invoke_agent',
             ...modelAttributes(assistant.model),
-            ...usageAttributes(assistant.usage),
+            ...usageAttributes(assistant.usage as Record<string, number> | undefined),
           },
         });
         continue;
@@ -383,7 +402,7 @@ export function createTurn(messages, turnId, projectId, sessionId, runtime) {
             'gen_ai.tool.call.id': toolId,
             'gen_ai.operation.name': 'execute_tool',
             ...modelAttributes(assistant.model),
-            ...usageAttributes(assistant.usage),
+            ...usageAttributes(assistant.usage as Record<string, number> | undefined),
           },
         });
       }

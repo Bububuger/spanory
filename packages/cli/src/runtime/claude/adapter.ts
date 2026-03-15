@@ -1,37 +1,36 @@
-// @ts-nocheck
+
 // BUB-79: Scoped waiver for legacy Claude adapter parser; strict remains enforced at package command level.
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { extractToolUses } from '@bububuger/core';
-
 import { RUNTIME_CAPABILITIES } from '../shared/capabilities.js';
+import { extractToolUses } from '../shared/content.js';
 import { forEachJsonlEntry } from '../shared/jsonl.js';
 import { normalizeTranscriptMessages, parseProjectIdFromTranscriptPath, pickUsage } from '../shared/normalize.js';
 
 const INFER_WINDOW_EPSILON_MS = 1200;
 
-function parseTimestamp(entry) {
+function parseTimestamp(entry: Record<string, any>) {
   const raw = entry?.timestamp;
   const date = raw ? new Date(raw) : new Date();
   if (Number.isNaN(date.getTime())) return new Date();
   return date;
 }
 
-function normalizeIsSidechain(entry) {
+function normalizeIsSidechain(entry: Record<string, any>) {
   const raw = entry?.isSidechain ?? entry?.is_sidechain ?? entry?.message?.isSidechain ?? entry?.message?.is_sidechain;
   return raw === true;
 }
 
-function normalizeAgentId(entry) {
+function normalizeAgentId(entry: Record<string, any>) {
   return entry?.agentId ?? entry?.agent_id ?? entry?.message?.agentId ?? entry?.message?.agent_id;
 }
 
-function extractToolResults(content) {
+function extractToolResults(content: unknown) {
   if (!Array.isArray(content)) return [];
   return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_result');
 }
 
-function isToolResultOnlyContent(content) {
+function isToolResultOnlyContent(content: unknown) {
   return (
     Array.isArray(content) &&
     content.length > 0 &&
@@ -39,7 +38,7 @@ function isToolResultOnlyContent(content) {
   );
 }
 
-function isPromptUserMessage(message) {
+function isPromptUserMessage(message: Record<string, any>) {
   if (!message || message.role !== 'user' || message.isMeta) return false;
   const { content } = message;
   if (typeof content === 'string') return content.trim().length > 0;
@@ -48,7 +47,7 @@ function isPromptUserMessage(message) {
   return content.length > 0;
 }
 
-function firstNonEmpty(values) {
+function firstNonEmpty(values: any[]) {
   for (const value of values) {
     const text = String(value ?? '').trim();
     if (text) return text;
@@ -56,14 +55,14 @@ function firstNonEmpty(values) {
   return '';
 }
 
-function findChildSessionHints(messages) {
+function findChildSessionHints(messages: Record<string, any>[]) {
   const hasSidechainSignal = messages.some(
-    (m) => m?.isSidechain === true || String(m?.agentId ?? '').trim().length > 0,
+    (m: Record<string, any>) => m?.isSidechain === true || String(m?.agentId ?? '').trim().length > 0,
   );
   if (!hasSidechainSignal) return null;
 
   const hasParentLink = messages.some(
-    (m) =>
+    (m: Record<string, any>) =>
       String(m?.parentSessionId ?? m?.parent_session_id ?? '').trim().length > 0 ||
       String(m?.parentTurnId ?? m?.parent_turn_id ?? '').trim().length > 0 ||
       String(m?.parentToolCallId ?? m?.parent_tool_call_id ?? '').trim().length > 0,
@@ -76,11 +75,11 @@ function findChildSessionHints(messages) {
 
   return {
     childStartedAt,
-    agentId: firstNonEmpty(messages.map((m) => m?.agentId)),
+    agentId: firstNonEmpty(messages.map((m: Record<string, any>) => m?.agentId)),
   };
 }
 
-function extractTaskWindows(messages, sessionId) {
+function extractTaskWindows(messages: Record<string, any>[], sessionId: string) {
   const sorted = [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   const windows = [];
   const byCallId = new Map();
@@ -127,7 +126,7 @@ function extractTaskWindows(messages, sessionId) {
   return windows;
 }
 
-async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) {
+async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }: { transcriptPath: string; messages: Record<string, any>[] }) {
   const hints = findChildSessionHints(messages);
   if (!hints) return messages;
 
@@ -166,7 +165,7 @@ async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) 
   candidates.sort((a, b) => a.score - b.score);
   const best = candidates[0];
 
-  return messages.map((msg) => ({
+  return messages.map((msg: Record<string, any>) => ({
     ...msg,
     parentSessionId: best.parentSessionId,
     parentTurnId: best.parentTurnId,
@@ -175,8 +174,8 @@ async function inferParentLinkFromSiblingSessions({ transcriptPath, messages }) 
   }));
 }
 
-async function readClaudeTranscript(transcriptPath) {
-  const messages = [];
+async function readClaudeTranscript(transcriptPath: string) {
+  const messages: Record<string, any>[] = [];
   await forEachJsonlEntry(transcriptPath, (entry) => {
     messages.push({
       role: entry.type,
@@ -204,7 +203,7 @@ export const claudeCodeAdapter = {
   runtimeName: 'claude-code',
   capabilities: RUNTIME_CAPABILITIES['claude-code'],
 
-  resolveContextFromHook(payload) {
+  resolveContextFromHook(payload: Record<string, any>) {
     const sessionId = payload.sessionId;
     const transcriptPath = payload.transcriptPath;
     if (!sessionId || !transcriptPath) return null;
@@ -213,7 +212,7 @@ export const claudeCodeAdapter = {
     return { projectId, sessionId, transcriptPath };
   },
 
-  async collectEvents(context) {
+  async collectEvents(context: Record<string, any>) {
     const transcriptPath =
       context.transcriptPath ??
       path.join(process.env.HOME || '', '.claude', 'projects', context.projectId, `${context.sessionId}.jsonl`);
@@ -224,7 +223,7 @@ export const claudeCodeAdapter = {
       runtime: 'claude-code',
       projectId: context.projectId,
       sessionId: context.sessionId,
-      messages,
+      messages: messages as import('../../types.js').TranscriptMessage[],
     });
   },
 };

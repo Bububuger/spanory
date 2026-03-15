@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { existsSync } from 'node:fs';
 import { access, mkdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,11 +6,11 @@ import { pathToFileURL } from 'node:url';
 
 export const OPENCODE_SPANORY_PLUGIN_ID = 'spanory-opencode-plugin';
 
-export function opencodeRuntimeHomeForSetup(homeRoot, explicitRuntimeHome) {
+export function opencodeRuntimeHomeForSetup(homeRoot: string, explicitRuntimeHome: string | undefined): string {
   return explicitRuntimeHome || path.join(homeRoot, '.config', 'opencode');
 }
 
-export function resolveOpencodePluginDir(deps) {
+export function resolveOpencodePluginDir(deps: Record<string, any>): string {
   if (process.env.SPANORY_OPENCODE_PLUGIN_DIR) {
     return process.env.SPANORY_OPENCODE_PLUGIN_DIR;
   }
@@ -24,11 +24,11 @@ export function resolveOpencodePluginDir(deps) {
     path.resolve(deps.cliPackageDir, 'opencode-plugin'),
     path.resolve(process.cwd(), 'packages/opencode-plugin'),
   ].filter(Boolean);
-  const hit = candidates.find((dir) => existsSync(path.join(dir, 'package.json')));
+  const hit = candidates.find((dir) => existsSync(path.join(dir!, 'package.json')));
   return hit ?? candidates[0] ?? path.resolve(process.cwd(), 'packages/opencode-plugin');
 }
 
-export async function resolveOpencodePluginEntry(pluginDir) {
+export async function resolveOpencodePluginEntry(pluginDir: string): Promise<string> {
   const explicitEntry = process.env.SPANORY_OPENCODE_PLUGIN_ENTRY;
   if (explicitEntry) {
     await stat(explicitEntry);
@@ -40,23 +40,23 @@ export async function resolveOpencodePluginEntry(pluginDir) {
   return pluginEntry;
 }
 
-export function resolveOpencodePluginInstallDir(runtimeHome, resolveRuntimeHome) {
+export function resolveOpencodePluginInstallDir(runtimeHome: string, resolveRuntimeHome: (runtime: string, home: string) => string): string {
   return path.join(resolveRuntimeHome('opencode', runtimeHome), 'plugin');
 }
 
-export function opencodePluginLoaderPath(runtimeHome, resolveRuntimeHome) {
+export function opencodePluginLoaderPath(runtimeHome: string, resolveRuntimeHome: (runtime: string, home: string) => string): string {
   return path.join(resolveOpencodePluginInstallDir(runtimeHome, resolveRuntimeHome), `${OPENCODE_SPANORY_PLUGIN_ID}.js`);
 }
 
-function resolveOpencodePluginSpoolDir(runtimeHome, resolveOpencodePluginStateRoot) {
+function resolveOpencodePluginSpoolDir(runtimeHome: string, resolveOpencodePluginStateRoot: (home: string) => string): string {
   return process.env.SPANORY_OPENCODE_SPOOL_DIR ?? path.join(resolveOpencodePluginStateRoot(runtimeHome), 'spool');
 }
 
-function resolveOpencodePluginLogFile(runtimeHome, resolveOpencodePluginStateRoot) {
+function resolveOpencodePluginLogFile(runtimeHome: string, resolveOpencodePluginStateRoot: (home: string) => string): string {
   return path.join(resolveOpencodePluginStateRoot(runtimeHome), 'plugin.log');
 }
 
-async function ensureOpencodePluginRuntimeDirs(runtimeHome, resolveOpencodePluginStateRoot) {
+async function ensureOpencodePluginRuntimeDirs(runtimeHome: string, resolveOpencodePluginStateRoot: (home: string) => string) {
   const spoolDir = resolveOpencodePluginSpoolDir(runtimeHome, resolveOpencodePluginStateRoot);
   const logFile = resolveOpencodePluginLogFile(runtimeHome, resolveOpencodePluginStateRoot);
   await mkdir(spoolDir, { recursive: true });
@@ -64,7 +64,7 @@ async function ensureOpencodePluginRuntimeDirs(runtimeHome, resolveOpencodePlugi
   return { spoolDir, logFile };
 }
 
-export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps) {
+export async function installOpencodePlugin(runtimeHome: string, pluginDirOverride: string | undefined, deps: Record<string, any>) {
   const pluginDir = path.resolve(pluginDirOverride ?? deps.resolveOpencodePluginDir());
   let pluginEntry;
   try {
@@ -97,8 +97,8 @@ export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps
       config.plugin = [...plugins, OPENCODE_SPANORY_PLUGIN_ID];
       await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
     }
-  } catch (err) {
-    if (err?.code === 'ENOENT') {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
       await writeFile(opencodeConfigPath, JSON.stringify({ plugin: [OPENCODE_SPANORY_PLUGIN_ID] }, null, 2) + '\n', 'utf-8');
       return { loaderFile, runtimeDirs };
     }
@@ -108,7 +108,7 @@ export async function installOpencodePlugin(runtimeHome, pluginDirOverride, deps
   return { loaderFile, runtimeDirs };
 }
 
-export async function uninstallOpencodePlugin(runtimeHome, deps) {
+export async function uninstallOpencodePlugin(runtimeHome: string, deps: Record<string, any>) {
   const installDir = resolveOpencodePluginInstallDir(runtimeHome, deps.resolveRuntimeHome);
   const loaderFile = opencodePluginLoaderPath(runtimeHome, deps.resolveRuntimeHome);
   const packageFile = path.join(installDir, 'package.json');
@@ -117,8 +117,8 @@ export async function uninstallOpencodePlugin(runtimeHome, deps) {
   await rm(packageFile, { force: true });
   try {
     await rmdir(installDir);
-  } catch (error) {
-    if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT' && (error as NodeJS.ErrnoException)?.code !== 'ENOTEMPTY') throw error;
   }
 
   let unregistered = false;
@@ -127,7 +127,7 @@ export async function uninstallOpencodePlugin(runtimeHome, deps) {
     const raw = await readFile(opencodeConfigPath, 'utf-8');
     const config = JSON.parse(raw);
     if (Array.isArray(config.plugin) && config.plugin.includes(OPENCODE_SPANORY_PLUGIN_ID)) {
-      config.plugin = config.plugin.filter((pluginId) => pluginId !== OPENCODE_SPANORY_PLUGIN_ID);
+      config.plugin = config.plugin.filter((pluginId: string) => pluginId !== OPENCODE_SPANORY_PLUGIN_ID);
       await writeFile(opencodeConfigPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
       unregistered = true;
     }
@@ -140,8 +140,8 @@ export async function uninstallOpencodePlugin(runtimeHome, deps) {
 
 const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint', 'last_send_endpoint_configured']);
 
-export async function runOpencodePluginDoctor(runtimeHome, deps) {
-  const checks = [];
+export async function runOpencodePluginDoctor(runtimeHome: string, deps: Record<string, any>) {
+  const checks: Record<string, any>[] = [];
 
   const loaderFile = opencodePluginLoaderPath(runtimeHome, deps.resolveRuntimeHome);
   try {
@@ -160,7 +160,7 @@ export async function runOpencodePluginDoctor(runtimeHome, deps) {
       ok: hasDefault,
       detail: hasDefault ? 'plugin module loaded and exports a register function' : 'plugin module loaded but missing default export function',
     });
-  } catch (err) {
+  } catch (err: unknown) {
     checks.push({
       id: 'plugin_loadable',
       ok: false,
@@ -197,8 +197,8 @@ export async function runOpencodePluginDoctor(runtimeHome, deps) {
     await stat(spoolDir);
     await access(spoolDir);
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
-  } catch (err) {
-    if (err?.code === 'ENOENT') {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
       checks.push({
         id: 'spool_writable',
         ok: true,
@@ -215,8 +215,8 @@ export async function runOpencodePluginDoctor(runtimeHome, deps) {
     await stat(logFile);
     await access(logFile);
     checks.push({ id: 'opencode_plugin_log', ok: true, detail: logFile });
-  } catch (err) {
-    if (err?.code === 'ENOENT') {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
       checks.push({
         id: 'opencode_plugin_log',
         ok: true,

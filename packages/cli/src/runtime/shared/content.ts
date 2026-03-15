@@ -1,6 +1,4 @@
-// @ts-nocheck
-
-export function extractText(content) {
+export function extractText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
   return content
@@ -13,34 +11,34 @@ export function extractText(content) {
     .join('\n');
 }
 
-export function extractToolUses(content) {
+export function extractToolUses(content: unknown): Record<string, unknown>[] {
   if (!Array.isArray(content)) return [];
   return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_use');
 }
 
-export function extractToolResults(content) {
+export function extractToolResults(content: unknown): Record<string, unknown>[] {
   if (!Array.isArray(content)) return [];
   return content.filter((block) => block && typeof block === 'object' && block.type === 'tool_result');
 }
 
-export function extractReasoningBlocks(content) {
+export function extractReasoningBlocks(content: unknown): Record<string, unknown>[] {
   if (!Array.isArray(content)) return [];
   return content.filter((block) => block && typeof block === 'object' && block.type === 'reasoning');
 }
 
-export function isoFromUnknownTimestamp(value, fallback) {
-  const candidate = value instanceof Date ? value : new Date(value ?? '');
+export function isoFromUnknownTimestamp(value: unknown, fallback: Date): string {
+  const candidate = value instanceof Date ? value : new Date((value ?? '') as string | number);
   if (!Number.isNaN(candidate.getTime())) return candidate.toISOString();
   return fallback.toISOString();
 }
 
-function isToolResultOnlyContent(content) {
+function isToolResultOnlyContent(content: unknown): boolean {
   return Array.isArray(content)
     && content.length > 0
     && content.every((block) => block && typeof block === 'object' && block.type === 'tool_result');
 }
 
-export function isPromptUserMessage(message) {
+export function isPromptUserMessage(message: Record<string, unknown>): boolean {
   if (!message || message.role !== 'user' || message.isMeta) return false;
   const { content } = message;
   if (typeof content === 'string') return content.trim().length > 0;
@@ -49,7 +47,7 @@ export function isPromptUserMessage(message) {
   return content.length > 0;
 }
 
-export function extractToolResultText(block, message) {
+export function extractToolResultText(block: Record<string, unknown>, message: Record<string, unknown>): string {
   const raw = block?.content;
   if (typeof raw === 'string' && raw.trim()) return raw;
   if (Array.isArray(raw)) {
@@ -59,14 +57,15 @@ export function extractToolResultText(block, message) {
   }
   if (raw && typeof raw === 'object') return JSON.stringify(raw);
 
-  const stdout = message?.toolUseResult?.stdout;
+  const toolUseResult = message?.toolUseResult as Record<string, unknown> | undefined;
+  const stdout = toolUseResult?.stdout;
   if (typeof stdout === 'string' && stdout.length > 0) return stdout;
-  const stderr = message?.toolUseResult?.stderr;
+  const stderr = toolUseResult?.stderr;
   if (typeof stderr === 'string' && stderr.length > 0) return stderr;
   return '';
 }
 
-export function parseSlashCommand(text) {
+export function parseSlashCommand(text: string): { name: string; args: string } | null {
   const m = text.match(/<command-name>\s*\/([^<\s]+)\s*<\/command-name>/i);
   if (m) {
     const argsMatch = text.match(/<command-args>([\s\S]*?)<\/command-args>/i);
@@ -82,7 +81,7 @@ export function parseSlashCommand(text) {
   };
 }
 
-export function parseBashCommandAttributes(commandLine) {
+export function parseBashCommandAttributes(commandLine: string): Record<string, string | number> {
   const raw = String(commandLine ?? '').trim();
   if (!raw) {
     return {
@@ -105,7 +104,7 @@ export function parseBashCommandAttributes(commandLine) {
   };
 }
 
-export function isMcpToolName(name) {
+export function isMcpToolName(name: string): boolean {
   const n = String(name || '').toLowerCase();
   return n === 'mcp' || n.startsWith('mcp__') || n.startsWith('mcp-');
 }

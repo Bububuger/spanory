@@ -1,31 +1,31 @@
-// @ts-nocheck
+
 // BUB-79: Scoped waiver for legacy report aggregation path; strict remains enforced at package command level.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseJsonObject } from '../utils/json.js';
 
-function toNumber(value) {
+function toNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }
 
-function toOptionalNumber(value) {
+function toOptionalNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
 }
 
-function round6(value) {
+function round6(value: unknown) {
   return Number(Number(value).toFixed(6));
 }
 
-function parseTurnOrdinal(turnId) {
+function parseTurnOrdinal(turnId: string) {
   const m = String(turnId ?? '').match(/^turn-(\d+)$/);
   if (!m) return undefined;
   const n = Number(m[1]);
   return Number.isFinite(n) ? n : undefined;
 }
 
-function usageFromEvent(event) {
+function usageFromEvent(event: Record<string, any>) {
   const attrs = event.attributes ?? {};
   const input = toNumber(attrs['gen_ai.usage.input_tokens']);
   const output = toNumber(attrs['gen_ai.usage.output_tokens']);
@@ -33,7 +33,7 @@ function usageFromEvent(event) {
   return { input, output, total };
 }
 
-function parseJsonArray(value) {
+function parseJsonArray(value: unknown) {
   if (typeof value !== 'string' || !value.trim()) return [];
   try {
     const parsed = JSON.parse(value);
@@ -44,7 +44,7 @@ function parseJsonArray(value) {
   return [];
 }
 
-export async function loadExportedEvents(inputPath) {
+export async function loadExportedEvents(inputPath: string) {
   const inputStat = await stat(inputPath);
   const files = [];
 
@@ -78,11 +78,11 @@ export async function loadExportedEvents(inputPath) {
   return sessions;
 }
 
-export function summarizeSessions(sessions) {
-  return sessions.map((s) => {
-    const turns = s.events.filter((e) => e.category === 'turn');
+export function summarizeSessions(sessions: any[]) {
+  return sessions.map((s: any) => {
+    const turns = s.events.filter((e: any) => e.category === 'turn');
     const usage = turns.reduce(
-      (acc, e) => {
+      (acc: { input: number; output: number; total: number }, e: any) => {
         const u = usageFromEvent(e);
         acc.input += u.input;
         acc.output += u.output;
@@ -103,7 +103,7 @@ export function summarizeSessions(sessions) {
   });
 }
 
-export function summarizeMcp(sessions) {
+export function summarizeMcp(sessions: any[]) {
   const agg = new Map();
   for (const s of sessions) {
     for (const e of s.events) {
@@ -119,7 +119,7 @@ export function summarizeMcp(sessions) {
   return [...agg.values()].map((v) => ({ server: v.server, calls: v.calls, sessions: v.sessions.size }));
 }
 
-export function summarizeCommands(sessions) {
+export function summarizeCommands(sessions: any[]) {
   const agg = new Map();
   for (const s of sessions) {
     for (const e of s.events) {
@@ -134,16 +134,16 @@ export function summarizeCommands(sessions) {
   return [...agg.values()].map((v) => ({ command: v.command, calls: v.calls, sessions: v.sessions.size }));
 }
 
-export function summarizeAgents(sessions) {
+export function summarizeAgents(sessions: any[]) {
   const out = [];
   for (const s of sessions) {
-    const turns = s.events.filter((e) => e.category === 'turn');
-    const tasks = s.events.filter((e) => e.category === 'agent_task');
-    const shell = s.events.filter((e) => e.category === 'shell_command');
-    const mcp = s.events.filter((e) => e.category === 'mcp');
+    const turns = s.events.filter((e: any) => e.category === 'turn');
+    const tasks = s.events.filter((e: any) => e.category === 'agent_task');
+    const shell = s.events.filter((e: any) => e.category === 'shell_command');
+    const mcp = s.events.filter((e: any) => e.category === 'mcp');
 
     const usage = turns.reduce(
-      (acc, e) => {
+      (acc: { input: number; output: number; total: number }, e: any) => {
         const u = usageFromEvent(e);
         acc.input += u.input;
         acc.output += u.output;
@@ -167,9 +167,9 @@ export function summarizeAgents(sessions) {
   return out;
 }
 
-export function summarizeCache(sessions) {
-  return sessions.map((s) => {
-    const turns = s.events.filter((e) => e.category === 'turn');
+export function summarizeCache(sessions: any[]) {
+  return sessions.map((s: any) => {
+    const turns = s.events.filter((e: any) => e.category === 'turn');
     let inputTokens = 0;
     let cacheReadInputTokens = 0;
     let cacheCreationInputTokens = 0;
@@ -204,7 +204,7 @@ export function summarizeCache(sessions) {
   });
 }
 
-export function summarizeTools(sessions) {
+export function summarizeTools(sessions: any[]) {
   const agg = new Map();
   for (const s of sessions) {
     for (const e of s.events) {
@@ -238,13 +238,13 @@ export function summarizeTools(sessions) {
     });
 }
 
-export function summarizeTurnDiff(sessions) {
+export function summarizeTurnDiff(sessions: any[]) {
   const rows = [];
   for (const s of sessions) {
     const turns = s.events
-      .filter((e) => e.category === 'turn')
+      .filter((e: any) => e.category === 'turn')
       .slice()
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         const ao = parseTurnOrdinal(a.turnId);
         const bo = parseTurnOrdinal(b.turnId);
         if (ao === undefined && bo === undefined) return String(a.turnId ?? '').localeCompare(String(b.turnId ?? ''));
@@ -288,13 +288,13 @@ export function summarizeTurnDiff(sessions) {
   return rows;
 }
 
-export function summarizeContext(sessions) {
-  return sessions.map((s) => {
+export function summarizeContext(sessions: any[]) {
+  return sessions.map((s: any) => {
     const events = s.events ?? [];
-    const snapshots = events.filter((e) => e?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
-    const boundaries = events.filter((e) => e?.attributes?.['agentic.context.event_type'] === 'context_boundary');
+    const snapshots = events.filter((e: any) => e?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
+    const boundaries = events.filter((e: any) => e?.attributes?.['agentic.context.event_type'] === 'context_boundary');
     const attributions = events.filter(
-      (e) => e?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
+      (e: any) => e?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
     );
 
     let maxFillRatio = 0;
@@ -308,7 +308,7 @@ export function summarizeContext(sessions) {
     }
 
     const compactCount = boundaries.filter(
-      (e) => String(e?.attributes?.['agentic.context.boundary_kind'] ?? '') === 'compact_after',
+      (e: any) => String(e?.attributes?.['agentic.context.boundary_kind'] ?? '') === 'compact_after',
     ).length;
 
     const last5 = snapshots.slice(-5);
@@ -364,7 +364,7 @@ export function summarizeContext(sessions) {
         runningCount = 0;
         continue;
       }
-      items.sort((a, b) => b.score - a.score);
+      items.sort((a: any, b: any) => b.score - a.score);
       const topSource = items[0].sourceKind;
       if (topSource === runningSource) {
         runningCount += 1;

@@ -1,24 +1,25 @@
-// @ts-nocheck
+
 // BUB-79: Scoped waiver for legacy Codex proxy implementation; strict remains enforced at package command level.
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
 import path from 'node:path';
 
 import { REDACTED, SENSITIVE_KEY_RE, redactBody, truncateText } from '../shared/redaction.js';
 
-function isSensitiveKey(key) {
+function isSensitiveKey(key: string) {
   return SENSITIVE_KEY_RE.test(String(key ?? ''));
 }
 
-function normalizeHeaderValue(value) {
+function normalizeHeaderValue(value: string | string[] | undefined | null) {
   if (Array.isArray(value)) return value.join(', ');
   if (value === undefined || value === null) return '';
   return String(value);
 }
 
-function redactHeaders(headers) {
-  const out = {};
+function redactHeaders(headers: Record<string, any>) {
+  const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers ?? {})) {
     const lowerKey = String(key).toLowerCase();
     out[lowerKey] = isSensitiveKey(lowerKey) ? REDACTED : normalizeHeaderValue(value);
@@ -26,7 +27,7 @@ function redactHeaders(headers) {
   return out;
 }
 
-function parseBodyFromBuffer(buffer, contentType, maxBytes) {
+function parseBodyFromBuffer(buffer: Buffer, contentType: string | undefined, maxBytes: number) {
   if (!buffer || buffer.length === 0) return '';
   const text = buffer.toString('utf8');
   if (
@@ -43,13 +44,13 @@ function parseBodyFromBuffer(buffer, contentType, maxBytes) {
   return truncateText(text, maxBytes);
 }
 
-async function readRequestBuffer(req) {
+async function readRequestBuffer(req: IncomingMessage) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   return Buffer.concat(chunks);
 }
 
-async function writeCaptureRecord(spoolDir, record, logger) {
+async function writeCaptureRecord(spoolDir: string, record: Record<string, any>, logger: any) {
   try {
     await mkdir(spoolDir, { recursive: true });
     const filename = `${Date.now()}-${randomUUID()}.json`;
@@ -60,7 +61,7 @@ async function writeCaptureRecord(spoolDir, record, logger) {
   }
 }
 
-function correlationKeyFromRequest(req, seq) {
+function correlationKeyFromRequest(req: IncomingMessage, seq: number) {
   const headers = req.headers ?? {};
   const threadId = headers['x-codex-thread-id'] ?? headers['x-thread-id'] ?? headers['x-session-id'] ?? '';
   const turnId = headers['x-codex-turn-id'] ?? headers['x-turn-id'] ?? '';
@@ -68,7 +69,7 @@ function correlationKeyFromRequest(req, seq) {
   return `unknown:unknown:${seq}`;
 }
 
-export function createCodexProxyServer(options) {
+export function createCodexProxyServer(options: Record<string, any>) {
   const upstreamBaseUrl = options?.upstreamBaseUrl ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com';
   const spanoryHome = process.env.SPANORY_HOME ?? path.join(process.env.HOME || '', '.spanory');
   const spoolDir =
@@ -117,7 +118,7 @@ export function createCodexProxyServer(options) {
         response: {
           status: upstreamResponse.status,
           headers: redactHeaders(responseHeaders),
-          body: parseBodyFromBuffer(responseBuffer, upstreamResponse.headers.get('content-type'), maxBodyBytes),
+          body: parseBodyFromBuffer(responseBuffer, upstreamResponse.headers.get('content-type') ?? undefined, maxBodyBytes),
         },
       };
       await writeCaptureRecord(spoolDir, record, logger);

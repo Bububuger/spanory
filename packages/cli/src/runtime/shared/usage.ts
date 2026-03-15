@@ -1,19 +1,18 @@
-// @ts-nocheck
-
-function toNumber(value) {
+function toNumber(value: unknown): number | undefined {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function pickUsage(raw) {
+export function pickUsage(raw: unknown): Record<string, number> | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
-  const inputTokens = toNumber(raw.input_tokens ?? raw.prompt_tokens);
-  const outputTokens = toNumber(raw.output_tokens ?? raw.completion_tokens);
-  const totalTokens = toNumber(raw.total_tokens) ?? ((inputTokens ?? 0) + (outputTokens ?? 0) || undefined);
-  const cacheReadInputTokens = toNumber(raw.cache_read_input_tokens);
-  const cacheCreationInputTokens = toNumber(raw.cache_creation_input_tokens);
+  const r = raw as Record<string, unknown>;
+  const inputTokens = toNumber(r.input_tokens ?? r.prompt_tokens);
+  const outputTokens = toNumber(r.output_tokens ?? r.completion_tokens);
+  const totalTokens = toNumber(r.total_tokens) ?? ((inputTokens ?? 0) + (outputTokens ?? 0) || undefined);
+  const cacheReadInputTokens = toNumber(r.cache_read_input_tokens);
+  const cacheCreationInputTokens = toNumber(r.cache_creation_input_tokens);
 
-  const usage = {};
+  const usage: Record<string, number> = {};
   if (inputTokens !== undefined) usage.input_tokens = inputTokens;
   if (outputTokens !== undefined) usage.output_tokens = outputTokens;
   if (totalTokens !== undefined) usage.total_tokens = totalTokens;
@@ -22,16 +21,16 @@ export function pickUsage(raw) {
   return Object.keys(usage).length ? usage : undefined;
 }
 
-export function addUsage(total, usage) {
+export function addUsage(total: Record<string, number>, usage: Record<string, number> | undefined): void {
   if (!usage) return;
   for (const [key, value] of Object.entries(usage)) {
     total[key] = (total[key] ?? 0) + Number(value);
   }
 }
 
-export function usageAttributes(usage) {
+export function usageAttributes(usage: Record<string, number> | undefined): Record<string, string | number> {
   if (!usage) return {};
-  const attrs = {};
+  const attrs: Record<string, string | number> = {};
   if (usage.input_tokens !== undefined) {
     attrs['gen_ai.usage.input_tokens'] = usage.input_tokens;
     attrs['gen_ai.usage.prompt_tokens'] = usage.input_tokens;
@@ -56,7 +55,7 @@ export function usageAttributes(usage) {
   return attrs;
 }
 
-export function modelAttributes(model) {
+export function modelAttributes(model: string | undefined): Record<string, string> {
   if (!model) return {};
   return {
     'langfuse.observation.model.name': model,

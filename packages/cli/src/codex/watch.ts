@@ -1,19 +1,21 @@
-// @ts-nocheck
+
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+
+import type { CodexWatchOptions, CodexWatchDeps, CodexSessionListOptions } from '../types.js';
 
 export const CODEX_WATCH_DEFAULT_POLL_MS = 1200;
 export const CODEX_WATCH_DEFAULT_SETTLE_MS = 250;
 
-export function sessionIdFromFilename(filename) {
+export function sessionIdFromFilename(filename: string): string {
   return filename.endsWith('.jsonl') ? filename.slice(0, -6) : filename;
 }
 
-async function listJsonlFilesRecursively(rootDir) {
-  const out = [];
-  const stack = [rootDir];
+async function listJsonlFilesRecursively(rootDir: string): Promise<string[]> {
+  const out: string[] = [];
+  const stack: string[] = [rootDir];
   while (stack.length > 0) {
-    const dir = stack.pop();
+    const dir = stack.pop()!;
     let names = [];
     try {
       names = await readdir(dir, { withFileTypes: true });
@@ -34,7 +36,7 @@ async function listJsonlFilesRecursively(rootDir) {
   return out;
 }
 
-function normalizePositiveInt(raw, fallback, label) {
+function normalizePositiveInt(raw: number | undefined, fallback: number, label: string): number {
   const value = raw ?? fallback;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
@@ -43,7 +45,7 @@ function normalizePositiveInt(raw, fallback, label) {
   return Math.floor(parsed);
 }
 
-export async function listCodexSessions(runtimeHome, options = {}) {
+export async function listCodexSessions(runtimeHome: string, options: CodexSessionListOptions = {}): Promise<Array<{transcriptPath: string; sessionId: string; mtimeMs: number}>> {
   const sessionsRoot = path.join(runtimeHome, 'sessions');
   const files = await listJsonlFilesRecursively(sessionsRoot);
   const withStat = await Promise.all(
@@ -60,23 +62,23 @@ export async function listCodexSessions(runtimeHome, options = {}) {
   const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
   const untilMs = options.until ? new Date(options.until).getTime() : undefined;
   const filtered = withStat.filter((item) => {
-    if (Number.isFinite(sinceMs) && item.mtimeMs < sinceMs) return false;
-    if (Number.isFinite(untilMs) && item.mtimeMs > untilMs) return false;
+    if (sinceMs !== undefined && Number.isFinite(sinceMs) && item.mtimeMs < sinceMs) return false;
+    if (untilMs !== undefined && Number.isFinite(untilMs) && item.mtimeMs > untilMs) return false;
     return true;
   });
 
   const sorted = filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  if (!Number.isFinite(options.limit)) return sorted;
-  return sorted.slice(0, Number(options.limit));
+  if (options.limit === undefined || !Number.isFinite(options.limit)) return sorted;
+  return sorted.slice(0, options.limit);
 }
 
-export async function runCodexWatch(options, deps) {
+export async function runCodexWatch(options: CodexWatchOptions, deps: CodexWatchDeps): Promise<void> {
   const runtimeName = 'codex';
   const runtimeHome = deps.resolveRuntimeHome(runtimeName, options.runtimeHome);
   const pollMs = normalizePositiveInt(options.pollMs, CODEX_WATCH_DEFAULT_POLL_MS, '--poll-ms');
   const settleMs = normalizePositiveInt(options.settleMs, CODEX_WATCH_DEFAULT_SETTLE_MS, '--settle-ms');
   const includeExisting = Boolean(options.includeExisting);
-  const processedMtimeByPath = new Map();
+  const processedMtimeByPath = new Map<string, number>();
 
   if (!includeExisting) {
     const baseline = await listCodexSessions(runtimeHome);
@@ -129,9 +131,9 @@ export async function runCodexWatch(options, deps) {
           });
           if (result?.status === 'sent') exportedCount += 1;
           else skippedCount += 1;
-        } catch (error) {
+        } catch (error: unknown) {
           skippedCount += 1;
-          const message = error?.message ? String(error.message).replace(/\s+/g, ' ') : 'unknown-error';
+          const message = error instanceof Error ? error.message.replace(/\s+/g, ' ') : 'unknown-error';
           console.log(`watch=error sessionId=${session.sessionId} error=${message}`);
         } finally {
           processedMtimeByPath.set(session.transcriptPath, session.mtimeMs);

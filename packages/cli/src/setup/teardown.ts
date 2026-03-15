@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { mkdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -9,7 +9,7 @@ import {
 } from '../plugin/opencode.js';
 import { isSpanoryHookCommand, parseSetupRuntimes, setupHomeRoot } from './apply.js';
 
-function removeClaudeHooks(settings) {
+function removeClaudeHooks(settings: Record<string, any>): void {
   if (!settings.hooks || typeof settings.hooks !== 'object') return;
   for (const eventName of Object.keys(settings.hooks)) {
     const groups = settings.hooks[eventName];
@@ -17,7 +17,7 @@ function removeClaudeHooks(settings) {
     for (const group of groups) {
       if (!group || !Array.isArray(group.hooks)) continue;
       group.hooks = group.hooks.filter(
-        (hook) => !(hook && typeof hook === 'object' && isSpanoryHookCommand(hook.command)),
+        (hook: any) => !(hook && typeof hook === 'object' && isSpanoryHookCommand(hook.command)),
       );
     }
     settings.hooks[eventName] = groups.filter(
@@ -28,20 +28,20 @@ function removeClaudeHooks(settings) {
   if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 }
 
-async function teardownClaudeSetup({ homeRoot, dryRun, backupIfExists }) {
+async function teardownClaudeSetup({ homeRoot, dryRun, backupIfExists }: { homeRoot: string; dryRun: boolean; backupIfExists: (p: string) => Promise<string | null> }) {
   const settingsPath = path.join(homeRoot, '.claude', 'settings.json');
-  let settings = {};
+  let settings: Record<string, any> = {};
   try {
     settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw new Error(`failed to parse Claude settings: ${error.message ?? String(error)}`);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') throw new Error(`failed to parse Claude settings: ${(error as Error)?.message ?? String(error)}`);
     return { runtime: 'claude-code', ok: true, changed: false, dryRun, settingsPath, backup: null };
   }
   const before = JSON.stringify(settings);
   removeClaudeHooks(settings);
   const after = JSON.stringify(settings);
   const changed = before !== after;
-  let backup = null;
+  let backup: string | null = null;
   if (changed && !dryRun) {
     backup = await backupIfExists(settingsPath);
     await writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
@@ -49,12 +49,12 @@ async function teardownClaudeSetup({ homeRoot, dryRun, backupIfExists }) {
   return { runtime: 'claude-code', ok: true, changed, dryRun, settingsPath, backup };
 }
 
-async function teardownCodexSetup({ homeRoot, dryRun, stopCodexWatch }) {
+async function teardownCodexSetup({ homeRoot, dryRun, stopCodexWatch }: { homeRoot: string; dryRun: boolean; stopCodexWatch: () => Promise<unknown> }) {
   let watchStopped = null;
   if (!dryRun) watchStopped = await stopCodexWatch();
   const notifyBackupPath = path.join(homeRoot, '.codex', 'spanory-notify.backup.json');
   const configPath = path.join(homeRoot, '.codex', 'config.toml');
-  let notifyRestore = {
+  let notifyRestore: Record<string, any> = {
     restored: false,
     changed: false,
     dryRun,
@@ -67,16 +67,16 @@ async function teardownCodexSetup({ homeRoot, dryRun, stopCodexWatch }) {
     const parsed = JSON.parse(backupRaw);
     const notifyLines = Array.isArray(parsed?.notifyLines)
       ? parsed.notifyLines
-        .filter((line) => typeof line === 'string')
-        .map((line) => line.trimEnd())
+        .filter((line: any) => typeof line === 'string')
+        .map((line: string) => line.trimEnd())
         .filter(Boolean)
       : [];
     if (notifyLines.length > 0) {
       let current = '';
       try {
         current = await readFile(configPath, 'utf-8');
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') throw error;
       }
       const cleaned = current
         .split('\n')
@@ -118,20 +118,20 @@ async function teardownCodexSetup({ homeRoot, dryRun, stopCodexWatch }) {
           : 'notify backup is empty; backup cleaned without config changes',
       };
     }
-  } catch (error) {
-    if (error?.code === 'ENOENT') {
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
       notifyRestore = {
         ...notifyRestore,
         detail: 'no notify backup found; this teardown cannot restore notify from older apply runs',
       };
     } else {
-      throw new Error(`failed to restore codex notify config: ${error?.message ?? String(error)}`);
+      throw new Error(`failed to restore codex notify config: ${(error as Error)?.message ?? String(error)}`);
     }
   }
   return { runtime: 'codex', ok: true, dryRun, watchStopped, notifyRestore };
 }
 
-async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun, deps }) {
+async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun, deps }: { homeRoot: string; openclawRuntimeHome?: string; dryRun: boolean; deps: Record<string, any> }) {
   if (!deps.commandExists('openclaw')) {
     return { runtime: 'openclaw', ok: true, skipped: true, detail: 'openclaw command not found in PATH' };
   }
@@ -151,7 +151,7 @@ async function teardownOpenclawSetup({ homeRoot, openclawRuntimeHome, dryRun, de
   return { runtime: 'openclaw', ok: true, changed: true, dryRun, pathCleanupResult };
 }
 
-async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun, deps }) {
+async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun, deps }: { homeRoot: string; opencodeRuntimeHome?: string; dryRun: boolean; deps: Record<string, any> }) {
   const runtimeHome = deps.opencodeRuntimeHomeForSetup(homeRoot, opencodeRuntimeHome);
   const pluginDir = resolveOpencodePluginInstallDir(runtimeHome, deps.resolveRuntimeHome);
   const loaderFile = deps.opencodePluginLoaderPath(runtimeHome, deps.resolveRuntimeHome);
@@ -178,8 +178,8 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun, de
     unregistered = uninstallResult.unregistered;
     try {
       await rmdir(pluginDir);
-    } catch (error) {
-      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT' && (error as NodeJS.ErrnoException)?.code !== 'ENOTEMPTY') throw error;
     }
   }
 
@@ -193,18 +193,18 @@ async function teardownOpencodeSetup({ homeRoot, opencodeRuntimeHome, dryRun, de
   };
 }
 
-export async function runSetupTeardown(options, deps) {
+export async function runSetupTeardown(options: Record<string, any>, deps: Record<string, any>) {
   const homeRoot = setupHomeRoot(options.home);
   const selected = parseSetupRuntimes(options.runtimes, deps.defaultSetupRuntimes);
   const dryRun = Boolean(options.dryRun);
-  const results = [];
+  const results: Record<string, any>[] = [];
   if (selected.includes('claude-code')) {
     try { results.push(await teardownClaudeSetup({ homeRoot, dryRun, backupIfExists: deps.backupIfExists })); }
-    catch (error) { results.push({ runtime: 'claude-code', ok: false, error: String(error?.message ?? error) }); }
+    catch (error: unknown) { results.push({ runtime: 'claude-code', ok: false, error: String((error as Error)?.message ?? error) }); }
   }
   if (selected.includes('codex')) {
     try { results.push(await teardownCodexSetup({ homeRoot, dryRun, stopCodexWatch: deps.stopCodexWatch })); }
-    catch (error) { results.push({ runtime: 'codex', ok: false, error: String(error?.message ?? error) }); }
+    catch (error: unknown) { results.push({ runtime: 'codex', ok: false, error: String((error as Error)?.message ?? error) }); }
   }
   if (selected.includes('openclaw')) {
     try {
@@ -214,8 +214,8 @@ export async function runSetupTeardown(options, deps) {
         dryRun,
         deps,
       }));
-    } catch (error) {
-      results.push({ runtime: 'openclaw', ok: false, error: String(error?.message ?? error) });
+    } catch (error: unknown) {
+      results.push({ runtime: 'openclaw', ok: false, error: String((error as Error)?.message ?? error) });
     }
   }
   if (selected.includes('opencode')) {
@@ -226,8 +226,8 @@ export async function runSetupTeardown(options, deps) {
         dryRun,
         deps,
       }));
-    } catch (error) {
-      results.push({ runtime: 'opencode', ok: false, error: String(error?.message ?? error) });
+    } catch (error: unknown) {
+      results.push({ runtime: 'opencode', ok: false, error: String((error as Error)?.message ?? error) });
     }
   }
   return { ok: results.every((r) => r.ok), results };

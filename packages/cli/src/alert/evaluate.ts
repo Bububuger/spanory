@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { readFile } from 'node:fs/promises';
 import { parseJsonObject } from '../utils/json.js';
 
@@ -14,7 +14,7 @@ import {
 const DEFAULT_CONTEXT_WINDOW_TOKENS = 200000;
 const SUPPORTED_RULE_SCOPES = ['session', 'agent', 'mcp', 'command'];
 
-function getMetricFromSessionRow(row, metric, refs = {}) {
+function getMetricFromSessionRow(row: Record<string, any>, metric: string, refs: Record<string, any> = {}) {
   const cacheRow = refs.cacheBySessionId?.get(row.sessionId);
   const agentRow = refs.agentBySessionId?.get(row.sessionId);
   const turnDiffRows = refs.turnDiffBySessionId?.get(row.sessionId) ?? [];
@@ -40,7 +40,7 @@ function getMetricFromSessionRow(row, metric, refs = {}) {
     case 'subagent.calls':
       return agentRow?.agentTasks ?? 0;
     case 'diff.char_delta.max':
-      return turnDiffRows.reduce((max, rowItem) => Math.max(max, Math.abs(Number(rowItem.charDelta ?? 0))), 0);
+      return turnDiffRows.reduce((max: number, rowItem: any) => Math.max(max, Math.abs(Number(rowItem.charDelta ?? 0))), 0);
     case 'context.unknown_delta_share.window5':
       return contextRow?.unknownDeltaShareWindow5 ?? 0;
     case 'context.unknown_top_streak':
@@ -58,7 +58,7 @@ function getMetricFromSessionRow(row, metric, refs = {}) {
   }
 }
 
-function parseJsonArray(value) {
+function parseJsonArray(value: unknown) {
   if (typeof value !== 'string' || !value.trim()) return [];
   try {
     const parsed = JSON.parse(value);
@@ -69,10 +69,10 @@ function parseJsonArray(value) {
   return [];
 }
 
-function summarizeContextForSession(events) {
-  const snapshots = events.filter((event) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
+function summarizeContextForSession(events: any[]) {
+  const snapshots = events.filter((event: any) => event?.attributes?.['agentic.context.event_type'] === 'context_snapshot');
   const attributions = events.filter(
-    (event) => event?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
+    (event: any) => event?.attributes?.['agentic.context.event_type'] === 'context_source_attribution',
   );
 
   const last5 = snapshots.slice(-5);
@@ -130,7 +130,7 @@ function summarizeContextForSession(events) {
       runningCount = 0;
       continue;
     }
-    items.sort((a, b) => b.score - a.score);
+    items.sort((a: any, b: any) => b.score - a.score);
     const topSource = items[0].sourceKind;
     if (topSource === runningSource) {
       runningCount += 1;
@@ -176,7 +176,7 @@ function summarizeContextForSession(events) {
   };
 }
 
-function getMetricFromAgentRow(row, metric) {
+function getMetricFromAgentRow(row: Record<string, any>, metric: string) {
   switch (metric) {
     case 'agentTasks':
       return row.agentTasks ?? 0;
@@ -191,7 +191,7 @@ function getMetricFromAgentRow(row, metric) {
   }
 }
 
-function compare(value, op, threshold) {
+function compare(value: number, op: string, threshold: number) {
   if (op === 'gt') return value > threshold;
   if (op === 'gte') return value >= threshold;
   if (op === 'lt') return value < threshold;
@@ -200,7 +200,7 @@ function compare(value, op, threshold) {
   throw new Error(`unsupported operator: ${op}`);
 }
 
-function assertValidRule(rule, index = null) {
+function assertValidRule(rule: Record<string, any>, index: number | null = null) {
   const ruleRef = Number.isInteger(index) ? `rule at index ${index}` : 'rule';
   if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
     throw new Error(`invalid ${ruleRef}: expected object`);
@@ -222,7 +222,7 @@ function assertValidRule(rule, index = null) {
   }
 }
 
-function buildTurnDiffBySessionId(rows) {
+function buildTurnDiffBySessionId(rows: any[]) {
   const turnDiffBySessionId = new Map();
   for (const row of rows) {
     const key = row.sessionId;
@@ -233,8 +233,8 @@ function buildTurnDiffBySessionId(rows) {
   return turnDiffBySessionId;
 }
 
-function buildEvaluationContext(rules, sessions) {
-  const scopes = new Set(rules.map((rule) => rule.scope));
+function buildEvaluationContext(rules: Record<string, any>[], sessions: any[]) {
+  const scopes = new Set(rules.map((rule: Record<string, any>) => rule.scope));
   const needsSession = scopes.has('session');
   const needsAgent = scopes.has('agent');
   const needsMcp = scopes.has('mcp');
@@ -243,7 +243,7 @@ function buildEvaluationContext(rules, sessions) {
   const agentRows = needsSession || needsAgent ? summarizeAgents(sessions) : [];
   const contextBySessionId = needsSession
     ? new Map(
-        sessions.map((session) => [
+        sessions.map((session: any) => [
           session.context?.sessionId ?? session.events?.[0]?.sessionId,
           summarizeContextForSession(session.events ?? []),
         ]),
@@ -252,7 +252,7 @@ function buildEvaluationContext(rules, sessions) {
 
   return {
     sessionRows: needsSession ? summarizeSessions(sessions) : [],
-    cacheBySessionId: needsSession ? new Map(summarizeCache(sessions).map((row) => [row.sessionId, row])) : new Map(),
+    cacheBySessionId: needsSession ? new Map(summarizeCache(sessions).map((row: any) => [row.sessionId, row])) : new Map(),
     agentRows,
     agentBySessionId: needsSession ? new Map(agentRows.map((row) => [row.sessionId, row])) : new Map(),
     turnDiffBySessionId: needsSession ? buildTurnDiffBySessionId(summarizeTurnDiff(sessions)) : new Map(),
@@ -262,9 +262,9 @@ function buildEvaluationContext(rules, sessions) {
   };
 }
 
-function evaluateSessionRule(rule, context) {
+function evaluateSessionRule(rule: Record<string, any>, context: Record<string, any>) {
   const matched = context.sessionRows
-    .map((row) => {
+    .map((row: Record<string, any>) => {
       const value = getMetricFromSessionRow(row, rule.metric, {
         cacheBySessionId: context.cacheBySessionId,
         agentBySessionId: context.agentBySessionId,
@@ -273,9 +273,9 @@ function evaluateSessionRule(rule, context) {
       });
       return { row, value };
     })
-    .filter((x) => compare(x.value, rule.op, Number(rule.threshold)));
+    .filter((x: any) => compare(x.value, rule.op, Number(rule.threshold)));
 
-  return matched.map((m) => ({
+  return matched.map((m: any) => ({
     ruleId: rule.id,
     severity: rule.severity ?? 'warning',
     scope: 'session',
@@ -291,15 +291,15 @@ function evaluateSessionRule(rule, context) {
   }));
 }
 
-function evaluateAgentRule(rule, context) {
+function evaluateAgentRule(rule: Record<string, any>, context: Record<string, any>) {
   const matched = context.agentRows
-    .map((row) => {
+    .map((row: Record<string, any>) => {
       const value = getMetricFromAgentRow(row, rule.metric);
       return { row, value };
     })
-    .filter((x) => compare(x.value, rule.op, Number(rule.threshold)));
+    .filter((x: any) => compare(x.value, rule.op, Number(rule.threshold)));
 
-  return matched.map((m) => ({
+  return matched.map((m: any) => ({
     ruleId: rule.id,
     severity: rule.severity ?? 'warning',
     scope: 'agent',
@@ -315,9 +315,9 @@ function evaluateAgentRule(rule, context) {
   }));
 }
 
-function evaluateMcpRule(rule, context) {
-  const matched = context.mcpRows.filter((row) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
-  return matched.map((row) => ({
+function evaluateMcpRule(rule: Record<string, any>, context: Record<string, any>) {
+  const matched = context.mcpRows.filter((row: Record<string, any>) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
+  return matched.map((row: Record<string, any>) => ({
     ruleId: rule.id,
     severity: rule.severity ?? 'warning',
     scope: 'mcp',
@@ -331,9 +331,9 @@ function evaluateMcpRule(rule, context) {
   }));
 }
 
-function evaluateCommandRule(rule, context) {
-  const matched = context.commandRows.filter((row) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
-  return matched.map((row) => ({
+function evaluateCommandRule(rule: Record<string, any>, context: Record<string, any>) {
+  const matched = context.commandRows.filter((row: Record<string, any>) => compare(row.calls ?? 0, rule.op, Number(rule.threshold)));
+  return matched.map((row: Record<string, any>) => ({
     ruleId: rule.id,
     severity: rule.severity ?? 'warning',
     scope: 'command',
@@ -347,20 +347,20 @@ function evaluateCommandRule(rule, context) {
   }));
 }
 
-export async function loadAlertRules(path) {
+export async function loadAlertRules(path: string) {
   const raw = await readFile(path, 'utf-8');
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed.rules)) {
     throw new Error('rule file must be JSON with {"rules": [...]}');
   }
 
-  parsed.rules.forEach((rule, index) => {
+  parsed.rules.forEach((rule: Record<string, any>, index: number) => {
     assertValidRule(rule, index);
   });
   return parsed.rules;
 }
 
-export function evaluateRules(rules, sessions) {
+export function evaluateRules(rules: Record<string, any>[], sessions: any[]) {
   for (const [index, rule] of rules.entries()) {
     assertValidRule(rule, index);
   }
@@ -393,7 +393,7 @@ export function evaluateRules(rules, sessions) {
   return alerts;
 }
 
-export async function sendAlertWebhook(url, payload, headers = {}) {
+export async function sendAlertWebhook(url: string, payload: unknown, headers: Record<string, string> = {}) {
   const response = await fetch(url, {
     method: 'POST',
     headers: {

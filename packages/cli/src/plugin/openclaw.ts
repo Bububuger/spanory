@@ -1,15 +1,15 @@
-// @ts-nocheck
+
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { access, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const OPENCLAW_SPANORY_PLUGIN_ID = 'spanory-openclaw-plugin';
 
-export function openclawRuntimeHomeForSetup(homeRoot, explicitRuntimeHome) {
+export function openclawRuntimeHomeForSetup(homeRoot: string, explicitRuntimeHome: string | undefined): string {
   return explicitRuntimeHome || path.join(homeRoot, '.openclaw');
 }
 
-export function resolveOpenclawPluginDir(deps) {
+export function resolveOpenclawPluginDir(deps: Record<string, any>): string {
   if (process.env.SPANORY_OPENCLAW_PLUGIN_DIR) {
     return process.env.SPANORY_OPENCLAW_PLUGIN_DIR;
   }
@@ -23,15 +23,15 @@ export function resolveOpenclawPluginDir(deps) {
     path.resolve(deps.cliPackageDir, 'openclaw-plugin'),
     path.resolve(process.cwd(), 'packages/openclaw-plugin'),
   ].filter(Boolean);
-  const hit = candidates.find((dir) => existsSync(path.join(dir, 'package.json')));
+  const hit = candidates.find((dir) => existsSync(path.join(dir!, 'package.json')));
   return hit ?? candidates[0] ?? path.resolve(process.cwd(), 'packages/openclaw-plugin');
 }
 
-function resolveOpenclawConfigPath(runtimeHome) {
+function resolveOpenclawConfigPath(runtimeHome: string): string {
   return path.join(runtimeHome, 'openclaw.json');
 }
 
-function canonicalPath(input) {
+function canonicalPath(input: unknown): string {
   const resolved = path.resolve(String(input ?? ''));
   try {
     return realpathSync(resolved);
@@ -40,7 +40,7 @@ function canonicalPath(input) {
   }
 }
 
-function readOpenclawPluginNameFromDir(dirPath) {
+function readOpenclawPluginNameFromDir(dirPath: string): string | null {
   const pkgPath = path.join(dirPath, 'package.json');
   if (!existsSync(pkgPath)) return null;
   try {
@@ -52,7 +52,7 @@ function readOpenclawPluginNameFromDir(dirPath) {
   }
 }
 
-function isSpanoryOpenclawPluginPath(candidatePath) {
+function isSpanoryOpenclawPluginPath(candidatePath: unknown): boolean {
   const text = String(candidatePath ?? '').trim();
   if (!text) return false;
 
@@ -66,21 +66,21 @@ function isSpanoryOpenclawPluginPath(candidatePath) {
   return pluginName === '@bububuger/spanory-openclaw-plugin' || pluginName === '@alipay/spanory-openclaw-plugin';
 }
 
-async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun, backupIfExists) {
+async function normalizeOpenclawPluginLoadPaths(runtimeHome: string, pluginDir: string, dryRun: boolean, backupIfExists: (p: string) => Promise<string | null>) {
   const configPath = resolveOpenclawConfigPath(runtimeHome);
   let configRaw = '';
   try {
     configRaw = await readFile(configPath, 'utf-8');
-  } catch (error) {
-    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return { changed: false, configPath, backup: null };
     throw error;
   }
 
-  let parsed;
+  let parsed: Record<string, any>;
   try {
     parsed = JSON.parse(configRaw);
-  } catch (error) {
-    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  } catch (error: unknown) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${(error as Error)?.message ?? String(error)}`);
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -95,8 +95,8 @@ async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun, 
 
   const target = path.resolve(pluginDir);
   const targetCanonical = canonicalPath(target);
-  const currentPaths = Array.isArray(parsed.plugins.load.paths) ? parsed.plugins.load.paths : [];
-  const nonSpanoryPaths = [];
+  const currentPaths: unknown[] = Array.isArray(parsed.plugins.load.paths) ? parsed.plugins.load.paths : [];
+  const nonSpanoryPaths: string[] = [];
   const seen = new Set();
 
   for (const item of currentPaths) {
@@ -120,7 +120,7 @@ async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun, 
     return { changed: false, configPath, backup: null };
   }
 
-  let backup = null;
+  let backup: string | null = null;
   if (!dryRun) {
     backup = await backupIfExists(configPath);
     await writeFile(configPath, nextRaw, 'utf-8');
@@ -128,21 +128,21 @@ async function normalizeOpenclawPluginLoadPaths(runtimeHome, pluginDir, dryRun, 
   return { changed: true, configPath, backup };
 }
 
-export async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome, backupIfExists) {
+export async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome: string, backupIfExists: (p: string) => Promise<string | null>) {
   const configPath = resolveOpenclawConfigPath(runtimeHome);
   let configRaw = '';
   try {
     configRaw = await readFile(configPath, 'utf-8');
-  } catch (error) {
-    if (error?.code === 'ENOENT') return { changed: false, configPath, backup: null };
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return { changed: false, configPath, backup: null };
     throw error;
   }
 
-  let parsed;
+  let parsed: Record<string, any>;
   try {
     parsed = JSON.parse(configRaw);
-  } catch (error) {
-    throw new Error(`failed to parse openclaw config ${configPath}: ${error?.message ?? String(error)}`);
+  } catch (error: unknown) {
+    throw new Error(`failed to parse openclaw config ${configPath}: ${(error as Error)?.message ?? String(error)}`);
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -155,8 +155,8 @@ export async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome, backupIf
     parsed.plugins.load = {};
   }
 
-  const currentPaths = Array.isArray(parsed.plugins.load.paths) ? parsed.plugins.load.paths : [];
-  const retained = [];
+  const currentPaths: unknown[] = Array.isArray(parsed.plugins.load.paths) ? parsed.plugins.load.paths : [];
+  const retained: string[] = [];
   for (const item of currentPaths) {
     if (typeof item !== 'string') continue;
     const text = item.trim();
@@ -169,7 +169,7 @@ export async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome, backupIf
   const nextRaw = `${JSON.stringify(parsed, null, 2)}\n`;
   if (nextRaw === configRaw) return { changed: false, configPath, backup: null };
 
-  let backup = null;
+  let backup: string | null = null;
   if (typeof backupIfExists === 'function') {
     backup = await backupIfExists(configPath);
   }
@@ -177,7 +177,7 @@ export async function removeSpanoryOpenclawPluginLoadPaths(runtimeHome, backupIf
   return { changed: true, configPath, backup };
 }
 
-export async function installOpenclawPlugin(runtimeHome, dryRun, deps) {
+export async function installOpenclawPlugin(runtimeHome: string, dryRun: boolean, deps: Record<string, any>) {
   const pluginDir = path.resolve(deps.resolveOpenclawPluginDir());
   const installResult = deps.runSystemCommand('openclaw', ['plugins', 'install', '-l', pluginDir], {
     env: {
@@ -211,7 +211,7 @@ export async function installOpenclawPlugin(runtimeHome, dryRun, deps) {
   };
 }
 
-function parsePluginEnabledFromInfoOutput(output) {
+function parsePluginEnabledFromInfoOutput(output: string | undefined): boolean | undefined {
   if (!output) return undefined;
   const yes = /enabled\s*[:=]\s*(true|yes|1)/i.test(output);
   const no = /enabled\s*[:=]\s*(false|no|0)/i.test(output);
@@ -222,8 +222,8 @@ function parsePluginEnabledFromInfoOutput(output) {
 
 const NON_BLOCKING_PLUGIN_DOCTOR_CHECK_IDS = new Set(['otlp_endpoint']);
 
-export async function runOpenclawPluginDoctor(runtimeHome, deps) {
-  const checks = [];
+export async function runOpenclawPluginDoctor(runtimeHome: string, deps: Record<string, any>) {
+  const checks: Record<string, any>[] = [];
 
   const info = deps.runSystemCommand('openclaw', ['plugins', 'info', OPENCLAW_SPANORY_PLUGIN_ID], {
     env: {
@@ -258,8 +258,8 @@ export async function runOpenclawPluginDoctor(runtimeHome, deps) {
     await stat(spoolDir);
     await access(spoolDir);
     checks.push({ id: 'spool_writable', ok: true, detail: spoolDir });
-  } catch (err) {
-    if (err?.code === 'ENOENT') {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
       checks.push({
         id: 'spool_writable',
         ok: true,

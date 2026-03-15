@@ -1,27 +1,29 @@
-// @ts-nocheck
+
 import { createHash } from 'node:crypto';
+import type { CalibrationState, ContextSourceKind } from '@bububuger/core';
 import { calibratedEstimate, calibrate, CONTEXT_SOURCE_KINDS, estimateTokens, pollutionScoreV1 } from '@bububuger/core';
 import { REDACTED, redactBody, truncateText } from './redaction.js';
 import { parseJsonObject } from '../../utils/json.js';
 
+import type { TranscriptMessage } from '../../types.js';
 import { isPromptUserMessage } from './content.js';
-import { createTurn } from './turn.js';
+import { createTurn, type TurnEvent } from './turn.js';
 
 export { pickUsage } from './usage.js';
 
-function hashText(text) {
+function hashText(text: unknown): string {
   return createHash('sha256')
     .update(String(text ?? ''))
     .digest('hex');
 }
 
-function lineCount(text) {
+function lineCount(text: unknown): number {
   const s = String(text ?? '');
   if (!s) return 0;
   return s.split(/\r?\n/).length;
 }
 
-function tokenSet(text) {
+function tokenSet(text: unknown): Set<string> {
   const tokens = String(text ?? '')
     .trim()
     .split(/\s+/)
@@ -29,7 +31,7 @@ function tokenSet(text) {
   return new Set(tokens);
 }
 
-function similarityScore(a, b, setAOverride, setBOverride) {
+function similarityScore(a: string, b: string, setAOverride?: Set<string> | null, setBOverride?: Set<string> | null): number {
   if (a === b) return 1;
   const setA = setAOverride ?? tokenSet(a);
   const setB = setBOverride ?? tokenSet(b);
@@ -49,41 +51,41 @@ const DEFAULT_CONTEXT_WINDOW_TOKENS = 200000;
 const CONTEXT_ENABLED_RUNTIMES = new Set(['claude-code', 'codex', 'openclaw', 'opencode']);
 const CONTEXT_PARSING_ENABLED = process.env.SPANORY_CONTEXT_ENABLED !== '0';
 
-function contextWindowTokens() {
+function contextWindowTokens(): number {
   const raw = Number(process.env.SPANORY_CONTEXT_WINDOW_TOKENS);
   if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
   return DEFAULT_CONTEXT_WINDOW_TOKENS;
 }
 
-function clamp(value, min, max) {
+function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function round6(value) {
+function round6(value: number): number {
   return Number(value.toFixed(6));
 }
 
-function detectCompactInferred(currentTokens, previousTokens) {
+function detectCompactInferred(currentTokens: number, previousTokens: number): { detected: boolean; compactionRatio: number } {
   if (!(previousTokens > 0)) return { detected: false, compactionRatio: 0 };
   const dropRatio = (previousTokens - currentTokens) / previousTokens;
   if (dropRatio > 0.4) return { detected: true, compactionRatio: round6(dropRatio) };
   return { detected: false, compactionRatio: 0 };
 }
 
-function createSourceDeltaMap() {
-  const out = {};
+function createSourceDeltaMap(): Record<string, number> {
+  const out: Record<string, number> = {};
   for (const kind of CONTEXT_SOURCE_KINDS) out[kind] = 0;
   return out;
 }
 
-function addSourceDelta(map, kind, delta) {
+function addSourceDelta(map: Record<string, number>, kind: string, delta: number): void {
   if (!kind || !Object.prototype.hasOwnProperty.call(map, kind)) return;
   const n = Number(delta);
   if (!Number.isFinite(n) || n <= 0) return;
   map[kind] += n;
 }
 
-function moveSourceDelta(map, fromKind, toKind, delta) {
+function moveSourceDelta(map: Record<string, number>, fromKind: string, toKind: string, delta: number): void {
   const n = Number(delta);
   if (!Number.isFinite(n) || n <= 0) return;
   if (!Object.prototype.hasOwnProperty.call(map, fromKind)) return;
@@ -94,32 +96,32 @@ function moveSourceDelta(map, fromKind, toKind, delta) {
   map[toKind] += moved;
 }
 
-function extractMentionFileSignals(text) {
+function extractMentionFileSignals(text: unknown): string[] {
   const input = String(text ?? '');
   if (!input) return [];
   const matches = input.match(/(?:\/|\b)[^\s"'`]+?\.[a-zA-Z0-9]{1,8}\b/g) ?? [];
   return [...new Set(matches.map((m) => m.trim()).filter(Boolean))];
 }
 
-function extractSourceName(event) {
-  const attrs = event?.attributes ?? {};
+function extractSourceName(event: Record<string, unknown>): string {
+  const attrs = (event?.attributes ?? {}) as Record<string, unknown>;
   return String(attrs['gen_ai.tool.name'] ?? attrs['agentic.command.name'] ?? event?.name ?? '').trim();
 }
 
-function classifyContextSignals(turnEvents) {
+function classifyContextSignals(turnEvents: TurnEvent[]) {
   const sourceDelta = createSourceDeltaMap();
-  const sourceNames = new Map();
+  const sourceNames = new Map<string, Set<string>>();
   let compactRequested = false;
   let restoreRequested = false;
 
-  function markSourceName(kind, name) {
+  function markSourceName(kind: string, name: unknown): void {
     const text = String(name ?? '').trim();
     if (!text) return;
     if (!sourceNames.has(kind)) sourceNames.set(kind, new Set());
-    sourceNames.get(kind).add(text);
+    sourceNames.get(kind)!.add(text);
   }
 
-  function absorbFileSignals(text, fromKind) {
+  function absorbFileSignals(text: string, fromKind: string): void {
     const mentions = extractMentionFileSignals(text);
     if (!mentions.length) return;
     const mentionTokens = estimateTokens(mentions.join('\n'));
@@ -144,7 +146,7 @@ function classifyContextSignals(turnEvents) {
     const output = String(event?.output ?? '');
     const inputTokens = estimateTokens(input);
     const outputTokens = estimateTokens(output);
-    const sourceName = extractSourceName(event);
+    const sourceName = extractSourceName(event as unknown as Record<string, unknown>);
 
     if (category === 'turn') {
       addSourceDelta(sourceDelta, 'turn', inputTokens + outputTokens);
@@ -207,23 +209,47 @@ function classifyContextSignals(turnEvents) {
     0,
   );
   if (knownTotal <= 0) {
-    sourceDelta.unknown = 1;
+    sourceDelta['unknown'] = 1;
     markSourceName('unknown', 'unclassified');
   }
 
   return { sourceDelta, sourceNames, compactRequested, restoreRequested };
 }
 
-function composeContextEvents({
-  runtime,
-  projectId,
-  sessionId,
-  turnEvent,
-  turnEvents,
-  previousEstimatedTotal,
-  recentSourceKindsWindow,
-  calibrationState,
+interface ContextEventOutput {
+  runtime: string;
+  projectId: string;
+  sessionId: string;
+  turnId: string;
+  category: string;
+  name: string;
+  startedAt: string;
+  endedAt: string;
+  input: string;
+  output: string;
+  attributes: Record<string, string | number | boolean>;
+}
+
+function composeContextEvents(params: {
+  runtime: string;
+  projectId: string;
+  sessionId: string;
+  turnEvent: TurnEvent;
+  turnEvents: TurnEvent[];
+  previousEstimatedTotal: number;
+  recentSourceKindsWindow: string[][];
+  calibrationState: CalibrationState;
 }) {
+  const {
+    runtime,
+    projectId,
+    sessionId,
+    turnEvent,
+    turnEvents,
+    previousEstimatedTotal,
+    recentSourceKindsWindow,
+    calibrationState,
+  } = params;
   const attrs = turnEvent?.attributes ?? {};
   const usageInput = Number(attrs['gen_ai.usage.input_tokens'] ?? 0);
   const usageCacheRead = Number(attrs['gen_ai.usage.cache_read.input_tokens'] ?? 0);
@@ -232,7 +258,7 @@ function composeContextEvents({
   let estimationMethod = 'heuristic';
   let estimationConfidence = 0.4;
   let estimatedTotalTokens = Math.max(0, fallbackEstimated);
-  let nextCalibrationState = calibrationState;
+  let nextCalibrationState: CalibrationState = calibrationState;
   if (usageEstimated > 0) {
     estimationMethod = 'usage';
     estimationConfidence = 1;
@@ -253,7 +279,7 @@ function composeContextEvents({
     .sort((a, b) => Number(b[1]) - Number(a[1]));
   const activeKinds = compositionEntries.map(([kind]) => kind);
   const nextRecentSourceKindsWindow = [...recentSourceKindsWindow, activeKinds].slice(-5);
-  const repeatCountByKind = {};
+  const repeatCountByKind: Record<string, number> = {};
   for (const kind of CONTEXT_SOURCE_KINDS) {
     repeatCountByKind[kind] = nextRecentSourceKindsWindow.reduce(
       (count, row) => count + (row.includes(kind) ? 1 : 0),
@@ -264,7 +290,7 @@ function composeContextEvents({
   const composition = Object.fromEntries(compositionEntries);
   const topSources = compositionEntries.slice(0, 3).map(([kind]) => kind);
 
-  const passthroughAttrs = {};
+  const passthroughAttrs: Record<string, string | number | boolean> = {};
   const passthroughKeys = [
     'gen_ai.agent.id',
     'agentic.parent.session_id',
@@ -277,7 +303,7 @@ function composeContextEvents({
     if (attrs[key] !== undefined) passthroughAttrs[key] = attrs[key];
   }
 
-  const baseAttrs = {
+  const baseAttrs: Record<string, string | number | boolean> = {
     'agentic.event.category': 'context',
     'agentic.context.event_type': 'context_snapshot',
     'agentic.context.estimated_total_tokens': estimatedTotalTokens,
@@ -290,7 +316,7 @@ function composeContextEvents({
     ...passthroughAttrs,
   };
 
-  const out = [
+  const out: ContextEventOutput[] = [
     {
       runtime,
       projectId,
@@ -406,7 +432,7 @@ function composeContextEvents({
           windowLimitTokens,
           sourceShare,
           repeatCountRecent,
-          sourceKind: kind,
+          sourceKind: kind as ContextSourceKind,
         }),
         'agentic.context.score_version': 'pollution_score_v1',
         ...passthroughAttrs,
@@ -422,9 +448,9 @@ function composeContextEvents({
   };
 }
 
-export function groupByTurns(messages) {
-  const turns = [];
-  let current = [];
+export function groupByTurns(messages: TranscriptMessage[]): TranscriptMessage[][] {
+  const turns: TranscriptMessage[][] = [];
+  let current: TranscriptMessage[] = [];
 
   for (const msg of messages) {
     if (isPromptUserMessage(msg)) {
@@ -438,16 +464,22 @@ export function groupByTurns(messages) {
   return turns;
 }
 
-export function normalizeTranscriptMessages({ runtime, projectId, sessionId, messages }) {
+export function normalizeTranscriptMessages(params: {
+  runtime: string;
+  projectId: string;
+  sessionId: string;
+  messages: TranscriptMessage[];
+}) {
+  const { runtime, projectId, sessionId, messages } = params;
   const turns = groupByTurns(messages);
-  const events = [];
+  const events: TurnEvent[] = [];
   let previousInput = '';
-  let previousInputTokenSet = null;
+  let previousInputTokenSet: Set<string> | null = null;
   let previousHash = '';
   let hasPreviousTurn = false;
   let previousEstimatedTotal = 0;
-  let recentSourceKindsWindow = [];
-  let calibrationState = { ema: 1, sampleCount: 0 };
+  let recentSourceKindsWindow: string[][] = [];
+  let calibrationState: CalibrationState = { ema: 1, sampleCount: 0 };
 
   for (let i = 0; i < turns.length; i += 1) {
     const turnEvents = createTurn(turns[i], `turn-${i + 1}`, projectId, sessionId, runtime);
@@ -505,7 +537,7 @@ export function normalizeTranscriptMessages({ runtime, projectId, sessionId, mes
   return events;
 }
 
-export function parseProjectIdFromTranscriptPath(transcriptPath, marker) {
+export function parseProjectIdFromTranscriptPath(transcriptPath: string | undefined, marker: string): string | undefined {
   if (!transcriptPath) return undefined;
   const normalized = transcriptPath.replace(/\\/g, '/');
   const idx = normalized.indexOf(marker);
