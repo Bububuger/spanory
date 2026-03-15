@@ -97,7 +97,7 @@ jobs:
 
       - name: Sync CLI Version With Tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @bububuger/spanory
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @bububuger/spanory || true
 
       - name: Build Binary
         run: ${{ matrix.build_command }}
@@ -137,7 +137,7 @@ jobs:
 
       - name: Sync CLI Version With Tag
         if: env.NPM_TOKEN != ''
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @bububuger/spanory
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}" --workspace @bububuger/spanory || true
 
       - name: Build Before Publish
         run: npm run build
