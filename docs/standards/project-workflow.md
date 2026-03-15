@@ -73,7 +73,7 @@ npm run test:bdd
   - `docs/standards/feature-design-spec.md` 对应设计记录
   - `telemetry/*.yaml`（若涉及字段新增/删除/映射变化）
   - `docs/runtime-capability-matrix.md`（涉及 runtime 能力变化）
-  - 相关阶段 `plan.md` / `todo.md`
+  - 相关变更记录（`standards/change-context-log.md`）
 - 测试：
   - 至少 1 个 unit（核心逻辑）
   - 至少 1 个 bdd（用户可见行为）
@@ -109,14 +109,15 @@ npm run test:bdd
   - 至少跑一次全量门禁（`check/test/test:bdd`）
   - 若涉及构建链路，补跑对应 build/release 命令
 
-## 七、给新 Agent 的上手脚手架
-- 先读：
-  - [Standards 入口](./README.md)
-  - [功能设计规范](./feature-design-spec.md)
-  - [测试基线规范](./test-baseline-spec.md)
-  - [缺陷回归台账](./regression-cases.md)
-  - [Agent 上手规范](./agent-onboarding.md)
-- 再做：
-  - 跑基线命令
-  - 更新当期 `plan.md/todo.md`
-  - 按本工作流执行
+## 七、Issue 状态管理
+
+状态机：`open → triaged → in_progress → blocked → ready_for_review → done / closed`
+
+Issue 追踪以 Linear 为主（项目 slug: `b2f9becf3a3c`），本地 `docs/issues/` 已废弃。
+跨阶段 issue 与当前任务并行管理，交付前将对应 issue 推进至 `done`。
+
+## 八、新 Agent 上手
+
+1. 读文档：`README.md` → `standards/` 目录 → `ROADMAP.md`
+2. 跑基线：`npm run check && npm test && npm run test:bdd`
+3. 理解任务范围 → 按本工作流执行

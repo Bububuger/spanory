@@ -1,20 +1,21 @@
 # Spanory Standards
 
-该目录用于沉淀长期可维护、可交接的工程规范，独立于阶段性 `plan/todo`。
+该目录沉淀长期可维护、可交接的工程规范。
 
 ## 文档索引
-- [项目工作流（团队风格规范）](./project-workflow.md)
-- [功能设计规范](./feature-design-spec.md)
-- [测试基线与门禁规范](./test-baseline-spec.md)
-- [遥测字段治理规范](./telemetry-field-governance.md)
-- [Runtime 验收矩阵（发布前强制）](./runtime-validation-matrix.md)
-- [Issue 状态管理规范](./issue-status-workflow.md)
-- [缺陷回归台账](./regression-cases.md)
-- [变更背景记录台账](./change-context-log.md)
-- [Agent 上手与交接规范](./agent-onboarding.md)
+
+| 规范 | 用途 |
+|------|------|
+| [project-workflow.md](./project-workflow.md) | 团队工作流（闭环流程 + DoD + issue 管理 + 新 agent 上手） |
+| [feature-design-spec.md](./feature-design-spec.md) | 功能设计模板 |
+| [test-baseline-spec.md](./test-baseline-spec.md) | 测试基线与门禁 |
+| [runtime-validation-matrix.md](./runtime-validation-matrix.md) | 发布前 runtime 验收矩阵（含 ClickHouse 排障） |
+| [change-context-log.md](./change-context-log.md) | 变更背景记录台账 |
+| [regression-cases.md](./regression-cases.md) | 缺陷回归台账 |
 
 ## 使用建议
-- 新 agent 上手：先看项目工作流，再看其余规范。
-- 新需求：先看功能设计规范，再写方案。
-- 开发执行：始终按测试基线规范跑门禁。
-- 任务交接：按 agent 上手规范完成接力。
+
+- 新 agent 上手：先看 project-workflow.md
+- 新需求：先看 feature-design-spec.md
+- 开发执行：按 test-baseline-spec.md 跑门禁
+- 发布前：按 runtime-validation-matrix.md 验收

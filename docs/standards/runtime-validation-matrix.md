@@ -6,7 +6,7 @@
 ## 总体要求
 - 发布前必须执行一次全量 runtime 验收。
 - 所有 runtime 都要有“可上报证据”。
-- 验收结论必须记录到当期 `todo.md`（命令 + 结果摘要）。
+- 验收结论必须记录到变更记录（命令 + 结果摘要）。
 
 ## Runtime 验收清单
 
@@ -99,15 +99,50 @@ jq '[.events[] | select(.category=="shell_command" and .endedAt != .startedAt)] 
 - 目标 turn 的关键事件字段符合预期（例如 `name`、`startedAt/endedAt`、`usage`）。
 
 #### 步骤 D：ClickHouse / Langfuse 验证
-- 使用 [agent-onboarding.md](./agent-onboarding.md) 中的查询模板按 `session_id -> trace_id -> observations` 逐层核验。
-- 推荐至少确认：
-  - turn 级 `AGENT` observation 存在
-  - 目标 `TOOL` observation 存在
-  - 修复目标字段已生效（例如 `end_time > start_time`）
+
+按 `session_id -> trace_id -> observations` 逐层核验。关键表：
+- `default.traces`：trace 级（`id/name/session_id/timestamp`）
+- `default.observations`：span 级（`id/trace_id/type/name/start_time/end_time`）
+
+常用查询（ClickHouse 容器名通常为 `langfuse-clickhouse-1`）：
+
+```bash
+# 按 session 查 trace
+docker exec langfuse-clickhouse-1 clickhouse-client --query "
+SELECT id, name, session_id, timestamp
+FROM default.traces FINAL
+WHERE session_id = '<session_id>'
+ORDER BY timestamp DESC
+FORMAT Vertical"
+
+# 按 trace 查 observations
+docker exec langfuse-clickhouse-1 clickhouse-client --query "
+SELECT trace_id, id, parent_observation_id, type, name, start_time, end_time
+FROM default.observations FINAL
+WHERE trace_id = '<trace_id>'
+ORDER BY start_time
+FORMAT Vertical"
+
+# 查 duration
+docker exec langfuse-clickhouse-1 clickhouse-client --query "
+SELECT id, name, start_time, end_time,
+       dateDiff('millisecond', start_time, end_time) AS duration_ms
+FROM default.observations FINAL
+WHERE trace_id = '<trace_id>'
+ORDER BY start_time
+FORMAT Vertical"
+```
+
+推荐至少确认：
+- turn 级 `AGENT` observation 存在
+- 目标 `TOOL` observation 存在
+- 修复目标字段已生效（例如 `end_time > start_time`）
+
+> 注：两张表都是 `ReplacingMergeTree`，排查重复时加 `FINAL`。
 
 #### 步骤 E：证据落盘
 - 将导出 JSON 放到 `/tmp/spanory-<runtime>-check/` 或其它临时证据目录。
-- 在当期 `todo.md` 记录：
+- 在变更记录中记录：
   - 构建命令
   - 本地导出命令
   - `jq` 摘要结果

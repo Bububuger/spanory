@@ -79,8 +79,7 @@ openclaw-plugin     opencode-plugin    实时注入插件
 
 ## 相关设计文档
 
-- 共享契约: `docs/design-docs/index.md`（含契约索引）
-- 观测层设计: `docs/plans/2026-03-03-capture-multi-runtime-design.md`
-- 续航层设计: `docs/design-docs/index.md`（含 relayloom 状态）
-- 字段规范: `agentic-fields.md`
+- 设计文档索引: `docs/design/README.md`
+- 采集设计: `docs/design/capture-multi-runtime.md`
+- 字段设计: `docs/design/agentic-fields.md`
 - 字段定义: `telemetry/field-spec.yaml`
